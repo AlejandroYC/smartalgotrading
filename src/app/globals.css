@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+@keyframes floatEmber {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+@keyframes ember {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.3;
+  }
+  90% {
+    opacity: 0.1;
+  }
+  100% {
+    transform: translate(var(--translate-x, -15px), -100vh) rotate(var(--rotate, 45deg));
+    opacity: 0;
+  }
+}
+
+.animate-ember {
+  animation: ember var(--duration, 40s) cubic-bezier(0.1, 0, 0.1, 1) infinite;
+}
+
+@keyframes float {
+  0% {
+    transform: translate(0, 0) scale(1.2);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(0, -100vh) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.animate-float {
+  animation: float var(--duration) ease-out infinite;
+}
+
+@keyframes glow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
+}
+
+.text-shadow {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.gradient-text {
+  @apply bg-gradient-to-r from-[#7C3AED] to-[#DB2777] text-transparent bg-clip-text;
+}
