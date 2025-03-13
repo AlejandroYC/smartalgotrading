@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -23,6 +23,44 @@ interface NetDailyPLProps {
 }
 
 const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
+  // Calcular el total del P&L para verificación
+  const totalPL = useMemo(() => {
+    // Usar el método centralizado que accede directamente a la misma fuente que el calendario
+    if (typeof (dailyResults as any).calculateTotalPL === 'function') {
+      const calculatedPL = (dailyResults as any).calculateTotalPL();
+      console.log('NetDailyPL: Usando método centralizado calculateTotalPL:', calculatedPL);
+      return calculatedPL;
+    }
+    
+    // Si no está disponible, sumar directamente de los daily_results sin modificaciones
+    const total = Object.values(dailyResults).reduce((sum, day) => {
+      // Asegurarnos de que estamos sumando números, no strings
+      const profit = typeof day.profit === 'string' ? parseFloat(day.profit) : day.profit;
+      return sum + profit;
+    }, 0);
+    
+    console.log('NetDailyPL: Calculando P&L desde daily_results:', total);
+    return total;
+  }, [dailyResults]);
+
+  // Añadimos un efecto para hacer logging de la información
+  useEffect(() => {
+    // Solo ejecutar en modo desarrollo
+    if (process.env.NODE_ENV !== 'development') return;
+    
+    console.group('🔍 DEBUG NET DAILY P&L');
+    
+    console.log('Usando dailyResults como fuente primaria de datos');
+    console.log('Total días disponibles:', Object.keys(dailyResults).length);
+    
+    if (typeof (dailyResults as any).verifyDailyResultsConsistency === 'function') {
+      const consistency = (dailyResults as any).verifyDailyResultsConsistency();
+      console.log('Verificación de consistencia:', consistency);
+    }
+    
+    console.groupEnd();
+  }, [dailyResults]);
+
   const chartData = useMemo(() => {
     return Object.entries(dailyResults)
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
@@ -58,6 +96,11 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
               ${profit.toFixed(2)}
             </span>
           </p>
+          {dailyResults[label] && (
+            <p className="text-xs text-gray-500">
+              {dailyResults[label].trades} trades
+            </p>
+          )}
         </div>
       );
     }
@@ -66,19 +109,23 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow h-full">
-      <div className="flex items-start justify-start mb-4">
+      <div className="flex items-start justify-between mb-4">
         <h1 className="text-2xl text-black font-bold text-left">Net Daily P&L
           <button className="text-gray-400 hover:text-gray-600">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
             </svg>
-          </button></h1>
+          </button>
+        </h1>
+        <div className="text-sm text-gray-500">
+          Total: <span className={totalPL >= 0 ? 'text-green-500' : 'text-red-500'}>
+            ${totalPL.toFixed(2)}
+          </span>
+        </div>
       </div>
       <hr className="w-full border-t border-gray-200 mb-4 mt-6" />
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-  2">
-
-
+        <div className="flex items-center gap-2">
         </div>
       </div>
 

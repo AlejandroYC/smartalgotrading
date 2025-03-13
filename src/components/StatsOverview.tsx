@@ -3,14 +3,19 @@ import { useTradingData } from '@/contexts/TradingDataContext';
 import StatCard from './StatCard';
 
 const StatsOverview: React.FC = () => {
-  const { processedData, loading, error } = useTradingData();
+  const { processedData, loading, error, dateRange } = useTradingData();
   
   // Agregar logs para depuración
   useEffect(() => {
     if (processedData) {
-      console.log("Stats Overview - Datos procesados:", processedData);
+      console.log(`Stats Overview - Datos procesados para rango ${dateRange.label}:`, {
+        net_profit: processedData.net_profit,
+        win_rate: processedData.win_rate,
+        total_trades: processedData.total_trades,
+        daily_results_count: Object.keys(processedData.daily_results || {}).length
+      });
     }
-  }, [processedData]);
+  }, [processedData, dateRange]);
   
   // Si todavía no hay datos, mostrar un estado de carga
   if (loading || !processedData) {
@@ -56,26 +61,20 @@ const StatsOverview: React.FC = () => {
     ? Math.abs(avg_win / avg_loss) 
     : 2.00; // Valor por defecto si no hay suficientes datos
   
-  console.log("Stats Overview - Valores calculados:", {
-    net_profit, win_rate, profit_factor, total_trades,
-    winning_trades, losing_trades, day_win_rate,
-    avg_win, avg_loss, avgWinLossRatio
-  });
-  
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
       <StatCard 
-        title="Net P&L" 
+        title={`Net P&L (${dateRange.label})`} 
         value={net_profit}
         prefix="$"
         info={true}
-        totalTrades={total_trades || 254}
+        totalTrades={total_trades}
         showPurpleIndicator={true}
         variant="profit"
       />
       <StatCard 
-        title="Trade win %" 
-        value={win_rate}
+        title={`Trade win % (${dateRange.label})`} 
+        value={win_rate * 100} // Convertir a porcentaje
         suffix="%"
         wins={winning_trades}
         losses={losing_trades}
@@ -83,13 +82,13 @@ const StatsOverview: React.FC = () => {
         info={true}
       />
       <StatCard 
-        title="Profit factor" 
+        title={`Profit factor (${dateRange.label})`} 
         value={profit_factor}
         info={true}
         variant="profit-factor"
       />
       <StatCard 
-        title="Day win %" 
+        title={`Day win % (${dateRange.label})`} 
         value={day_win_rate}
         suffix="%"
         wins={winning_days}
@@ -99,7 +98,7 @@ const StatsOverview: React.FC = () => {
         info={true}
       />
       <StatCard 
-        title="Avg win/loss trade" 
+        title={`Avg win/loss (${dateRange.label})`} 
         value={avgWinLossRatio}
         winAmount={avg_win}
         lossAmount={avg_loss}

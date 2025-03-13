@@ -25,7 +25,7 @@ interface StoredData {
 
 // Ajustar los intervalos de tiempo
 const UPDATE_INTERVAL = process.env.NODE_ENV === 'development' 
-  ? 5 * 60 * 1000    // 5 minutos en desarrollo
+  ? 1 * 60 * 1000    // 1 minuto
   : 30 * 60 * 1000;  // 30 minutos en producción
 
 // Delay para la primera actualización al cargar la página

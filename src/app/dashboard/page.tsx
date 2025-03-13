@@ -14,6 +14,10 @@ import TradeTimePerformance from '@/components/TradeTimePerformance';
 import TradingCalendar from '@/components/TradingCalendar';
 import StatsOverview from '@/components/StatsOverview';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
+import DebugDataView from '@/components/DebugDataView';
+
+// Agregar una bandera para controlar si se muestra la vista de depuración
+const SHOW_DEBUG_VIEW = process.env.NODE_ENV === 'development';
 
 // Componente de diagnóstico
 function DiagnosticPanel() {
@@ -195,6 +199,7 @@ export default function Dashboard() {
       {/* Estadísticas básicas */}
         {/* Agregar el componente de StatsOverview */}
       <StatsOverview />
+      {SHOW_DEBUG_VIEW && <DebugDataView />}
       {/* ZellaScore y otros componentes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ZellaScoreRadar />

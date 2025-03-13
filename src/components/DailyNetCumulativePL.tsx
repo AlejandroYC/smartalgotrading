@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   LineChart,
   Line,
@@ -30,19 +30,59 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ dailyResult
       return [];
     }
 
+    // IMPORTANTE: Para evitar problemas de redondeo, mantenemos la precisión completa durante los cálculos
+    // y sólo redondeamos al final para la visualización
     let cumulativeProfit = 0;
+    
+    // Solo utilizar los resultados diarios directamente
+    // Ordenados por fecha para calcular el acumulado correctamente
     return Object.entries(dailyResults)
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
       .map(([date, data]) => {
-        cumulativeProfit += data.profit;
+        // Asegurarnos de que profit es un número
+        const profit = typeof data.profit === 'string' ? parseFloat(data.profit) : data.profit;
+        
+        // Acumular sin redondeo
+        cumulativeProfit += profit;
+        
+        // Sólo redondear para visualización
         return {
           date,
-          value: Number(cumulativeProfit.toFixed(2)),
-          dailyProfit: Number(data.profit.toFixed(2)),
+          value: cumulativeProfit,
+          valueDisplay: Number(cumulativeProfit.toFixed(2)),
+          dailyProfit: profit,
+          dailyProfitDisplay: Number(profit.toFixed(2)),
           trades: data.trades,
         };
       });
   }, [dailyResults]);
+
+  // Log de diagnóstico solo en modo desarrollo
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    
+    console.group('🔍 DEBUG DAILY NET CUMULATIVE P&L');
+    console.log('Usando dailyResults como fuente primaria de datos');
+    
+    // Verificar si tenemos el método centralizado
+    if (typeof (dailyResults as any).calculateTotalPL === 'function') {
+      const centralTotal = (dailyResults as any).calculateTotalPL();
+      console.log('Total desde método centralizado:', centralTotal.toFixed(2));
+    }
+    
+    // Total calculado por el gráfico (último valor acumulado)
+    if (chartData.length > 0) {
+      console.log('Total acumulado final en gráfico:', chartData[chartData.length - 1].value.toFixed(2));
+      console.log('Total en datos de entrada:', 
+        Object.values(dailyResults).reduce((sum: number, day: any) => {
+          const profit = typeof day.profit === 'string' ? parseFloat(day.profit) : day.profit;
+          return sum + profit;
+        }, 0).toFixed(2)
+      );
+    }
+    
+    console.groupEnd();
+  }, [dailyResults, chartData]);
 
   if (chartData.length === 0) {
     return (
@@ -111,12 +151,12 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ dailyResult
                       </p>
                       <p className="text-sm text-gray-600">
                         Cumulative P&L: <span className={data.value >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          ${data.value.toFixed(2)}
+                          ${data.valueDisplay.toFixed(2)}
                         </span>
                       </p>
                       <p className="text-sm text-gray-600">
                         Daily P&L: <span className={data.dailyProfit >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          ${data.dailyProfit.toFixed(2)}
+                          ${data.dailyProfitDisplay.toFixed(2)}
                         </span>
                       </p>
                       <p className="text-sm text-gray-600">

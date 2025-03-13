@@ -1,5 +1,5 @@
 // src/components/TradingCalendar.tsx
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import { format, parseISO } from 'date-fns';
@@ -36,99 +36,94 @@ const TradingCalendar: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetails, setSelectedDayDetails] = useState<DayDetails | null>(null);
 
-  const { dailyStats, weeklyStats, monthlyStats, tradesByDate } = useMemo(() => {
+  const { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL } = useMemo(() => {
     const dailyStats = new Map<string, DayStats>();
     const weeklyStats = new Map<number, WeekStats>();
     const tradesByDate = new Map<string, any[]>();
+    let totalCalendarPL = 0;
     let monthlyStats = {
       totalProfit: 0,
       totalTrades: 0,
       tradingDays: 0
     };
 
-    if (!processedData?.rawTrades || !Array.isArray(processedData.rawTrades)) {
-      console.log('No hay trades disponibles para procesar');
-      return { dailyStats, weeklyStats, monthlyStats, tradesByDate };
+    // IMPORTANTE: Utilizar daily_results para mantener consistencia con otros componentes
+    if (!processedData?.daily_results || !processedData?.rawTrades) {
+      console.log('No hay datos disponibles para procesar');
+      return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
     }
 
-    // NUEVO: Crear un nuevo array con trades deduplicados por ticket para verificación
-    const processedTickets = new Set<number>();
-    const uniqueTrades: any[] = [];
-
-    processedData.rawTrades.forEach((trade: any) => {
-      if (!trade.ticket || processedTickets.has(trade.ticket)) return;
-      processedTickets.add(trade.ticket);
-      uniqueTrades.push(trade);
-    });
-
-    console.log(`TradingCalendar: Trades originales: ${processedData.rawTrades.length}, Trades únicos: ${uniqueTrades.length}`);
-
-    // Ahora usamos uniqueTrades en lugar de processedData.rawTrades
-    // para el resto del procesamiento
-    
-    // Agrupar por fecha
-    const tradesByDay = new Map<string, any[]>();
-    
-    uniqueTrades.forEach((trade: any) => {
-      try {
-        // Convertir la fecha a formato estándar
-        let tradeDate;
-        if (typeof trade.time === 'string') {
-          tradeDate = new Date(trade.time);
-        } else if (typeof trade.time === 'number') {
-          tradeDate = new Date(
-            trade.time > 10000000000 ? trade.time : trade.time * 1000
-          );
-        } else {
-          return;
-        }
-        
-        const dateStr = format(tradeDate, 'yyyy-MM-dd');
-        
-        if (!tradesByDay.has(dateStr)) {
-          tradesByDay.set(dateStr, []);
-        }
-        
-        tradesByDay.get(dateStr)?.push(trade);
-      } catch (error) {
-        console.error('Error procesando fecha:', error);
-      }
-    });
-    
-    // Procesar estadísticas diarias
-    tradesByDay.forEach((dayTrades, dateStr) => {
-      // Verificación adicional: Imprimir los trades de cada día para comprobar
-      console.log(`Día ${dateStr}: ${dayTrades.length} trades`);
-      dayTrades.forEach(trade => {
-        console.log(`  - Ticket: ${trade.ticket}, Profit: ${trade.profit}`);
-      });
+    if (process.env.NODE_ENV === 'development') {
+      console.group('🔍 DEBUG TRADING CALENDAR - FUENTE DE DATOS');
+      console.log('Usando processedData.daily_results como fuente primaria de datos');
+      console.log('Total días disponibles:', Object.keys(processedData.daily_results).length);
       
+      // Ver si podemos usar el método centralizado
+      if (typeof processedData.calculateTotalPL === 'function') {
+        console.log('Método calculateTotalPL disponible:', processedData.calculateTotalPL());
+      }
+    }
+
+    // CAMBIO IMPORTANTE: Usar los daily_results para las estadísticas diarias para mantener consistencia
+    // con otros componentes, en lugar de recalcular desde rawTrades
+    Object.entries(processedData.daily_results).forEach(([dateStr, dayData]: [string, any]) => {
+      if (!dayData) return;
+      
+      // Crear estadísticas diarias basadas en los datos ya calculados
       const dayStats: DayStats = {
-        profit: 0,
-        trades: dayTrades.length,
-        winningTrades: 0,
-        losingTrades: 0,
-        winRate: 0
+        profit: typeof dayData.profit === 'string' ? parseFloat(dayData.profit) : dayData.profit,
+        trades: dayData.trades || 0,
+        winningTrades: 0, // No tenemos este dato en daily_results
+        losingTrades: 0,  // No tenemos este dato en daily_results
+        winRate: 0        // Lo calcularemos después si es posible
       };
       
-      dayTrades.forEach(trade => {
-        const profit = parseFloat(String(trade.profit || 0));
-        dayStats.profit += profit;
-        
-        if (profit > 0) dayStats.winningTrades++;
-        if (profit < 0) dayStats.losingTrades++;
+      // Total acumulado para verificación
+      totalCalendarPL += dayStats.profit;
+      
+      // Buscar los trades de este día para información adicional y detalles
+      // IMPORTANTE: Usar el mismo método de filtrado por fecha que se usa en el contexto
+      // para asegurar consistencia en los resultados
+      const dayTrades = processedData.rawTrades.filter((trade: any) => {
+        try {
+          let tradeDate: Date;
+          // Convertir el timestamp a Date de manera consistente
+          if (typeof trade.time === 'number') {
+            // Si es un timestamp en segundos (formato MT5), convertir a milisegundos
+            tradeDate = new Date(trade.time > 10000000000 ? trade.time : trade.time * 1000);
+          } else {
+            // Si es un string, parsearlo directamente
+            tradeDate = new Date(trade.time);
+          }
+          
+          // Usar el formato YYYY-MM-DD para comparar fechas
+          const tradeDateStr = tradeDate.toISOString().split('T')[0];
+          return tradeDateStr === dateStr;
+        } catch (error) {
+          console.error("Error procesando fecha de trade:", error, trade);
+          return false;
+        }
       });
       
+      // Calcular estadísticas adicionales a partir de los trades
+      if (dayTrades.length > 0) {
+        dayStats.winningTrades = dayTrades.filter((t: any) => t.profit > 0).length;
+        dayStats.losingTrades = dayTrades.filter((t: any) => t.profit < 0).length;
       dayStats.winRate = dayStats.trades > 0 
         ? (dayStats.winningTrades / dayStats.trades) * 100 
         : 0;
       
+        // Guardar los trades para visualización detallada
+        tradesByDate.set(dateStr, dayTrades);
+      }
+      
+      // Almacenar estadísticas del día
       dailyStats.set(dateStr, dayStats);
-      tradesByDate.set(dateStr, dayTrades);
       
       // Actualizar estadísticas mensuales
       monthlyStats.totalProfit += dayStats.profit;
       monthlyStats.totalTrades += dayStats.trades;
+      monthlyStats.tradingDays += 1;
       
       // Actualizar estadísticas semanales
       try {
@@ -151,79 +146,144 @@ const TradingCalendar: React.FC = () => {
       }
     });
     
-    monthlyStats.tradingDays = dailyStats.size;
-    
-    return { dailyStats, weeklyStats, monthlyStats, tradesByDate };
-  }, [processedData?.rawTrades]);
-
-  const renderDayCell = (info: any) => {
-    const dateStr = format(info.date, 'yyyy-MM-dd');
-    const stats = dailyStats.get(dateStr);
-
-    // Verificar si el día pertenece al mes actual
-    const isOtherMonth = info.view.calendar.getDate().getMonth() !== info.date.getMonth();
-    
-    // Celda base para días sin operaciones o de meses adyacentes
-    if (!stats || isOtherMonth) {
-      return (
-        <div className={`h-full w-full p-1 ${isOtherMonth ? 'opacity-40' : ''}`}>
-          <div className="text-right text-xs text-gray-600">{info.dayNumberText}</div>
-        </div>
-      );
+    // Cerrar el grupo de consola al final
+    if (process.env.NODE_ENV === 'development') {
+      // Verificar consistencia con el contexto
+      console.log(`🧮 Total P&L calculado en calendario: ${totalCalendarPL.toFixed(2)}`);
+      console.log(`🧮 Total P&L en el contexto: ${processedData.net_profit ? processedData.net_profit.toFixed(2) : 'N/A'}`);
+      
+      // Verificar si tenemos el método centralizado
+      if (typeof processedData.calculateTotalPL === 'function') {
+        console.log(`🧮 Total P&L usando método centralizado: ${processedData.calculateTotalPL().toFixed(2)}`);
+      }
+      
+      console.groupEnd();
     }
 
-    // Determinar estilos según rendimiento
-    let cellStyles = {};
-    let bgColorClass = '';
-    let textColorClass = '';
+    return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
+  }, [processedData]);
+
+  // Renderizar eventos de calendario en lugar de personalizar celdas
+  const calendarEvents = useMemo(() => {
+    const events: any[] = [];
     
-    if (stats.profit > 0) {
-      bgColorClass = 'bg-green-100';
-      textColorClass = 'text-green-700';
-      cellStyles = {
-        background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
-        borderColor: '#86efac',
-      };
-    } else if (stats.profit < 0) {
-      bgColorClass = 'bg-red-100';
-      textColorClass = 'text-red-700';
-      cellStyles = {
-        background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
-        borderColor: '#fca5a5',
-      };
-    } else {
-      bgColorClass = 'bg-gray-100';
-      textColorClass = 'text-gray-700';
-      cellStyles = {
-        background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-        borderColor: '#d1d5db',
-      };
-    }
+    // Crear un evento para cada día con trades
+    dailyStats.forEach((stats, dateStr) => {
+      // Determinar color según si es ganancia o pérdida
+      const isProfit = stats.profit >= 0;
+      const backgroundColor = isProfit ? '#dcfce7' : '#fee2e2'; // Verde claro o rosa claro
+      const textColor = isProfit ? '#166534' : '#991b1b'; // Verde oscuro o rojo oscuro
+      const borderColor = isProfit ? '#86efac' : '#fecaca'; // Borde verde o rojo más claro
+      
+      events.push({
+        id: `trade-day-${dateStr}`,
+        title: `$${Math.abs(stats.profit).toFixed(1)} | ${stats.trades} ${stats.trades === 1 ? 'operación' : 'operaciones'}`,
+        date: dateStr,
+        allDay: true,
+        backgroundColor: backgroundColor,
+        borderColor: borderColor,
+        textColor: textColor,
+        extendedProps: {
+          profit: stats.profit,
+          trades: stats.trades,
+          winRate: stats.winRate,
+          stats: stats,
+          isProfit: isProfit
+        }
+      });
+    });
     
-    // Hacer que el div sea clicable para abrir el modal
+    return events;
+  }, [dailyStats]);
+
+  // Reemplazar el renderDayCell con un eventContent personalizado
+  const renderEventContent = (eventInfo: any) => {
+    const { extendedProps } = eventInfo.event;
+    if (!extendedProps) return null;
+    
+    const { profit, trades, winRate, isProfit } = extendedProps;
+    
+    // Obtener el día del mes del evento
+    const dayOfMonth = eventInfo.event.start.getDate();
+    
+    // Usar el color adecuado para el texto según si es ganancia o pérdida
+    const profitTextColor = isProfit ? 'text-green-700' : 'text-red-600';
+    
     return (
-      <div 
-        style={cellStyles}
-        className={`h-full w-full flex flex-col rounded-lg shadow-sm border cursor-pointer transition-all duration-200 hover:shadow-md transform hover:-translate-y-1 p-1`} 
-        onClick={() => handleDayClick(dateStr, stats)}
-      >
-        <div className="text-right text-xs font-medium text-gray-700">
-          {info.dayNumberText}
+      <div className="event-cell h-full w-full flex flex-col items-center justify-center p-1 relative cursor-pointer" 
+           style={{ height: '100%', minHeight: '80px' }}>
+        {/* Número del día en la esquina superior derecha */}
+        <div className="absolute top-1 right-2 text-xs font-medium text-gray-800 cursor-pointer">
+          {dayOfMonth}
         </div>
-        <div className="flex-grow flex flex-col justify-center items-center mt-1 text-center">
-          <div className={`text-base font-bold ${textColorClass}`}>
-            ${Math.abs(stats.profit).toFixed(1)}
-          </div>
-          <div className="text-xs font-medium text-gray-800">
-            {stats.trades} {stats.trades === 1 ? 'trade' : 'trades'}
-          </div>
-          <div className="text-xs text-gray-700">
-            {stats.winRate.toFixed(1)}%
-          </div>
+        
+        <div className={`text-xl font-bold ${profitTextColor} mt-3 cursor-pointer`}>
+          ${Math.abs(profit).toFixed(1)}
+        </div>
+        <div className="text-xs font-medium text-gray-800 cursor-pointer">
+          {trades} {trades === 1 ? 'operación' : 'operaciones'}
+        </div>
+        <div className="text-xs text-gray-700 cursor-pointer">
+          {winRate.toFixed(1)}% acierto
         </div>
       </div>
     );
   };
+
+  // Añadir un efecto para comparar los resultados
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    
+    // Solo ejecutar si tenemos datos procesados
+    if (!processedData || !processedData.daily_results) return;
+    
+    console.group('🔄 COMPARACIÓN DE CÁLCULOS DE P&L CALENDARIO');
+    
+    // 1. Verificar consistencia con el contexto
+    let contextTotal;
+    if (typeof processedData.calculateTotalPL === 'function') {
+      contextTotal = processedData.calculateTotalPL();
+      console.log('P&L Total según método centralizado:', contextTotal.toFixed(2));
+    } else {
+      contextTotal = processedData.net_profit;
+      console.log('P&L Total según contexto (net_profit):', contextTotal.toFixed(2));
+    }
+    
+    // 2. Total calculado en el calendario (ahora debería ser igual)
+    console.log('P&L Total calculado en calendario:', totalCalendarPL.toFixed(2));
+    
+    // 3. Diferencia
+    const difference = Math.abs(totalCalendarPL - contextTotal);
+    console.log(`Diferencia: ${difference.toFixed(2)} ${difference < 0.01 ? '✅' : '❌'}`);
+    
+    // 4. Verificar si tenemos problemas con días específicos
+    console.log('Verificando días con posibles problemas:');
+    
+    // Buscar días con estadísticas inconsistentes
+    let inconsistentDays = 0;
+    
+    Object.entries(processedData.daily_results).forEach(([date, dayData]: [string, any]) => {
+      const contextDayValue = dayData.profit || 0;
+      const calendarDayValue = dailyStats.get(date)?.profit || 0;
+      
+      // Debería ser exactamente el mismo valor ahora que usamos la misma fuente
+      if (Math.abs(contextDayValue - calendarDayValue) > 0.01) {
+        console.warn(`⚠️ Discrepancia inesperada en ${date}: 
+          Contexto=${contextDayValue.toFixed(2)}, 
+          Calendario=${calendarDayValue.toFixed(2)}, 
+          Dif=${(contextDayValue - calendarDayValue).toFixed(2)}`);
+        inconsistentDays++;
+      }
+    });
+    
+    if (inconsistentDays === 0) {
+      console.log('✅ Todos los días tienen valores consistentes con el contexto');
+    } else {
+      console.warn(`⚠️ Se encontraron ${inconsistentDays} días con valores inconsistentes`);
+    }
+    
+    console.groupEnd();
+  }, [processedData, dailyStats, totalCalendarPL]);
 
   const handleDatesSet = (dateInfo: any) => {
     setCurrentCalendarDate(dateInfo.view.currentStart);
@@ -242,9 +302,29 @@ const TradingCalendar: React.FC = () => {
     const dayTrades = tradesByDate.get(dateStr);
     if (!dayTrades || dayTrades.length === 0) return;
 
+    // Log de diagnóstico para entender la discrepancia
+    if (process.env.NODE_ENV === 'development') {
+      console.group(`🔍 DIAGNÓSTICO DE TRADES PARA ${dateStr}`);
+      console.log(`Trades según daily_results (stats.trades): ${stats.trades}`);
+      console.log(`Trades encontrados en rawTrades (dayTrades.length): ${dayTrades.length}`);
+      
+      if (stats.trades !== dayTrades.length) {
+        console.warn(`⚠️ DISCREPANCIA DETECTADA: La diferencia es de ${stats.trades - dayTrades.length} trades`);
+        console.log('Posibles causas:');
+        console.log('1. Los trades en rawTrades pueden estar filtrados o deduplicados de manera diferente');
+        console.log('2. daily_results puede contener datos precalculados que no coinciden exactamente con los trades disponibles');
+        console.log('3. Algunos trades pueden haberse perdido durante el filtrado por fecha');
+      } else {
+        console.log('✅ El número de trades coincide perfectamente');
+      }
+      
+      console.groupEnd();
+    }
+
     // Establecer los detalles del día seleccionado
+    // Usar parseISO en lugar de new Date para evitar problemas de zona horaria
     setSelectedDayDetails({
-      date: new Date(dateStr),
+      date: parseISO(dateStr),
       stats,
       trades: dayTrades
     });
@@ -257,22 +337,36 @@ const TradingCalendar: React.FC = () => {
   const renderModal = () => {
     if (!isModalOpen || !selectedDayDetails) return null;
 
-    // Formatear la fecha como "Mon, Mar 03, 2025"
-    const formattedDate = format(selectedDayDetails.date, 'EEE, MMM dd, yyyy');
+    // Formatear la fecha en español
+    const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    
+    const fecha = selectedDayDetails.date;
+    const formattedDate = `${diasSemana[fecha.getDay()]}, ${meses[fecha.getMonth()]} ${fecha.getDate()}, ${fecha.getFullYear()}`;
+    
+    // Para propósitos de depuración, mostrar la fecha original en desarrollo
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Modal fecha seleccionada:', selectedDayDetails.date);
+      console.log('Modal fecha formateada:', formattedDate);
+    }
+    
     const { stats, trades } = selectedDayDetails;
 
     // Determinar colores para las estadísticas basadas en el rendimiento
     const profitColor = stats.profit >= 0 ? 'text-green-600' : 'text-red-600';
     const winRateColor = stats.winRate >= 50 ? 'text-green-600' : 'text-amber-600';
 
+    // Verificar si hay discrepancia entre el número de trades
+    const hasTradeCountDiscrepancy = stats.trades !== trades.length;
+
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 text-black">
         <div className="bg-white rounded-lg shadow-lg p-4 w-11/12 max-w-6xl max-h-[90vh] overflow-y-auto">
           <div className="flex justify-between items-center mb-4">
             <div>
               <h2 className="text-xl font-bold">{formattedDate}</h2>
               <div className={`text-lg ${profitColor} font-bold`}>
-                Net P&L ${stats.profit.toFixed(2)}
+                P&L Neto ${stats.profit.toFixed(2)}
               </div>
             </div>
             <button 
@@ -285,11 +379,35 @@ const TradingCalendar: React.FC = () => {
             </button>
           </div>
 
+          {/* Mensaje de advertencia si hay discrepancia */}
+          {hasTradeCountDiscrepancy && (
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-amber-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-amber-800">Nota sobre los datos</h3>
+                  <div className="mt-1 text-sm text-amber-700">
+                    <p>
+                      Hay una discrepancia entre el número de operaciones registradas ({stats.trades}) y 
+                      las operaciones mostradas en la tabla ({trades.length}). Esto puede deberse a 
+                      diferencias en el procesamiento de datos o a operaciones que no están disponibles 
+                      en el conjunto de datos actual.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Sección superior: Gráfico y estadísticas uno al lado del otro */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {/* Gráfico de P&L Intradía */}
             <div className="bg-white p-3 rounded-lg border border-gray-200">
-              <h3 className="text-sm font-medium mb-2 text-gray-800">Intraday Cumulative Net P&L</h3>
+              <h3 className="text-sm font-medium mb-2 text-gray-800">P&L Acumulado Intradía</h3>
               <IntraDayPLChart 
                 trades={trades}
                 totalProfit={stats.profit}
@@ -299,28 +417,28 @@ const TradingCalendar: React.FC = () => {
             {/* Información general de trading del día */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               <div className="bg-gray-50 p-3 rounded shadow-sm border border-gray-100">
-                <div className="text-xs text-gray-700 font-medium mb-1">Total trades</div>
+                <div className="text-xs text-gray-700 font-medium mb-1">Total operaciones</div>
                 <div className="text-lg font-bold text-gray-900">{stats.trades}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded shadow-sm border border-gray-100">
-                <div className="text-xs text-gray-700 font-medium mb-1">Winners</div>
+                <div className="text-xs text-gray-700 font-medium mb-1">Ganadoras</div>
                 <div className="text-lg font-bold text-green-600">{stats.winningTrades}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded shadow-sm border border-gray-100">
-                <div className="text-xs text-gray-700 font-medium mb-1">Gross P&L</div>
+                <div className="text-xs text-gray-700 font-medium mb-1">P&L Bruto</div>
                 <div className={`text-lg font-bold ${profitColor}`}>${stats.profit.toFixed(2)}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded shadow-sm border border-gray-100">
-                <div className="text-xs text-gray-700 font-medium mb-1">Winrate</div>
+                <div className="text-xs text-gray-700 font-medium mb-1">% Acierto</div>
                 <div className={`text-lg font-bold ${winRateColor}`}>{stats.winRate.toFixed(1)}%</div>
               </div>
               <div className="bg-gray-50 p-3 rounded shadow-sm border border-gray-100">
-                <div className="text-xs text-gray-700 font-medium mb-1">Losers</div>
+                <div className="text-xs text-gray-700 font-medium mb-1">Perdedoras</div>
                 <div className="text-lg font-bold text-red-600">{stats.losingTrades}</div>
               </div>
               <div className="bg-gray-50 p-3 rounded shadow-sm border border-gray-100">
-                <div className="text-xs text-gray-700 font-medium mb-1">Volume</div>
-                <div className="text-lg font-bold text-blue-600">{trades.length}</div>
+                <div className="text-xs text-gray-700 font-medium mb-1">Volumen</div>
+                <div className="text-lg font-bold text-blue-600">{stats.trades}</div>
               </div>
             </div>
           </div>
@@ -330,11 +448,11 @@ const TradingCalendar: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Time</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Ticker</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Side</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Instrument</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Net P&L</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Hora</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Ticket</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Lado</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">Instrumento</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-black uppercase tracking-wider">P&L Neto</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -359,8 +477,8 @@ const TradingCalendar: React.FC = () => {
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{tradeTime}</td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-black">{trade.symbol || trade.ticket}</td>
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{trade.type || (profit >= 0 ? 'LONG' : 'SHORT')}</td>
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{trade.symbol || 'Unknown'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{trade.type || (profit >= 0 ? 'COMPRA' : 'VENTA')}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{trade.symbol || 'Desconocido'}</td>
                       <td className={`px-3 py-2 whitespace-nowrap text-sm font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         ${profit.toFixed(2)}
                       </td>
@@ -377,7 +495,7 @@ const TradingCalendar: React.FC = () => {
               onClick={() => setIsModalOpen(false)}
               className="px-3 py-1 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-black bg-white hover:bg-gray-50"
             >
-              Close
+              Cerrar
             </button>
             <button 
               onClick={() => {
@@ -386,7 +504,7 @@ const TradingCalendar: React.FC = () => {
               }}
               className="px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
             >
-              View Details
+              Ver Detalles
             </button>
           </div>
         </div>
@@ -394,119 +512,144 @@ const TradingCalendar: React.FC = () => {
     );
   };
 
+  // Efecto para estilos universales del calendario
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+      /* Estilos básicos para el calendario */
+      .fc .fc-daygrid-day-events {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        pointer-events: none;
+      }
+      
+      .fc-event {
+        pointer-events: auto !important;
+        margin: 1px !important;
+        width: calc(100% - 2px) !important;
+        height: calc(100% - 2px) !important;
+        min-height: 80px !important;
+        box-sizing: border-box !important;
+        border: none !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+        transition: all 0.2s ease-in-out !important;
+      }
+      
+      /* Efecto de zoom al hacer hover */
+      .fc-event:hover {
+        transform: scale(1.02) !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+        z-index: 10 !important;
+      }
+      
+      .fc-daygrid-event-harness {
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .fc-h-event .fc-event-main {
+        width: 100% !important;
+        height: 100% !important;
+        padding: 0 !important;
+      }
+      
+      /* Hacer más grande la altura mínima de las celdas */
+      .fc .fc-daygrid-day-frame {
+        min-height: 100px !important;
+      }
+      
+      /* Estilo para el día de hoy */
+      .fc .fc-day-today {
+        background-color: rgba(236, 242, 255, 0.3) !important;
+      }
+      
+      /* Borde más elegante para el contenedor del calendario */
+      .fc {
+        border-radius: 10px !important;
+        overflow: hidden !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+      }
+      
+      /* Estilo más suave para los bordes de las celdas */
+      .fc th, .fc td {
+        border-color: rgba(226, 232, 240, 0.8) !important;
+      }
+      
+      /* Estilo para encabezados de días de la semana */
+      .fc-col-header-cell {
+        background-color: rgba(249, 250, 251, 0.9) !important;
+        font-weight: 600 !important;
+      }
+    `;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, []);
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-5 border border-gray-100">
-      <div className="flex items-center justify-between mb-6">
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold text-black">Calendario de Trading</h2>
         <div className="flex items-center space-x-4">
-          <h2 className="text-2xl font-bold text-gray-800">{format(currentCalendarDate, 'MMMM yyyy')}</h2>
           <button 
-            className="px-4 py-2 text-sm bg-blue-50 rounded-full hover:bg-blue-100 transition-colors duration-200 text-blue-600 font-medium flex items-center"
             onClick={goToCurrentMonth}
+            className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Today
+            Mes actual
           </button>
-        </div>
-        <div className="flex items-center space-x-6">
-          <div className="text-sm flex items-center">
-            <span className="mr-2 text-gray-700">Monthly P&L:</span> 
-            <span className={`font-bold text-lg ${monthlyStats.totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              ${monthlyStats.totalProfit.toFixed(2)}
+          <div className="text-sm text-black">
+            P&L Total: <span className={totalCalendarPL >= 0 ? 'text-green-500' : 'text-red-500'}>
+              ${totalCalendarPL.toFixed(2)}
             </span>
           </div>
-          <div className="text-sm flex items-center">
-            <span className="mr-2 text-gray-700">Trading days:</span>
-            <span className="font-medium">{monthlyStats.tradingDays}</span>
-          </div>
         </div>
       </div>
 
-      
-
-      <div className="mb-4">
-        <div className="grid grid-cols-7 border-b pb-2 mb-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
-            <div key={index} className="text-sm font-semibold text-gray-600 text-center">{day}</div>
-          ))}
-        </div>
-      </div>
-
-      <div className="fc-custom-container">
+      <div className="mb-4 text-black text-sm">
         <FullCalendar
-          ref={calendarRef}
           plugins={[dayGridPlugin]}
           initialView="dayGridMonth"
-          initialDate={new Date()} // Cambio para iniciar en el mes actual
+          ref={calendarRef}
           headerToolbar={{
-            left: 'prev',
-            center: '',
-            right: 'next'
+            left: 'prev,next',
+            center: 'title',
+            right: 'today'
           }}
-          dayCellContent={renderDayCell}
-          height="auto"
-          dayMaxEvents={true}
-          firstDay={0}
-          fixedWeekCount={false}
-          datesSet={handleDatesSet}
-          // Personalización de botones
+          locale="es"
           buttonText={{
-            prev: '◀',
-            next: '▶',
-            today: 'Today'
+            today: 'Hoy',
+            month: 'Mes',
+            week: 'Semana',
+            day: 'Día'
           }}
+          events={calendarEvents}
+          eventContent={renderEventContent}
+          eventClick={(info) => {
+            const dateStr = format(info.event.start!, 'yyyy-MM-dd');
+            const stats = info.event.extendedProps.stats;
+            handleDayClick(dateStr, stats);
+          }}
+          height="auto"
+          datesSet={handleDatesSet}
         />
       </div>
 
-      {/* Weekly Stats */}
-      <div className="grid grid-cols-6 gap-4 mt-6">
-        {Array.from(weeklyStats.entries()).map(([weekNum, stats]) => {
-          // Determinar estilos según rendimiento
-          let cellStyles = {};
-          let textColorClass = '';
-          
-          if (stats.profit > 0) {
-            textColorClass = 'text-green-700';
-            cellStyles = {
-              background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
-              borderColor: '#86efac',
-            };
-          } else if (stats.profit < 0) {
-            textColorClass = 'text-red-700';
-            cellStyles = {
-              background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
-              borderColor: '#fca5a5',
-            };
-          } else {
-            textColorClass = 'text-gray-700';
-            cellStyles = {
-              background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-              borderColor: '#d1d5db',
-            };
-          }
-          
-          return (
-            <div 
-              key={weekNum} 
-              style={cellStyles} 
-              className="p-3 rounded-lg shadow-sm border"
-            >
-              <div className="text-sm font-semibold text-gray-700 mb-1">Week {weekNum}</div>
-              <div className={`text-lg font-bold ${textColorClass}`}>
-                ${stats.profit.toFixed(2)}
-              </div>
-              <div className="text-xs text-gray-700 flex items-center justify-between">
-                <span>{stats.tradingDays} days</span>
-                <span>{stats.trades} trades</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Renderizar el modal */}
-      {renderModal()}
+      {isModalOpen && selectedDayDetails && renderModal()}
     </div>
   );
 };

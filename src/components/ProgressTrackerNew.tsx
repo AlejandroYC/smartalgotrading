@@ -146,41 +146,54 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
     // Generamos datos para 3 meses
     const data: CalendarDay[][] = Array(7).fill(0).map(() => []);
     
-    // Para cada día de la semana (7 filas)
-    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-      // Para cada semana (tenemos 8 columnas por mes en la imagen)
-      for (let week = 0; week < 8; week++) {
-        for (let monthIndex = 0; monthIndex < 3; monthIndex++) {
-          const date = new Date(
-            startDate.getFullYear(), 
-            startDate.getMonth() + monthIndex, 
-            1 + dayOfWeek + (week * 7)
-          );
-          
-          // Verificar si la fecha sigue dentro del mes actual
-          if (date.getMonth() !== (startDate.getMonth() + monthIndex) % 12) {
-            continue;
-          }
-          
-          // Determinar si es un día activo y la cantidad de trades
-          const active = isActiveDay(dayOfWeek);
-          const dateStr = format(date, 'yyyy-MM-dd');
-          const dailyData = tradesByDate[dateStr] || { trades: 0, profit: 0 };
-          
-          // Para debug, si hay trades en este día, mostrar
-          if (dailyData.trades > 0) {
-            console.log(`Encontrados ${dailyData.trades} trades para ${dateStr}`);
-          }
-          
-          data[dayOfWeek].push({
-            date,
-            dayOfWeek,
-            trades: dailyData.trades,
-            profit: dailyData.profit,
-            month: months[monthIndex],
-            active
-          });
+    // Para cada mes
+    for (let monthIndex = 0; monthIndex < 3; monthIndex++) {
+      // Obtener primer día del mes
+      const firstDayOfMonth = new Date(
+        startDate.getFullYear(), 
+        startDate.getMonth() + monthIndex, 
+        1
+      );
+      
+      // Obtener último día del mes
+      const lastDayOfMonth = new Date(
+        startDate.getFullYear(), 
+        startDate.getMonth() + monthIndex + 1, 
+        0
+      );
+      
+      console.log(`Generando días para ${months[monthIndex]}: ${format(firstDayOfMonth, 'yyyy-MM-dd')} al ${format(lastDayOfMonth, 'yyyy-MM-dd')}`);
+      
+      // Para cada día del mes
+      for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
+        const date = new Date(
+          startDate.getFullYear(), 
+          startDate.getMonth() + monthIndex, 
+          day
+        );
+        
+        // Obtener el día de la semana (0-6, siendo 0 = domingo)
+        const dayOfWeek = date.getDay();
+        
+        // Determinar si es un día activo y la cantidad de trades
+        const active = isActiveDay(dayOfWeek);
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const dailyData = tradesByDate[dateStr] || { trades: 0, profit: 0 };
+        
+        // Para debug, si hay trades en este día, mostrar
+        if (dailyData.trades > 0) {
+          console.log(`Encontrados ${dailyData.trades} trades para ${dateStr} (${['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][dayOfWeek]})`);
         }
+        
+        // Añadir el día a la fila correspondiente al día de la semana
+        data[dayOfWeek].push({
+          date,
+          dayOfWeek,
+          trades: dailyData.trades,
+          profit: dailyData.profit,
+          month: months[monthIndex],
+          active
+        });
       }
     }
     
@@ -356,6 +369,12 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
                     style={{ backgroundColor: bgColor }}
                     onClick={() => handleDayClick(day)}
                   >
+                    {/* Opcionalmente, mostrar número del día para debug */}
+                    {process.env.NODE_ENV === 'development' && day.trades > 0 && (
+                      <span className="absolute inset-0 flex items-center justify-center text-[8px] text-gray-400 pointer-events-none">
+                        {day.date.getDate()}
+                      </span>
+                    )}
                     {tooltipInfo && isSameDay(day.date, tooltipInfo.date) && (
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
                         bg-[#1A202C] text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
