@@ -32,10 +32,35 @@ export interface StoredAccountData {
   lastUpdated?: string;
 }
 
+// Tipo para los registros de cuentas en localStorage
+interface AccountsRecord {
+  [key: string]: StoredAccountData;
+}
+
 export class LocalStorageServiceNew {
   private static PREFIX = 'smartalgo_';
   private static USER_ACCOUNTS_KEY = 'user_accounts';
   private static LAST_ACTIVE_KEY = 'last_active_account';
+
+  /**
+   * Normaliza los nombres de propiedades entre el backend (snake_case) y 
+   * el frontend (camelCase)
+   */
+  private static normalizeData(data: any): any {
+    const normalizedData = { ...data };
+    
+    // Normalizar connectionId/connection_id
+    if (normalizedData.connection_id && !normalizedData.connectionId) {
+      normalizedData.connectionId = normalizedData.connection_id;
+    }
+    
+    // Normalizar accountNumber/account_number
+    if (normalizedData.account_number && !normalizedData.accountNumber) {
+      normalizedData.accountNumber = normalizedData.account_number;
+    }
+    
+    return normalizedData;
+  }
 
   // Método crucial que falta
   static saveAccountData(userId: string, data: any): boolean {
@@ -47,12 +72,66 @@ export class LocalStorageServiceNew {
         return false;
       }
       
-      // Determinar accountId
-      const accountId = data.accountId || data.connectionId || 'manual_trade';
+      // Normalizar datos para manejar snake_case y camelCase
+      const normalizedData = this.normalizeData(data);
       
-      // Guardar en localStorage
+      // PRIORIDAD: Usar siempre connectionId del backend si está disponible
+      const connectionId = normalizedData.connectionId || normalizedData.connection_id;
+      
+      // Verificar que tenemos un ID válido
+      if (!connectionId) {
+        console.error('Error: No hay connectionId en los datos. Usando ID fallback.');
+        // Si no hay connectionId, usar un fallback, pero esto es un caso de error
+        const fallbackId = normalizedData.accountId || 'manual_trade';
+        
+        // Si estamos usando un fallback, loguear para diagnóstico
+        console.warn('⚠️ Usando ID fallback en lugar de connectionId:', fallbackId);
+        console.warn('Datos originales:', JSON.stringify(normalizedData));
+        
+        // Guardar en localStorage la estructura específica para la cuenta
+        const key = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
+        let accounts: AccountsRecord = {};
+        
+        try {
+          const storedData = localStorage.getItem(key);
+          if (storedData) {
+            accounts = JSON.parse(storedData);
+          }
+        } catch (e) {
+          console.error('Error al leer cuentas existentes:', e);
+        }
+        
+        // Añadir/actualizar datos
+        accounts[fallbackId] = normalizedData as StoredAccountData;
+        
+        // Guardar en localStorage
+        localStorage.setItem(key, JSON.stringify(accounts));
+        
+        // Establecer como cuenta activa
+        this.setLastActiveAccount(userId, fallbackId);
+        
+        console.log('Datos guardados con ID fallback');
+        return true;
+      }
+      
+      // Si llegamos aquí, tenemos un connectionId válido del backend
+      console.log('✅ connectionId encontrado:', connectionId);
+      
+      // IMPORTANTE: Guardar el connectionId directamente en localStorage
+      // para que useAutoUpdate pueda encontrarlo fácilmente
+      localStorage.setItem('connectionId', connectionId);
+      
+      // También guardar el accountNumber para referencia
+      if (normalizedData.accountNumber) {
+        localStorage.setItem('accountNumber', normalizedData.accountNumber);
+      }
+      
+      // Asegurarnos de que connectionId esté en los datos normalizados
+      normalizedData.connectionId = connectionId;
+      
+      // Guardar en localStorage la estructura específica para la cuenta
       const key = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
-      let accounts = {};
+      let accounts: AccountsRecord = {};
       
       try {
         const storedData = localStorage.getItem(key);
@@ -63,19 +142,63 @@ export class LocalStorageServiceNew {
         console.error('Error al leer cuentas existentes:', e);
       }
       
-      // Añadir/actualizar datos
-      accounts[accountId] = data;
+      // Añadir/actualizar datos usando connectionId como clave
+      accounts[connectionId] = normalizedData as StoredAccountData;
       
       // Guardar en localStorage
       localStorage.setItem(key, JSON.stringify(accounts));
       
       // Establecer como cuenta activa
-      this.setLastActiveAccount(userId, accountId);
+      this.setLastActiveAccount(userId, connectionId);
       
-      console.log('Datos guardados correctamente por LocalStorageServiceNew');
+      console.log('Datos guardados correctamente usando connectionId');
       return true;
     } catch (error) {
       console.error('Error en saveAccountData:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Valida si el connectionId en localStorage es válido y coincide con Supabase
+   * @param apiUrl URL base de la API de MT5
+   */
+  static async validateConnectionId(apiUrl: string): Promise<boolean> {
+    try {
+      const connectionId = localStorage.getItem('connectionId');
+      
+      if (!connectionId) {
+        console.log('No hay connectionId en localStorage para validar');
+        return false;
+      }
+      
+      console.log(`Validando connectionId: ${connectionId}`);
+      const response = await fetch(`${apiUrl}/account-status/${connectionId}`);
+      
+      if (!response.ok) {
+        console.error(`Error validando connectionId: ${response.status}`);
+        // Si es 404, limpiar el localStorage
+        if (response.status === 404) {
+          console.warn('ConnectionId no encontrado en el servidor, limpiando localStorage');
+          localStorage.removeItem('connectionId');
+          localStorage.removeItem('accountNumber');
+        }
+        return false;
+      }
+      
+      const data = await response.json();
+      
+      if (!data.success || !data.is_active) {
+        console.warn('Conexión encontrada pero inactiva, limpiando localStorage');
+        localStorage.removeItem('connectionId');
+        localStorage.removeItem('accountNumber');
+        return false;
+      }
+      
+      console.log('ConnectionId validado correctamente');
+      return true;
+    } catch (error) {
+      console.error('Error validando connectionId:', error);
       return false;
     }
   }

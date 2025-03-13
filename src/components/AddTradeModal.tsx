@@ -48,65 +48,72 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
     e.preventDefault();
     console.log("handleSubmit ejecutándose");
     
-    // Test básico de localStorage
-    try {
-      localStorage.setItem('test_key', 'test_value');
-      console.log("Test básico de localStorage exitoso");
-    } catch (error) {
-      console.error("Error al usar localStorage:", error);
-    }
-    
     setError(null);
     setIsSubmitting(true);
 
     const toastId = 'mt5-connection';
     try {
+      // Depurando información del usuario
+      console.log("Información del usuario:", user);
+      
       if (!user?.id) {
+        console.error("Error: user.id no está disponible. user:", user);
         throw new Error('User not authenticated');
       }
+      
+      console.log("Intentando conectar cuenta con user_id:", user.id);
+      console.log("Datos del formulario:", formData);
 
-      const connection_id = crypto.randomUUID();
+      // Limpiar todo el localStorage relacionado con nuestro proyecto
+      console.log("Limpiando localStorage antes de conectar nueva cuenta...");
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith('smartalgo_') || 
+          key.includes('connection') || 
+          key.includes('account') ||
+          key.includes('trades') ||
+          key.includes('positions')
+        )) {
+          console.log(`Eliminando clave: ${key}`);
+          localStorage.removeItem(key);
+          i--; // Ajustar el índice ya que eliminamos un elemento
+        }
+      }
+      console.log("localStorage limpiado exitosamente");
+
       const mt5Client = MT5Client.getInstance();
 
       toast.loading('Connecting to MT5...', { id: toastId });
 
+      // Conectar sin especificar connection_id, dejando que el backend lo genere
       const connectionResult = await mt5Client.connectAccount(user.id, {
         accountNumber: formData.account_number,
         password: formData.password,
-        server: formData.server,
-        connection_id: connection_id
+        server: formData.server
       });
 
       console.log("connectionResult recibido:", connectionResult);
-      console.log("¿Existe connectionResult.data?", !!connectionResult.data);
-      if (connectionResult.data) {
-        console.log("Estructura de connectionResult.data:", Object.keys(connectionResult.data));
-      }
 
-      console.log("DATOS COMPLETOS:", JSON.stringify(connectionResult, null, 2));
-
-      // Verificar la estructura exacta
-      console.log("Tipo de connectionResult:", typeof connectionResult);
-      console.log("Estructura principal:", Object.keys(connectionResult));
-
-      if (connectionResult.data) {
-        console.log("Estructura de data:", Object.keys(connectionResult.data));
-      } else if (connectionResult.account) {
-        console.log("Estructura directa:", Object.keys(connectionResult));
-      }
-
-      console.log("Datos recibidos de MT5Client:", connectionResult);
-
+      // La respuesta de connectAccount ya está normalizada a MT5FullAccountData
       if (connectionResult) {
         console.log("Estructura de datos recibida:", Object.keys(connectionResult));
         
-        // Los datos ya vienen con la estructura correcta de mt5Client.ts
-        // No necesitamos extraer de connectionResult.data
+        // Preparar los datos para almacenamiento
         const accountData = {
-          connectionId: connection_id,
-          accountInfo: connectionResult.account || {},
+          connectionId: connectionResult.connection_id,
+          accountInfo: {
+            login: connectionResult.login,
+            name: connectionResult.name || '',
+            server: connectionResult.server,
+            balance: connectionResult.balance,
+            equity: connectionResult.equity,
+            margin: connectionResult.margin,
+            margin_free: connectionResult.margin_free || 0,
+            floating_pl: connectionResult.floating_pl
+          },
           positions: connectionResult.positions || [],
-          history: connectionResult.history || [],
+          history: connectionResult.deals || [],
           statistics: connectionResult.statistics || {},
           platformType: selectedPlatform || "mt5",
           accountNumber: formData.account_number,
@@ -116,13 +123,11 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
         
         console.log("Datos preparados para localStorage:", accountData);
         
-        // Guardar directamente sin llamar a saveAccountData
         if (user.id) {
-          const accountId = accountData.connectionId || 'manual_trades';
+          const accountId = accountData.connectionId;
           
-          // Guardar directamente sin llamar a saveAccountData
           const key = `smartalgo_${user.id}_user_accounts`;
-          let accounts = {};
+          let accounts: Record<string, any> = {};
           
           try {
             const stored = localStorage.getItem(key);
@@ -142,44 +147,34 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
           // Establecer como cuenta activa
           localStorage.setItem(`smartalgo_${user.id}_last_active_account`, accountId);
           
-          console.log("Datos guardados manualmente en localStorage");
+          console.log("Datos guardados en localStorage");
         }
+
+        setConnectionStatus({
+          connected: true,
+          accountInfo: connectionResult
+        });
+
+        toast.dismiss(toastId);
+        toast.success('Account connected and data retrieved successfully', {
+          duration: 3000,
+        });
+
+        if (onAccountConnected) {
+          onAccountConnected({
+            ...connectionResult,
+            account_number: formData.account_number,
+            server: formData.server,
+            platform_type: "MT5"
+          });
+        }
+
+        setTimeout(() => {
+          onClose();
+        }, 3000);
       } else {
-        console.error("connectionResult es null o undefined");
+        throw new Error("Invalid response from server");
       }
-
-      setConnectionStatus({
-        connected: true,
-        accountInfo: connectionResult
-      });
-
-      toast.dismiss(toastId);
-      toast.success('Account connected and data retrieved successfully', {
-        duration: 3000,
-      });
-
-      if (onAccountConnected) {
-        console.log("Datos enviados a componente padre:", {
-          ...connectionResult,
-          connection_id,
-          account_number: formData.account_number,
-          server: formData.server,
-          platform_type: "MT5"
-        });
-        
-        onAccountConnected({
-          ...connectionResult,
-          connection_id,
-          account_number: formData.account_number,
-          server: formData.server,
-          platform_type: "MT5"
-        });
-      }
-
-      setTimeout(() => {
-        onClose();
-      }, 3000);
-
     } catch (error: any) {
       console.error('Connection error:', error);
       setError(error.message);

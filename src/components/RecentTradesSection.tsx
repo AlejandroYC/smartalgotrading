@@ -208,10 +208,10 @@ const RecentTradesSection: React.FC = () => {
         <div className="grid grid-cols-4 text-xs font-medium text-gray-500">
           {activeTab === 'trades' ? (
             <>
-              <div>Close Date</div>
-              <div>Symbol</div>
+          <div>Close Date</div>
+          <div>Symbol</div>
               <div>Type</div>
-              <div className="text-right">Net P&L</div>
+          <div className="text-right">Net P&L</div>
             </>
           ) : (
             <>

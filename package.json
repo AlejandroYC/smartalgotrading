@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "^2.48.1",
     "@types/react-datepicker": "^7.0.0",
     "axios": "^1.7.9",
+    "lodash": "^4.17.21",
     "next": "^15.1.7",
     "react": "^19.0.0",
     "react-datepicker": "^8.1.0",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/lodash": "^4.17.16",
     "@types/node": "^20.17.19",
     "@types/react": "^19",
     "@types/react-dom": "^19",

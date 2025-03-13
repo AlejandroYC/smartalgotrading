@@ -4,12 +4,13 @@ import { MT5Config } from './config';
 import { toast } from 'react-hot-toast';
 import { EventEmitter } from 'events';
 import { LocalStorageService, StoredAccountData } from '@/services/LocalStorageService';
+import { supabase } from '@/lib/supabase';
 
 export interface MT5ConnectionParams {
-  connection_id: string;
   accountNumber: string;
   password: string;
   server: string;
+  connection_id?: string;  // Ahora es opcional
 }
 
 interface MT5FullAccountData {
@@ -125,47 +126,30 @@ export interface MT5ConnectionResponse {
   error?: string;
 }
 
-class CircuitBreaker {
-  private failures = 0;
-  private lastFailure = 0;
-  private readonly threshold = 5;
-  private readonly resetTimeout = 30000; // 30 segundos
+interface MT5ConnectResponse {
+  success: boolean;
+  error?: string;
+  connection_id: string;
+  should_clear_storage?: boolean;
+  data: {
+    account: MT5AccountInfo;
+    positions: MT5Position[];
+    history: MT5HistoricalData[];
+    statistics: {
+      total_trades: number;
+      winning_trades: number;
+      losing_trades: number;
+      win_rate: number;
+      total_profit: number;
+      daily_results: Record<string, { profit: number; trades: number }>;
+    };
+  };
+}
 
-  async execute(fn: () => Promise<any>) {
-    if (this.isOpen()) {
-      throw new Error('Circuit breaker is open');
-    }
-
-    try {
-      const result = await fn();
-      this.reset();
-      return result;
-    } catch (error) {
-      this.recordFailure();
-      throw error;
-    }
-  }
-
-  private isOpen() {
-    if (this.failures >= this.threshold) {
-      const timeSinceLastFailure = Date.now() - this.lastFailure;
-      if (timeSinceLastFailure < this.resetTimeout) {
-        return true;
-      }
-      this.reset();
-    }
-    return false;
-  }
-
-  private recordFailure() {
-    this.failures++;
-    this.lastFailure = Date.now();
-  }
-
-  private reset() {
-    this.failures = 0;
-    this.lastFailure = 0;
-  }
+interface ActiveAccount {
+  userId: string;
+  accountNumber: string;
+  connectionId: string;
 }
 
 export class MT5Client extends EventEmitter {
@@ -174,15 +158,9 @@ export class MT5Client extends EventEmitter {
   private readonly axiosInstance: AxiosInstance;
   private userId: string | null = null;
   private connectionId: string | null = null;
-  private rateLimiter = {
-    lastRequest: 0,
-    minInterval: 100 // 100ms entre solicitudes
-  };
-  private cache: Map<string, { data: any; timestamp: number; ttl: number }> = new Map();
-  private updateIntervals: Map<string, NodeJS.Timeout> = new Map();
   private isConnecting: boolean = false;
   private credentials: MT5ConnectionParams | null = null;
-  private updateInterval: number = 30 * 60 * 1000; // 30 minutos entre actualizaciones
+  
   private activeConnections: Map<string, {
     connectionId: string;
     accountNumber: string;
@@ -193,7 +171,11 @@ export class MT5Client extends EventEmitter {
 
   private constructor() {
     super();
+    console.log('🔍 Valor de NEXT_PUBLIC_MT5_API_URL:', process.env.NEXT_PUBLIC_MT5_API_URL);
+    
     this.baseUrl = process.env.NEXT_PUBLIC_MT5_API_URL || 'https://18.225.209.243.nip.io';
+    
+    console.log('MT5Client inicializado con baseUrl:', this.baseUrl);
     
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
@@ -206,27 +188,16 @@ export class MT5Client extends EventEmitter {
       },
     });
 
-    this.axiosInstance.interceptors.response.use(
-      response => response,
-      async error => {
-        if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
-          console.log('Network error detected, retrying...', error.config.url);
-          try {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            return await this.axiosInstance.request(error.config);
-          } catch (retryError) {
-            console.error('Retry failed:', retryError);
-            throw new Error('Unable to connect to MT5 server. Please check your internet connection and try again.');
-          }
-        }
-        throw error;
-      }
+    // Simplificar los interceptores para solo registrar errores
+    this.axiosInstance.interceptors.request.use(
+      config => config,
+      error => Promise.reject(error)
     );
 
-    console.log('MT5Client initialized with:', {
-      apiUrl: this.baseUrl,
-      timeout: 30000
-    });
+    this.axiosInstance.interceptors.response.use(
+      response => response,
+      error => Promise.reject(error)
+    );
   }
 
   public static getInstance(): MT5Client {
@@ -319,42 +290,118 @@ export class MT5Client extends EventEmitter {
 
   public async connectAccount(userId: string, params: MT5ConnectionParams): Promise<MT5FullAccountData> {
     try {
-      console.log('Intentando conectar cuenta MT5:', {
-        userId,
-        connectionId: params.connection_id,
-        server: params.server
+      this.isConnecting = true;
+      
+      // Depurar parámetros recibidos
+      console.log('connectAccount - Parámetros recibidos:', { 
+        userId, 
+        accountNumber: params.accountNumber, 
+        server: params.server, 
+        passwordLength: params.password ? params.password.length : 0 
       });
-
-      const response = await this.axiosInstance.post('/connect', {
+      
+      // Validar campos requeridos
+      if (!userId) {
+        console.error('Error: userId es undefined o null');
+        throw new Error('userId es un campo requerido');
+      }
+      
+      if (!params.accountNumber || !params.server) {
+        console.error('Error: campos requeridos faltantes', { 
+          accountNumber: !!params.accountNumber, 
+          server: !!params.server 
+        });
+        throw new Error('accountNumber y server son campos requeridos');
+      }
+      
+      // Validar que la password no esté vacía
+      if (!params.password) {
+        console.error('Error: password está vacía');
+        throw new Error('password es un campo requerido');
+      }
+      
+      const response = await this.axiosInstance.post<MT5ConnectResponse>('/connect', {
         user_id: userId,
         account_number: params.accountNumber,
         password: params.password,
         server: params.server,
-        platform_type: "MT5",
-        connection_id: params.connection_id
-      }, {
-        timeout: 60000 // Aumentamos el timeout a 60 segundos
+        platform_type: "MT5"
       });
 
-      console.log('Respuesta del servidor:', response.data);
+      console.log('📡 Respuesta recibida de la API:', response.status, response.data);
 
-      if (!response.data || !response.data.success) {
-        const errorMsg = response.data?.error || response.data?.detail || 'Error al conectar la cuenta';
-        console.error('Error en la respuesta:', errorMsg);
-        throw new Error(errorMsg);
+      const responseData = response.data;
+      if (!responseData.success) {
+        throw new Error(responseData.error || 'Failed to connect account');
       }
 
-      this.credentials = params;
-      this.userId = userId;
-      this.connectionId = params.connection_id;
+      // Si el backend indica que debemos limpiar el localStorage
+      if (responseData.should_clear_storage) {
+        console.log('🧹 Limpiando localStorage antes de guardar nuevos datos...');
+        // Obtener todas las keys que empiezan con smartalgo_
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('smartalgo_')) {
+            console.log('Eliminando:', key);
+            localStorage.removeItem(key);
+          }
+        });
+      }
 
-      const accountData = response.data.data;
-      console.log('Datos de cuenta recibidos correctamente');
+      // Asegurarnos de que tenemos todos los datos necesarios
+      const connectionId = responseData.connection_id;
+      if (!connectionId) {
+        throw new Error('No se recibió connection_id del servidor');
+      }
 
-      // Desconectamos después de obtener los datos
-      await this.disconnect(userId, params.connection_id);
+      // Guardar los datos en localStorage
+      console.log('💾 Guardando datos en localStorage:', {
+        connectionId,
+        accountNumber: params.accountNumber,
+        server: params.server
+      });
 
-      return accountData;
+      const accountData = {
+        accountId: connectionId,
+        connectionId: connectionId,
+        accountNumber: params.accountNumber,
+        server: params.server,
+        positions: responseData.data.positions || [],
+        history: Array.isArray(responseData.data.history?.[0]) 
+            ? responseData.data.history.flat() 
+            : responseData.data.history || [],
+        accountInfo: {
+          balance: responseData.data.account.balance || 0,
+          equity: responseData.data.account.equity || 0,
+          margin: responseData.data.account.margin || 0,
+          margin_free: responseData.data.account.margin_free || 0,
+          floating_pl: responseData.data.account.floating_pl || 0
+        },
+        statistics: responseData.data.statistics,
+        lastUpdated: new Date().toISOString()
+      };
+
+      console.log('📦 Datos completos a guardar:', accountData);
+
+      const saved = LocalStorageService.saveAccountData(userId, accountData);
+      if (!saved) {
+        console.error('❌ Error al guardar datos en localStorage');
+      }
+
+      LocalStorageService.setLastActiveAccount(userId, connectionId);
+
+      // Convertir la respuesta al formato MT5FullAccountData
+      const fullAccountData: MT5FullAccountData = {
+        ...responseData.data.account,
+        connection_id: connectionId,
+        positions: responseData.data.positions.map(pos => ({
+          ...pos,
+          time: typeof pos.time === 'string' ? parseInt(pos.time, 10) : pos.time
+        })) || [],
+        deals: responseData.data.history || [],
+        statistics: responseData.data.statistics
+      };
+
+      return fullAccountData;
     } catch (error: any) {
       console.error('Error al conectar la cuenta:', error);
       
@@ -387,8 +434,6 @@ export class MT5Client extends EventEmitter {
         this.userId = null;
         this.connectionId = null;
       }
-
-      this.stopPeriodicUpdate(connectionId);
       
       this.activeConnections.delete(connectionId);
 
@@ -407,10 +452,8 @@ export class MT5Client extends EventEmitter {
     userId: string,
     connectionId: string,
     accountNumber: string,
-    maxAttempts: number = 30  // 30 intentos = 60 segundos
+    maxAttempts: number = 30
   ): Promise<MT5FullAccountData> {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
         const response = await this.axiosInstance.get(
           `/account-status/${userId}/${connectionId}`,
           {
@@ -418,188 +461,109 @@ export class MT5Client extends EventEmitter {
           }
         );
 
-        if (response.data.success) {
-          if (response.data.status === 'completed') {
-            return response.data.data;
-          } else if (response.data.status === 'not_found') {
+    if (!response.data.success) {
             throw new Error('Account update failed');
-          }
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-      } catch (error) {
-        console.error('Error checking account status:', error);
-        throw error;
-      }
     }
 
-    throw new Error('Timeout waiting for account update');
+    return response.data.data;
   }
 
-  private async startPeriodicUpdate(
-    userId: string,
-    connectionId: string,
-    credentials: MT5ConnectionParams
-  ): Promise<void> {
-    this.stopPeriodicUpdate(connectionId);
-    
-    const interval = setInterval(async () => {
-      try {
-        console.log(`Requesting periodic update for account ${credentials.accountNumber}`);
+  public async updateAccountData(accountNumber: string): Promise<MT5ConnectResponse> {
+    try {
+        console.log('📡 Solicitando actualización para cuenta:', accountNumber);
         
-        const response = await this.axiosInstance.post(
-          `/account-info/${userId}/${connectionId}`,
-          {
-            accountNumber: credentials.accountNumber,
-            password: credentials.password,
-            server: credentials.server
-          }
+        const response = await this.axiosInstance.post<MT5ConnectResponse>(
+            `/update-account-data/${accountNumber}`
         );
         
-        if (response.data.success) {
-          if (response.data.cached) {
-            this.emit('account_update', response.data.data);
-          }
-        } else {
-          console.error('Failed to update account:', response.data.error);
+        if (!response.data.success) {
+            throw new Error(response.data.error || 'Failed to update account data');
         }
-      } catch (error) {
-        console.error('Error in periodic update:', error);
-      }
-    }, this.updateInterval);
-    
-    this.updateIntervals.set(connectionId, interval);
-  }
-
-  private stopPeriodicUpdate(connectionId: string): void {
-    const interval = this.updateIntervals.get(connectionId);
-    if (interval) {
-      clearInterval(interval);
-      this.updateIntervals.delete(connectionId);
-    }
-  }
-
-  public async getAccountStatus(userId: string, connectionId: string): Promise<AccountStatusResponse> {
-    try {
-      const response = await this.axiosInstance.get(
-        `/account-status/${userId}/${connectionId}`
-      );
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      console.error('Error getting account status:', error);
-      return {
-        success: false,
-        data: {} as MT5Stats,
-        message: 'Failed to get account status'
-      };
-    }
-  }
-
-  async getHistoricalData(
-    connectionId: string,
-    fromDate: string,
-    toDate: string
-  ): Promise<any> {
-    const response = await this.axiosInstance.get(
-      `/historical-data/${connectionId}`,
-      { params: { from_date: fromDate, to_date: toDate } }
-    );
-    return response.data;
-  }
-
-  async switchAccount(
-    userId: string,
-    connectionId: string,
-    credentials: {
-      account_number: string;
-      password: string;
-      server: string;
-    }
-  ): Promise<any> {
-    try {
-      if (!credentials.account_number) {
-        throw new Error('Account number is required');
-      }
-      if (!credentials.password) {
-        throw new Error('Password is required');
-      }
-      if (!credentials.server) {
-        throw new Error('Server is required');
-      }
-
-      const normalizedAccountNumber = credentials.account_number.toString();
-
-      console.log('Switching account with params:', {
-        userId,
-        connectionId,
-        server: credentials.server,
-        account: normalizedAccountNumber
-      });
-
-      const response = await this.axiosInstance.post(
-        `/switch-account/${userId}/${connectionId}`,
-        {
-          accountNumber: normalizedAccountNumber,
-          password: credentials.password,
-          server: credentials.server,
-          mt5_path: "C:\\Program Files\\MetaTrader 5\\terminal64.exe"
+        
+        const responseData = response.data;
+        
+        // Aplanar el historial si viene en chunks
+        let flatHistory: any[] = [];
+        if (Array.isArray(responseData.data.history)) {
+            // Si es un array de arrays, aplanarlo
+            if (Array.isArray(responseData.data.history[0])) {
+                flatHistory = responseData.data.history.flat();
+            } else {
+                flatHistory = responseData.data.history;
+            }
         }
-      );
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to switch account');
-      }
+        console.log('📊 Trades procesados:', flatHistory.length);
+        
+        const accountData = {
+            accountId: responseData.connection_id,
+            connectionId: responseData.connection_id,
+            accountNumber: accountNumber,
+            server: responseData.data.account.server,
+            accountInfo: {
+                balance: responseData.data.account.balance || 0,
+                equity: responseData.data.account.equity || 0,
+                margin: responseData.data.account.margin || 0,
+                margin_free: responseData.data.account.margin_free || 0,
+                floating_pl: responseData.data.account.floating_pl || 0
+            },
+            history: flatHistory,
+            positions: responseData.data.positions || [],
+            statistics: responseData.data.statistics,
+            lastUpdated: new Date().toISOString()
+        };
 
-      try {
-        await this.connectAccount(userId, {
-          accountNumber: normalizedAccountNumber,
-          password: credentials.password,
-          server: credentials.server,
-          connection_id: connectionId
-        });
-      } catch (wsError) {
-        console.warn('WebSocket connection failed, but HTTP connection was successful:', wsError);
+        // Guardar en localStorage usando la clave correcta
+        const userAccountsKey = `smartalgo_${accountNumber}_account_data`;
+        try {
+            localStorage.setItem(userAccountsKey, JSON.stringify(accountData));
+            console.log('✅ Datos guardados correctamente en localStorage:', {
+                tradesCount: flatHistory.length,
+                positionsCount: accountData.positions.length,
+                balance: accountData.accountInfo.balance
+            });
+            
+            localStorage.setItem('smartalgo_last_active_account', accountNumber);
+        } catch (storageError) {
+            console.error('❌ Error al guardar en localStorage:', storageError);
       }
 
       return response.data;
     } catch (error: any) {
-      console.error('Error in switchAccount:', error);
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
-      }
-      throw error;
+        console.error('❌ Error actualizando datos:', error);
+        throw new Error(error.message || 'Failed to update account data');
     }
   }
 
-  public async reconnect(userId: string, accountId: string): Promise<void> {
+  public async getConnectionIdByAccountNumber(accountNumber: string): Promise<string> {
     try {
-      this.isConnecting = false;
-      await this.connectAccount(userId, {
-        accountNumber: this.credentials?.accountNumber || '',
-        password: this.credentials?.password || '',
-        server: this.credentials?.server || '',
-        connection_id: accountId
-      });
-      console.log('✅ Reconnected successfully');
+      const response = await this.axiosInstance.get(`/connection-by-account/${accountNumber}`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to fetch connection ID');
+      }
+
+      return response.data.connection_id;
     } catch (error) {
-      console.error('❌ Error reconnecting:', error);
+      console.error('Error fetching connection ID:', error);
       throw error;
     }
   }
 
-  public cleanup(): void {
-    console.log('🧹 Cleaning up connections...');
-    for (const [connectionId, interval] of this.updateIntervals) {
-      clearInterval(interval);
-      this.updateIntervals.delete(connectionId);
+  public async getActiveAccount(): Promise<ActiveAccount | null> {
+    try {
+      // Hacer la llamada al backend para obtener la cuenta activa
+      const response = await this.axiosInstance.get('/active-account');
+      
+      if (response.data && response.data.success) {
+        return response.data.account;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error obteniendo cuenta activa:', error);
+      return null;
     }
-    this.cache.clear();
-    this.activeConnections.clear();
-    this.isConnecting = false;
   }
 }
 
@@ -614,8 +578,12 @@ export const getAccountInfo = async (
         server: string;
     }
 ) => {
+    // Usar la misma URL base que la clase MT5Client
+    const baseUrl = process.env.NEXT_PUBLIC_MT5_API_URL || 'https://18.225.209.243.nip.io';
+    console.log('🔍 Usando baseUrl para getAccountInfo:', baseUrl);
+    
     const response = await fetch(
-        `${process.env.NEXT_PUBLIC_MT5_API_URL}/account-info/${userId}/${connectionId}`,
+        `${baseUrl}/account-info/${userId}/${connectionId}`,
         {
             method: 'POST',
             headers: {

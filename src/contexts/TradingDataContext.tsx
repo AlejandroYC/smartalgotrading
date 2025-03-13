@@ -1,6 +1,9 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { LocalStorageServiceNew as LocalStorageService } from '@/services/LocalStorageServiceNew';
+import { MT5Client } from '@/services/mt5/mt5Client';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { Database } from '@/types/supabase';
 
 interface DateRange {
   startDate: Date;
@@ -20,15 +23,30 @@ interface Position {
   profit?: number;
 }
 
-interface MTrade {
-  time: string;        // formato: "2025.03.05 04:07:33"
-  ticket: number;      // ejemplo: 101136.00
-  profit: number;      // ejemplo: 1.01, -1.01
-  symbol?: string;     // símbolo del instrumento
-  type?: string;       // tipo de operación
+interface Trade {
+  ticket: number;
+  time: string;
+  profit: number;
+  symbol?: string;
+  type?: string;
 }
 
-interface ProcessedTrade extends MTrade {
+interface MT5Position {
+  ticket: number;
+  time: number;
+  type: number;
+  symbol: string;
+  volume: number;
+  open_price: number;
+  current_price: number;
+  sl: number;
+  tp: number;
+  profit: number;
+  swap: number;
+  comment: string;
+}
+
+interface ProcessedTrade extends Trade {
   timestamp: Date;     // fecha convertida a objeto Date
   dateStr: string;     // fecha en formato YYYY-MM-DD para agrupación
 }
@@ -89,337 +107,214 @@ const DEFAULT_RANGES = getCurrentRanges();
 const TradingDataContext = createContext<TradingDataContextType | undefined>(undefined);
 
 export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const supabase = createClientComponentClient<Database>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rawData, setRawData] = useState<any>(null);
   const [processedData, setProcessedData] = useState<any>(null);
-  const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_RANGES[1]); // Default: 30 días
+  const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_RANGES[1]);
   const [positions, setPositions] = useState<Position[]>([]);
 
-  // Buscar cualquier cuenta disponible en localStorage
-  const loadAnyAccount = useCallback(() => {
-    try {
-      // Buscar cualquier entrada en localStorage que parezca una cuenta
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('smartalgo_')) {
-          try {
-            const value = localStorage.getItem(key);
-            if (value) {
-              const data = JSON.parse(value);
-              if (typeof data === 'object') {
-                const accountIds = Object.keys(data);
-                if (accountIds.length > 0) {
-                  const account = data[accountIds[0]];
-                  
-                  // NUEVO: Procesar el historial para combinar operaciones de apertura/cierre
-                  if (account.history) {
-                    const processedHistory = processRawHistory(account.history);
-                    account.history = processedHistory;
-                  }
-                  
-                  console.log("Encontrada cuenta:", account);
-                  return account;
-                }
-              }
-            }
-          } catch (e) {
-            console.error("Error procesando", key, e);
-          }
-        }
-      }
-      
-      // Si no encontramos nada, buscar en conexiones directas
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('connection')) {
-          try {
-            const value = localStorage.getItem(key);
-            if (value) {
-              const account = JSON.parse(value);
-              
-              // NUEVO: Procesar el historial para combinar operaciones de apertura/cierre
-              if (account.history) {
-                const processedHistory = processRawHistory(account.history);
-                account.history = processedHistory;
-              }
-              
-              console.log("Encontrada conexión:", account);
-              return account;
-            }
-          } catch (e) {
-            console.error("Error procesando conexión", key, e);
-          }
-        }
-      }
-      
-      return null;
-    } catch (err) {
-      console.error("Error cargando datos:", err);
-      return null;
-    }
-  }, []);
-
-  // NUEVA función para procesar el historial raw
-  const processRawHistory = (history: any[]): any[] => {
-    if (!Array.isArray(history)) {
-      return [];
-    }
-
-    // Si el historial está dentro de un array (como [history])
-    const rawHistory = Array.isArray(history[0]) ? history[0] : history;
-    
-    // Mapa para agrupar operaciones por ticket
-    const operationsByTicket = new Map();
-    
-    // Primero, agrupamos todas las operaciones por ticket
-    rawHistory.forEach(operation => {
-      if (!operation.ticket) return;
-      
-      if (!operationsByTicket.has(operation.ticket)) {
-        operationsByTicket.set(operation.ticket, []);
-      }
-      operationsByTicket.get(operation.ticket).push(operation);
-    });
-    
-    // Procesamos cada grupo de operaciones
-    const processedOperations = [];
-    operationsByTicket.forEach((operations, ticket) => {
-      // Ordenamos las operaciones por tiempo
-      operations.sort((a: any, b: any) => {
-        const timeA = new Date(a.time).getTime();
-        const timeB = new Date(b.time).getTime();
-        return timeA - timeB;
-      });
-      
-      // Si hay múltiples operaciones para este ticket, tomamos solo la última
-      // que debería ser la operación de cierre
-      const closingOperation = operations.find(op => op.profit !== 0) || operations[operations.length - 1];
-      
-      if (closingOperation) {
-        processedOperations.push(closingOperation);
-      }
-    });
-    
-    console.log(`Procesado historial: ${rawHistory.length} operaciones raw -> ${processedOperations.length} operaciones únicas`);
-    
-    return processedOperations;
-  };
-
-  // Función para cargar las posiciones
-  const loadPositions = useCallback(() => {
-    try {
-      // Primero intentamos obtener las posiciones del localStorage
-      const positionsData = localStorage.getItem('positions');
-      if (positionsData) {
-        const parsedPositions = JSON.parse(positionsData);
-        console.log('Posiciones cargadas:', parsedPositions);
-        setPositions(Array.isArray(parsedPositions) ? parsedPositions : []);
-        return;
-      }
-
-      // Si no hay posiciones en 'positions', buscamos en las cuentas
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.includes('smartalgo_')) {
-          try {
-            const value = localStorage.getItem(key);
-            if (value) {
-              const data = JSON.parse(value);
-              if (typeof data === 'object') {
-                const accountIds = Object.keys(data);
-                if (accountIds.length > 0) {
-                  const account = data[accountIds[0]];
-                  if (account.positions && Array.isArray(account.positions)) {
-                    console.log('Posiciones encontradas en cuenta:', account.positions);
-                    setPositions(account.positions);
-                    return;
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            console.error("Error procesando posiciones de cuenta:", e);
-          }
-        }
-      }
-
-      // Si no encontramos posiciones, establecemos un array vacío
-      setPositions([]);
-    } catch (err) {
-      console.error("Error cargando posiciones:", err);
-      setPositions([]);
-    }
-  }, []);
-
-  // Procesar los datos basados en el rango de fechas
+  // Mover processData aquí y envolverlo en useCallback
   const processData = useCallback((data: any, range: DateRange) => {
-    if (!data) return null;
+    if (!data) {
+        console.log("❌ No hay datos para procesar");
+      return null;
+    }
     
-    console.log("Procesando datos para rango:", range);
+    console.log("🔄 Procesando datos:", data);
     
-    let trades = [];
-    
-    // Extraer trades
-    if (Array.isArray(data.history[0])) {
-      trades = data.history[0];
-    } else if (Array.isArray(data.history)) {
-      trades = data.history;
-    } else if (Array.isArray(data.closedTrades)) {
-      trades = data.closedTrades;
+    // Extraer estadísticas del backend
+    const stats = data.statistics || {};
+    console.log("📊 Estadísticas recibidas:", stats);
+
+    // Extraer trades del historial
+    let trades: Trade[] = [];
+    if (data.history) {
+        if (Array.isArray(data.history)) {
+            trades = data.history.flat(); // Aplanar el array en caso de que venga anidado
+        }
     }
 
-    console.log(`Total de operaciones cargadas: ${trades.length}`);
+    console.log(`📊 Trades cargados: ${trades.length}`);
     
-    // NUEVO: Primero eliminamos duplicados por ticket antes de filtrar
-    const uniqueTickets = new Set();
-    const uniqueTrades = trades.filter(trade => {
-      // Si no tiene ticket o ya hemos procesado este ticket, ignorar
-      if (!trade.ticket || uniqueTickets.has(trade.ticket)) return false;
-      
-      // Solo considerar trades con profit (operaciones de cierre)
-      if (trade.profit === 0 || trade.profit === undefined) return false;
-      
-      // Agregar ticket al conjunto de tickets procesados
-      uniqueTickets.add(trade.ticket);
-      return true;
-    });
-    
-    console.log(`Operaciones únicas después de filtrar duplicados: ${uniqueTrades.length}`);
-    
-    // Filtrar por rango de fechas utilizando los trades únicos
-    const filteredTrades = uniqueTrades.filter((trade: any) => {
-      try {
-        let tradeDate;
-        
-        if (typeof trade.time === 'string') {
-          tradeDate = new Date(trade.time);
-        } else if (typeof trade.time === 'number') {
-          tradeDate = new Date(
-            trade.time > 10000000000 ? trade.time : trade.time * 1000
-          );
-        } else {
-          return false;
+    // Filtrar trades válidos
+    const validTrades = trades.filter(trade => {
+        const isValid = trade && trade.ticket && trade.time && typeof trade.profit !== 'undefined';
+        if (!isValid) {
+            console.warn("❌ Trade inválido:", trade);
         }
-        
+        return isValid;
+    });
+
+    // Procesar trades por fecha
+    const filteredTrades = validTrades.filter((trade: Trade) => {
+        try {
+            let tradeDate: Date;
+            if (typeof trade.time === 'number') {
+                // Convertir timestamp Unix a fecha
+                tradeDate = new Date(trade.time * 1000); // Multiplicar por 1000 si está en segundos
+            } else {
+          tradeDate = new Date(trade.time);
+            }
+
+            // Validar fecha
         if (isNaN(tradeDate.getTime())) {
-          console.warn("Fecha inválida en trade:", trade.time);
+                console.warn("❌ Fecha inválida:", trade.time);
           return false;
         }
         
         return tradeDate >= range.startDate && tradeDate <= range.endDate;
       } catch (e) {
-        console.error("Error filtrando trade por fecha:", e);
+            console.error("❌ Error procesando fecha:", e);
         return false;
       }
     });
     
-    console.log(`Operaciones filtradas por rango: ${filteredTrades.length}`);
-    
-    // El resto del procesamiento igual, pero con los trades ya filtrados y deduplicados
-    
-    // Calcular métricas...
-    let totalProfit = 0;
-    let winningTrades = 0;
-    let losingTrades = 0;
-    let totalWinAmount = 0;
-    let totalLossAmount = 0;
-    let maxDrawdown = 0;
-    let maxDrawdownPercent = 0;
+    // Calcular métricas adicionales
+    const avgWin = stats.winning_trades > 0 ? 
+        filteredTrades.filter(t => t.profit > 0).reduce((sum, t) => sum + t.profit, 0) / stats.winning_trades : 
+        0;
 
-    // Actualizar los cálculos de resultados diarios
-    const dailyResults: { [key: string]: { profit: number; trades: number; status: string } } = {};
-    let winningDays = 0;
-    let losingDays = 0;
-    let breakEvenDays = 0;
+    const avgLoss = stats.losing_trades > 0 ? 
+        Math.abs(filteredTrades.filter(t => t.profit < 0).reduce((sum, t) => sum + t.profit, 0)) / stats.losing_trades : 
+        0;
 
-    filteredTrades.forEach((trade: any) => {
-      try {
-        // Procesar fecha
-        let tradeDate;
-        if (typeof trade.time === 'string') {
-          tradeDate = new Date(trade.time);
-        } else if (typeof trade.time === 'number') {
-          tradeDate = new Date(
-            trade.time > 10000000000 ? trade.time : trade.time * 1000
-          );
-        } else {
-          return;
-        }
-        
-        const dateStr = tradeDate.toISOString().split('T')[0];
-        const profit = parseFloat(String(trade.profit || 0));
-        
-        // Actualizar estadísticas generales
-        totalProfit += profit;
-        
-        if (profit > 0) {
-          winningTrades++;
-          totalWinAmount += profit;
-        } else if (profit < 0) {
-          losingTrades++;
-          totalLossAmount += Math.abs(profit);
-        }
+    // Procesar resultados diarios
+    const dailyResults = stats.daily_results || {};
+    let winning_days = 0;
+    let losing_days = 0;
+    let break_even_days = 0;
 
-        // Actualizar estadísticas diarias
-        if (!dailyResults[dateStr]) {
-          dailyResults[dateStr] = { profit: 0, trades: 0, status: 'break_even' };
-        }
-        
-        dailyResults[dateStr].profit += profit;
-        dailyResults[dateStr].trades++; 
-      } catch (e) {
-        console.error("Error procesando trade:", e);
-      }
+    Object.values(dailyResults).forEach((day: any) => {
+        if (day.profit > 0) winning_days++;
+        else if (day.profit < 0) losing_days++;
+        else break_even_days++;
     });
 
-    // Resto del código igual...
-    
-    return {
-      net_profit: totalProfit,
-      win_rate: winningTrades / (winningTrades + losingTrades) * 100,
-      profit_factor: totalWinAmount / totalLossAmount,
-      total_trades: winningTrades + losingTrades,
-      winning_trades: winningTrades,
-      losing_trades: losingTrades,
-      day_win_rate: winningTrades / (winningTrades + losingTrades) * 100,
-      avg_win: totalWinAmount / winningTrades,
-      avg_loss: totalLossAmount / losingTrades,
-      winning_days: winningTrades > 0 ? 1 : 0,
-      losing_days: losingTrades > 0 ? 1 : 0,
-      break_even_days: 0,
-      balance: data.accountInfo?.balance || 0,
-      equity: data.accountInfo?.equity || 0,
-      margin: data.accountInfo?.margin || 0,
-      margin_free: data.accountInfo?.margin_free || 0,
-      floating_pl: data.accountInfo?.floating_pl || 0,
+    // Construir resultado final
+    const result = {
+        net_profit: stats.total_profit || 0,
+        win_rate: stats.win_rate || 0,
+        profit_factor: avgLoss ? Math.abs(avgWin / avgLoss) : 1,
+        total_trades: stats.total_trades || 0,
+        winning_trades: stats.winning_trades || 0,
+        losing_trades: stats.losing_trades || 0,
+        day_win_rate: (winning_days / (winning_days + losing_days + break_even_days)) * 100 || 0,
+        avg_win: avgWin,
+        avg_loss: avgLoss,
+        winning_days,
+        losing_days,
+        break_even_days,
+        balance: stats.balance || 0,
+        equity: stats.equity || 0,
+        margin: stats.margin || 0,
+        floating_pl: stats.floating_pl || 0,
       daily_results: dailyResults,
-      max_drawdown: maxDrawdown,
-      max_drawdown_percent: maxDrawdownPercent,
-      rawTrades: filteredTrades,
+        rawTrades: filteredTrades
     };
+
+    console.log("✅ Datos procesados:", result);
+    return result;
   }, []);
 
-  // Cargar y procesar datos
+  // Función para obtener el account_number (primero localStorage, luego Supabase)
+  const getAccountNumber = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuario no autenticado");
+
+      // 1. Intentar obtener del localStorage
+      const lastActiveKey = `smartalgo_${user.id}_last_active_account`;
+      const cachedAccountNumber = localStorage.getItem(lastActiveKey);
+
+      if (cachedAccountNumber) {
+        console.log("📱 Cuenta encontrada en cache:", cachedAccountNumber);
+        return cachedAccountNumber;
+      }
+
+      // 2. Si no está en cache, buscar en Supabase
+      console.log("🔍 Buscando cuenta en base de datos...");
+      const { data: connections, error: connectionsError } = await supabase
+        .from('mt_connections')
+        .select('account_number')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .limit(1)
+        .single();
+
+      if (connectionsError) throw connectionsError;
+      if (!connections) throw new Error("No se encontraron cuentas asociadas");
+
+      const accountNumber = connections.account_number;
+      
+      // Guardar en localStorage para futuras referencias
+      localStorage.setItem(lastActiveKey, accountNumber);
+      
+      console.log("✅ Cuenta encontrada en BD:", accountNumber);
+      return accountNumber;
+
+    } catch (err) {
+      console.error("Error obteniendo account_number:", err);
+      throw err;
+    }
+  }, [supabase]);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Cargar datos
-      const accountData = loadAnyAccount();
-      
-      if (!accountData) {
-        setError("No se encontraron datos de cuenta");
+        setError(null);
+
+        // 1. Obtener el account_number
+        const accountNumber = await getAccountNumber();
+
+        if (!accountNumber) {
+            setError("No se encontró número de cuenta");
+            return;
+        }
+
+        // 2. Enviar al backend para actualización
+        const mt5Client = MT5Client.getInstance();
+        console.log("🔄 Solicitando actualización para cuenta:", accountNumber);
+        
+        try {
+            const response = await mt5Client.updateAccountData(accountNumber);
+
+            if (!response.success) {
+                setError("Error actualizando datos de la cuenta");
+                return;
+            }
+
+            // Obtener los datos del localStorage después de la actualización
+            const storedData = localStorage.getItem(`smartalgo_${accountNumber}_account_data`);
+            if (!storedData) {
+                setError("No se encontraron datos en localStorage");
         return;
       }
+
+            const accountData = JSON.parse(storedData);
+            console.log("📊 Datos obtenidos de localStorage:", accountData);
       
       setRawData(accountData);
       
-      // Cargar posiciones
-      loadPositions();
-      
-      // Procesar datos según el rango seleccionado
+            if (accountData.positions) {
+                const convertedPositions: Position[] = accountData.positions.map((pos: MT5Position) => ({
+                    ticket: pos.ticket,
+                    symbol: pos.symbol,
+                    type: pos.type.toString(),
+                    volume: pos.volume,
+                    openTime: pos.time,
+                    openPrice: pos.open_price,
+                    stopLoss: pos.sl,
+                    takeProfit: pos.tp,
+                    profit: pos.profit
+                }));
+                setPositions(convertedPositions);
+            }
+            
+            // Procesar los datos
       const processedResult = processData(accountData, dateRange);
+            console.log("🔄 Resultado procesado:", processedResult);
       
       if (processedResult) {
         setProcessedData(processedResult);
@@ -427,13 +322,18 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       } else {
         setError("No se pudieron procesar los datos");
       }
+        } catch (error: any) {
+            console.error("Error en la actualización:", error);
+            setError(error.message || "Error actualizando datos");
+        }
+
     } catch (err) {
       console.error("Error cargando datos:", err);
       setError(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
-  }, [loadAnyAccount, processData, dateRange, loadPositions]);
+}, [dateRange, processData, getAccountNumber]);
 
   // Efecto para cargar datos cuando cambia el rango de fechas
   useEffect(() => {

@@ -5,54 +5,22 @@ export interface MT5Credentials {
 }
 
 export interface MT5AccountInfo {
-  // Información básica
   login: number;
+  name: string;
   server: string;
   currency: string;
-  leverage: number;
-  company: string;
-  
-  // Información financiera
   balance: number;
   equity: number;
   margin: number;
   margin_free: number;
-  margin_level: number;
-  profit: number;
   floating_pl: number;
-  
-  // Posiciones y órdenes actuales
-  positions: MT5Position[];
-  pending_orders: MT5Order[];
-  
-  // Historiales
-  orders_history: MT5Order[];
-  deals_history: MT5Deal[];
-  deals: any[];
-  
-  // Estado de la cuenta
-  trade_allowed: boolean;
-  connected: boolean;
-  last_update: string;
-  
-  // Límites y configuración
-  limit_orders: number;
-  margin_so_call: number;
-  margin_so_mode: number;
-  
-  // Información adicional
-  name: string;
-  trade_mode: number;
-  fifo_close: boolean;
-  
-  // ID de conexión
-  connection_id: string;
 }
 
 export interface MT5Position {
   ticket: number;
-  symbol: string;
+  time: number;
   type: number;
+  symbol: string;
   volume: number;
   open_price: number;
   current_price: number;
@@ -61,8 +29,6 @@ export interface MT5Position {
   profit: number;
   swap: number;
   comment: string;
-  magic: number;
-  time: string;
 }
 
 export interface MT5Order {
@@ -136,21 +102,20 @@ export interface DateRangeQuery {
 }
 
 export interface MT5HistoricalData {
-  balance: number;
-  equity: number;
-  deals: MT5Deal[];
-  daily_results: {
-    [date: string]: {
-      profit: number;
-      trades: number;
-      status: 'win' | 'loss' | 'break_even';
-    }
-  };
-  total_trades: number;
-  winning_trades: number;
-  losing_trades: number;
-  net_profit: number;
-  last_update: string;
+  ticket: number;
+  order: number;
+  time: number;
+  type: number;
+  entry: number;
+  position_id: number;
+  symbol: string;
+  volume: number;
+  price: number;
+  profit: number;
+  swap: number;
+  commission: number;
+  magic: number;
+  comment: string;
 }
 
 export interface MT5AccountData {
@@ -184,4 +149,50 @@ export interface MT5AccountData {
   break_even_days: number;
   day_win_rate: number;
   closed_trades?: Array<{ profit: number }>;
+}
+
+export interface MT5FullAccountData {
+  success: boolean;
+  data: {
+    connection_id: string;
+    account: MT5AccountInfo;
+    positions: MT5Position[];
+    history: MT5Deal[];
+    statistics: MT5Stats;
+  };
+  message?: string;
+}
+
+export interface MT5Statistics {
+  total_trades: number;
+  winning_trades: number;
+  losing_trades: number;
+  win_rate: number;
+  total_profit: number;
+  daily_results: Record<string, { profit: number; trades: number }>;
+}
+
+export interface MT5ConnectResponse {
+  success: boolean;
+  error?: string;
+  connection_id: string;
+  should_clear_storage?: boolean;
+  data: {
+    account: MT5AccountInfo;
+    positions: MT5Position[];
+    history: MT5HistoricalData[];
+    statistics: MT5Statistics;
+  };
+}
+
+export interface StoredAccountData {
+  accountId: string;
+  connectionId: string;
+  accountNumber: string;
+  server: string;
+  positions: MT5Position[];
+  history: MT5HistoricalData[];
+  accountInfo: MT5AccountInfo;
+  statistics: MT5Statistics;
+  lastUpdated: string;
 } 

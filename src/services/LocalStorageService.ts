@@ -5,6 +5,7 @@ export interface StoredAccountData {
   accountId: string;
   connectionId?: string;
   accountNumber?: string;
+  server?: string;
   positions?: any[];
   history?: any[][];
   closedTrades?: any[];
@@ -149,6 +150,7 @@ export class LocalStorageService {
       accountId: accountId,
       connectionId: data.connectionId || data.connection_id || accountId,
       accountNumber: data.accountNumber || data.account || '',
+      server: data.server || '',
       
       // Asegurar que history sea array de arrays
       history: Array.isArray(data.history) ? 
@@ -197,6 +199,7 @@ export class LocalStorageService {
       accountId: connectionId,
       connectionId: connectionId,
       accountNumber: data.account?.login?.toString() || '',
+      server: data.account?.server || response.server || '',
       
       // Convertir history a formato esperado
       history: Array.isArray(data.history) ? [data.history] : [],
@@ -236,15 +239,23 @@ export class LocalStorageService {
     try {
       // Validar datos mínimos requeridos
       if (!data || !accountId) {
-        console.error('Invalid account data or accountId');
+        console.error('Datos de cuenta o accountId inválidos');
         return false;
       }
+      
+      console.log('🔄 Actualizando datos de cuenta:', {
+        userId,
+        accountId,
+        server: data.server,
+        accountNumber: data.accountNumber || data.account_number
+      });
       
       // Asegurarse de que tenga la estructura correcta
       const validatedData: StoredAccountData = {
         accountId: accountId,
         connectionId: data.connection_id || data.connectionId || accountId,
         accountNumber: data.accountNumber || data.account_number || '',
+        server: data.server || '',  // Asegurarnos de incluir el server
         positions: Array.isArray(data.positions) ? data.positions : [],
         history: Array.isArray(data.history) ? 
                (Array.isArray(data.history[0]) ? data.history : [data.history]) : 
@@ -278,32 +289,12 @@ export class LocalStorageService {
         
         lastUpdated: new Date().toISOString()
       };
-      
-      // Si hay datos dentro de data.data (común en respuestas de API)
-      if (data.data) {
-        if (data.data.account) {
-          validatedData.accountInfo = {
-            balance: parseFloat(data.data.account.balance || '0'),
-            equity: parseFloat(data.data.account.equity || '0'),
-            margin: parseFloat(data.data.account.margin || '0'),
-            margin_free: parseFloat(data.data.account.margin_free || '0'),
-            floating_pl: parseFloat(data.data.account.profit || '0'),
-          };
-        }
-        
-        if (data.data.positions) {
-          validatedData.positions = data.data.positions;
-        }
-        
-        if (data.data.history) {
-          validatedData.history = Array.isArray(data.data.history[0]) ? 
-                                data.data.history : [data.data.history];
-        }
-        
-        if (data.data.statistics) {
-          validatedData.statistics = data.data.statistics;
-        }
-      }
+
+      console.log('✅ Datos validados:', {
+        accountId: validatedData.accountId,
+        server: validatedData.server,
+        accountNumber: validatedData.accountNumber
+      });
       
       // Obtener cuentas existentes
       const key = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
@@ -314,14 +305,14 @@ export class LocalStorageService {
       
       // Guardar de vuelta en localStorage
       localStorage.setItem(key, JSON.stringify(accounts));
-      console.log(`Datos de cuenta actualizados para ${accountId}`);
+      console.log(`✅ Datos de cuenta actualizados para ${accountId}`);
       
       // Actualizar la última cuenta activa
       this.setLastActiveAccount(userId, accountId);
       
       return true;
     } catch (error) {
-      console.error(`Error updating account ${accountId}:`, error);
+      console.error(`❌ Error actualizando cuenta ${accountId}:`, error);
       return false;
     }
   }
