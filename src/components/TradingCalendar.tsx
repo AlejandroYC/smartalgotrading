@@ -219,10 +219,10 @@ const TradingCalendar: React.FC = () => {
         
         <div className={`text-xl font-bold ${profitTextColor} mt-3 cursor-pointer`}>
           ${Math.abs(profit).toFixed(1)}
-        </div>
+          </div>
         <div className="text-xs font-medium text-gray-800 cursor-pointer">
           {trades} {trades === 1 ? 'operación' : 'operaciones'}
-        </div>
+          </div>
         <div className="text-xs text-gray-700 cursor-pointer">
           {winRate.toFixed(1)}% acierto
         </div>

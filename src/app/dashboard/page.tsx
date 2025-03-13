@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import { useAuth } from '@/hooks/useAuth';
 import ZellaScoreRadar from '@/components/ZellaScoreRadar';
@@ -109,7 +109,15 @@ function DiagnosticPanel() {
 export default function Dashboard() {
   const { user } = useAuth();
   const { loading, error, processedData, refreshData, dateRange, setDateRange } = useTradingData();
-  const { status, manualUpdate } = useAutoUpdate(user?.id);
+  
+  // Llamar al hook directamente en el nivel superior del componente
+  // siguiendo las reglas de Hooks de React
+  const { status, manualUpdate, toggleAutoUpdate } = useAutoUpdate(user?.id);
+  
+  // Log para depuración
+  React.useEffect(() => {
+    console.log('🔄 Dashboard renderizado con userId:', user?.id);
+  }, [user?.id]);
 
   if (loading) {
     return <div className="p-8">Cargando...</div>;
@@ -157,12 +165,39 @@ export default function Dashboard() {
             </div>
           )}
           
-          {/* Contador de actualizaciones */}
+          {/* Contador de actualizaciones y última actualización */}
           <div className="text-sm text-gray-600 flex items-center space-x-2">
             <span className="font-medium text-indigo-600">
               {status.updateCount} actualizaciones
-          </span>
-        </div>
+            </span>
+            {status.lastUpdate && (
+              <span className="text-gray-500">
+                (última: {status.lastUpdate.toLocaleTimeString()})
+              </span>
+            )}
+            {status.autoUpdateEnabled && status.nextUpdateTime && (
+              <span className="text-gray-500">
+                | próxima: {status.nextUpdateTime.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+          
+          {/* Toggle para actualización automática */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Auto:</span>
+            <button 
+              onClick={toggleAutoUpdate}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${status.autoUpdateEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+              aria-pressed={status.autoUpdateEnabled}
+            >
+              <span className="sr-only">
+                {status.autoUpdateEnabled ? 'Desactivar actualización automática' : 'Activar actualización automática'}
+              </span>
+              <span 
+                className={`${status.autoUpdateEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+              />
+            </button>
+          </div>
           
           {/* Botón de actualización manual */}
           <button 
