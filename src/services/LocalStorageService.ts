@@ -59,7 +59,6 @@ export class LocalStorageService {
               // Verificar si parece una cuenta (buscar connectionId o accountId)
               if (parsedValue && (parsedValue.connectionId || parsedValue.accountId)) {
                 allData[key] = parsedValue;
-                console.log(`Found potential account data in key: ${key}`);
               }
             }
           } catch (e) {
@@ -78,18 +77,15 @@ export class LocalStorageService {
   // Método que falta para AddTradeModal.tsx
   static saveAccountData(userId: string, responseData: any): boolean {
     try {
-      console.log("Guardando datos de cuenta:", userId, responseData);
       
       // Verificar si hay datos
       if (!userId || !responseData) {
-        console.error("Datos inválidos o falta userId");
         return false;
       }
       
       // Determinar el accountId
       const accountId = responseData.connection_id || responseData.accountId || responseData.id;
       if (!accountId) {
-        console.error("No se encontró un ID válido para la cuenta");
         return false;
       }
       
@@ -107,15 +103,12 @@ export class LocalStorageService {
       const storedData = localStorage.getItem(key);
       
       if (!storedData) {
-        console.log(`No accounts found for user ${userId}`);
         return {};
       }
       
       const accounts = JSON.parse(storedData);
-      console.log(`Retrieved ${Object.keys(accounts).length} accounts for user ${userId}`);
       return accounts;
     } catch (error) {
-      console.error('Error getting user accounts:', error);
       return {};
     }
   }
@@ -243,12 +236,7 @@ export class LocalStorageService {
         return false;
       }
       
-      console.log('🔄 Actualizando datos de cuenta:', {
-        userId,
-        accountId,
-        server: data.server,
-        accountNumber: data.accountNumber || data.account_number
-      });
+    
       
       // Asegurarse de que tenga la estructura correcta
       const validatedData: StoredAccountData = {
@@ -290,11 +278,7 @@ export class LocalStorageService {
         lastUpdated: new Date().toISOString()
       };
 
-      console.log('✅ Datos validados:', {
-        accountId: validatedData.accountId,
-        server: validatedData.server,
-        accountNumber: validatedData.accountNumber
-      });
+  
       
       // Obtener cuentas existentes
       const key = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
@@ -305,14 +289,12 @@ export class LocalStorageService {
       
       // Guardar de vuelta en localStorage
       localStorage.setItem(key, JSON.stringify(accounts));
-      console.log(`✅ Datos de cuenta actualizados para ${accountId}`);
       
       // Actualizar la última cuenta activa
       this.setLastActiveAccount(userId, accountId);
       
       return true;
     } catch (error) {
-      console.error(`❌ Error actualizando cuenta ${accountId}:`, error);
       return false;
     }
   }
@@ -388,37 +370,6 @@ export class LocalStorageService {
     } catch (e) {
       console.error("Error en test de localStorage:", e);
       return false;
-    }
-  }
-
-  // Método para depuración
-  static debugDump(userId: string): void {
-    try {
-      // Mostrar todas las claves que coinciden con el patrón de usuario
-      console.log("===== DEBUG LOCALSTORAGE =====");
-      
-      // Ver todas las claves en localStorage
-      console.log("Todas las claves:");
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key) {
-          console.log(`- ${key}`);
-        }
-      }
-      
-      // Ver claves específicas del usuario
-      const userKey = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
-      const activeKey = `${this.PREFIX}${userId}_${this.LAST_ACTIVE_KEY}`;
-      
-      console.log(`\nClave de cuentas del usuario: ${userKey}`);
-      console.log(`Valor: ${localStorage.getItem(userKey)}`);
-      
-      console.log(`\nClave de cuenta activa: ${activeKey}`);
-      console.log(`Valor: ${localStorage.getItem(activeKey)}`);
-      
-      console.log("===== FIN DEBUG =====");
-    } catch (error) {
-      console.error("Error en debugDump:", error);
     }
   }
 } 

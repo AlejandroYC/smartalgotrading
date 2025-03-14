@@ -152,6 +152,30 @@ interface ActiveAccount {
   connectionId: string;
 }
 
+interface UpdateAccountDataResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    account: MT5AccountInfo;
+    positions: MT5Position[];
+    history: MT5HistoricalData[];
+    statistics: {
+      total_trades: number;
+      winning_trades: number;
+      losing_trades: number;
+      win_rate: number;
+      total_profit: number;
+      daily_results: Record<string, { profit: number; trades: number }>;
+    };
+  };
+}
+
+// Constantes para claves de localStorage
+const STORAGE_PREFIX = 'smartalgo_';
+const ACCOUNT_DATA_KEY_FORMAT = (accountNumber: string) => `${STORAGE_PREFIX}${accountNumber}_account_data`;
+const CURRENT_ACCOUNT_KEY = `${STORAGE_PREFIX}current_account`;
+const LAST_ACTIVE_ACCOUNT_KEY = `${STORAGE_PREFIX}last_active_account`;
+
 export class MT5Client extends EventEmitter {
   private static instance: MT5Client;
   private baseUrl: string;
@@ -171,11 +195,18 @@ export class MT5Client extends EventEmitter {
 
   private constructor() {
     super();
-    console.log('🔍 Valor de NEXT_PUBLIC_MT5_API_URL:', process.env.NEXT_PUBLIC_MT5_API_URL);
     
-    this.baseUrl = process.env.NEXT_PUBLIC_MT5_API_URL || 'https://18.225.209.243.nip.io';
+    // Verificar si hay una URL personalizada en localStorage
+    let customApiUrl = '';
+    if (typeof window !== 'undefined') {
+      customApiUrl = localStorage.getItem('smartalgo_api_url_override') || '';
+      if (customApiUrl) {
+      }
+    }
     
-    console.log('MT5Client inicializado con baseUrl:', this.baseUrl);
+    // Usar la URL personalizada si existe, de lo contrario usar la del entorno
+    this.baseUrl = customApiUrl || process.env.NEXT_PUBLIC_MT5_API_URL || 'https://18.225.209.243.nip.io';
+    
     
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
@@ -292,13 +323,7 @@ export class MT5Client extends EventEmitter {
     try {
       this.isConnecting = true;
       
-      // Depurar parámetros recibidos
-      console.log('connectAccount - Parámetros recibidos:', { 
-        userId, 
-        accountNumber: params.accountNumber, 
-        server: params.server, 
-        passwordLength: params.password ? params.password.length : 0 
-      });
+     
       
       // Validar campos requeridos
       if (!userId) {
@@ -328,7 +353,6 @@ export class MT5Client extends EventEmitter {
         platform_type: "MT5"
       });
 
-      console.log('📡 Respuesta recibida de la API:', response.status, response.data);
 
       const responseData = response.data;
       if (!responseData.success) {
@@ -337,11 +361,9 @@ export class MT5Client extends EventEmitter {
 
       // Si el backend indica que debemos limpiar el localStorage
       if (responseData.should_clear_storage) {
-        console.log('🧹 Limpiando localStorage antes de guardar nuevos datos...');
         // Obtener todas las keys que empiezan con smartalgo_
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('smartalgo_')) {
-            console.log('Eliminando:', key);
             localStorage.removeItem(key);
           }
         });
@@ -353,12 +375,7 @@ export class MT5Client extends EventEmitter {
         throw new Error('No se recibió connection_id del servidor');
       }
 
-      // Guardar los datos en localStorage
-      console.log('💾 Guardando datos en localStorage:', {
-        connectionId,
-        accountNumber: params.accountNumber,
-        server: params.server
-      });
+   
 
       const accountData = {
         accountId: connectionId,
@@ -380,11 +397,9 @@ export class MT5Client extends EventEmitter {
         lastUpdated: new Date().toISOString()
       };
 
-      console.log('📦 Datos completos a guardar:', accountData);
 
       const saved = LocalStorageService.saveAccountData(userId, accountData);
       if (!saved) {
-        console.error('❌ Error al guardar datos en localStorage');
       }
 
       LocalStorageService.setLastActiveAccount(userId, connectionId);
@@ -419,7 +434,6 @@ export class MT5Client extends EventEmitter {
 
   public async disconnect(userId: string, connectionId: string): Promise<void> {
     try {
-      console.log('Disconnecting account:', connectionId);
       
       const response = await this.axiosInstance.post(`/disconnect/${connectionId}`, {
         user_id: userId
@@ -437,9 +451,7 @@ export class MT5Client extends EventEmitter {
       
       this.activeConnections.delete(connectionId);
 
-      console.log('Account disconnected successfully');
     } catch (error: any) {
-      console.error('Error disconnecting account:', error);
       if (error.response?.data?.detail) {
         throw new Error(`Disconnect failed: ${error.response.data.detail}`);
       } else {
@@ -468,70 +480,111 @@ export class MT5Client extends EventEmitter {
     return response.data.data;
   }
 
-  public async updateAccountData(accountNumber: string): Promise<MT5ConnectResponse> {
+  async updateAccountData(accountNumber: string): Promise<UpdateAccountDataResponse> {
     try {
-        console.log('📡 Solicitando actualización para cuenta:', accountNumber);
-        
-        const response = await this.axiosInstance.post<MT5ConnectResponse>(
-            `/update-account-data/${accountNumber}`
-        );
-        
-        if (!response.data.success) {
-            throw new Error(response.data.error || 'Failed to update account data');
-        }
-        
-        const responseData = response.data;
-        
-        // Aplanar el historial si viene en chunks
-        let flatHistory: any[] = [];
-        if (Array.isArray(responseData.data.history)) {
-            // Si es un array de arrays, aplanarlo
-            if (Array.isArray(responseData.data.history[0])) {
-                flatHistory = responseData.data.history.flat();
-            } else {
-                flatHistory = responseData.data.history;
-            }
-        }
-
-        console.log('📊 Trades procesados:', flatHistory.length);
-        
-        const accountData = {
-            accountId: responseData.connection_id,
-            connectionId: responseData.connection_id,
-            accountNumber: accountNumber,
-            server: responseData.data.account.server,
-            accountInfo: {
-                balance: responseData.data.account.balance || 0,
-                equity: responseData.data.account.equity || 0,
-                margin: responseData.data.account.margin || 0,
-                margin_free: responseData.data.account.margin_free || 0,
-                floating_pl: responseData.data.account.floating_pl || 0
-            },
-            history: flatHistory,
-            positions: responseData.data.positions || [],
-            statistics: responseData.data.statistics,
-            lastUpdated: new Date().toISOString()
+      
+      // Verificar que tenemos un accountNumber válido
+      if (!accountNumber) {
+        return {
+          success: false,
+          message: 'No se proporcionó número de cuenta para actualizar',
+          data: null as any
         };
-
-        // Guardar en localStorage usando la clave correcta
-        const userAccountsKey = `smartalgo_${accountNumber}_account_data`;
-        try {
-            localStorage.setItem(userAccountsKey, JSON.stringify(accountData));
-            console.log('✅ Datos guardados correctamente en localStorage:', {
-                tradesCount: flatHistory.length,
-                positionsCount: accountData.positions.length,
-                balance: accountData.accountInfo.balance
-            });
-            
-            localStorage.setItem('smartalgo_last_active_account', accountNumber);
-        } catch (storageError) {
-            console.error('❌ Error al guardar en localStorage:', storageError);
       }
-
-      return response.data;
-    } catch (error: any) {
-        console.error('❌ Error actualizando datos:', error);
-        throw new Error(error.message || 'Failed to update account data');
+      
+      // Usar POST en lugar de GET
+      const response = await fetch(`${this.baseUrl}/update-account-data/${accountNumber}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+        // No necesitamos enviar un cuerpo para esta petición específica
+        // pero mantenemos la estructura correcta para una petición POST
+      });
+      
+      // Verificar si la respuesta es exitosa
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(`❌ Error al actualizar datos de cuenta ${accountNumber}:`, errorData);
+        
+        // Manejar específicamente el error de cuenta no encontrada
+        if (errorData.detail && errorData.detail.includes('0 rows')) {
+          return {
+            success: false,
+            message: `La cuenta ${accountNumber} no existe en el servidor. Verifica que la cuenta esté correctamente configurada.`,
+            data: null as any
+          };
+        }
+        
+        return {
+          success: false,
+          message: errorData.detail || `Error ${response.status}: ${response.statusText}`,
+          data: null as any
+        };
+      }
+      
+      // Procesar respuesta exitosa
+      const responseData = await response.json();
+      
+      // Extraer los datos dependiendo de la estructura de respuesta
+      let data = responseData;
+      
+      // Si los datos tienen una estructura anidada con 'data', extraer esa parte
+      if (responseData.data && (responseData.data.account || responseData.data.history || responseData.data.statistics)) {
+        data = responseData.data;
+      }
+      
+      // Guardar los datos actualizados en localStorage con el formato normalizado
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Usar el formato estándar de clave para datos de cuenta
+        const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+        
+        // Normalizar los datos para asegurar una estructura consistente
+        const normalizedData = {
+          // Datos básicos de identificación
+          accountNumber,
+          // Si hay cuenta en los datos, extraer información
+          ...(data.account ? {
+            name: data.account.name || '',
+            server: data.account.server || '',
+            currency: data.account.currency || 'USD',
+            balance: data.account.balance || 0,
+            equity: data.account.equity || 0,
+            margin: data.account.margin || 0,
+            floating_pl: data.account.profit || 0,
+          } : {}),
+          // Si tenemos statistics, incluirlas directamente
+          ...(data.statistics ? { statistics: data.statistics } : {}),
+          // Incluir arrays principales
+          history: data.history || [],
+          positions: data.positions || [],
+          // Agregar timestamp
+          lastUpdated: new Date().toISOString(),
+          // Incluir datos completos
+          ...data
+        };
+     
+        
+        // Guardar en localStorage
+        localStorage.setItem(storageKey, JSON.stringify(normalizedData));
+        
+        // Actualizar también las claves de cuenta activa
+        localStorage.setItem(CURRENT_ACCOUNT_KEY, accountNumber);
+        localStorage.setItem(LAST_ACTIVE_ACCOUNT_KEY, accountNumber);
+      }
+      
+      return {
+        success: true,
+        data: responseData.data || responseData  // Devolver datos originales para compatibilidad
+      };
+    } catch (error) {
+      console.error('❌ Error en updateAccountData:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
+        data: null as any
+      };
     }
   }
 
@@ -580,7 +633,6 @@ export const getAccountInfo = async (
 ) => {
     // Usar la misma URL base que la clase MT5Client
     const baseUrl = process.env.NEXT_PUBLIC_MT5_API_URL || 'https://18.225.209.243.nip.io';
-    console.log('🔍 Usando baseUrl para getAccountInfo:', baseUrl);
     
     const response = await fetch(
         `${baseUrl}/account-info/${userId}/${connectionId}`,

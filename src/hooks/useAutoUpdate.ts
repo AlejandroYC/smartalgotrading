@@ -73,13 +73,11 @@ class UpdateManager {
   private initialized: boolean = false;
 
   private constructor() {
-    console.log(`🔧 Creando instancia de UpdateManager [ID: ${this.instanceId}]`);
     
     // Verificar si la actualización automática está habilitada globalmente
     const autoUpdateEnabled = localStorage.getItem(AUTO_UPDATE_ENABLED_KEY);
     if (autoUpdateEnabled === 'false') {
       this.status.autoUpdateEnabled = false;
-      console.log('⏹️ Actualización automática deshabilitada globalmente');
     }
     
     // Verificar si hay una última actualización guardada
@@ -109,10 +107,8 @@ class UpdateManager {
 
   public subscribe(callback: (status: UpdateStatus) => void): () => void {
     this.subscribers.add(callback);
-    console.log(`🔔 Nuevo suscriptor añadido. Total: ${this.subscribers.size}`);
     return () => {
       this.subscribers.delete(callback);
-      console.log(`🔕 Suscriptor eliminado. Total: ${this.subscribers.size}`);
     };
   }
 
@@ -139,20 +135,16 @@ class UpdateManager {
   }
 
   public clearAllIntervals(): void {
-    console.log(`🧹 Limpiando temporizadores de actualización automática [ID: ${this.instanceId}]`);
-    console.log(`   - Intervalo de actualización: ${this.updateIntervalRef ? 'Activo' : 'Inactivo'}`);
-    console.log(`   - Timeout inicial: ${this.initialUpdateTimeoutRef ? 'Activo' : 'Inactivo'}`);
+
     
     if (this.initialUpdateTimeoutRef) {
       clearTimeout(this.initialUpdateTimeoutRef);
       this.initialUpdateTimeoutRef = null;
-      console.log('   ✅ Timeout inicial eliminado');
     }
     
     if (this.updateIntervalRef) {
       clearInterval(this.updateIntervalRef);
       this.updateIntervalRef = null;
-      console.log('   ✅ Intervalo de actualización eliminado');
     }
   }
 
@@ -161,7 +153,6 @@ class UpdateManager {
     const timeSinceLastUpdate = now - this.lastUpdateTime;
     
     if (timeSinceLastUpdate < MIN_TIME_BETWEEN_UPDATES) {
-      console.log(`⏱️ Actualización demasiado frecuente. Han pasado solo ${Math.floor(timeSinceLastUpdate/1000)} segundos desde la última actualización.`);
       return false;
     }
     
@@ -180,24 +171,21 @@ class UpdateManager {
   }
 
   public async performUpdate(force: boolean = false, refreshData: () => void): Promise<void> {
-    // Evitar actualizaciones simultáneas
-    if (this.status.isUpdating) {
-      console.log('⚠️ Ya hay una actualización en proceso, omitiendo...');
+    // Evitar actualizaciones si ya hay una en curso
+    if (this.status.isUpdating && !force) {
       return;
     }
     
-    // Verificar throttling a menos que sea una actualización forzada
+    // Verificar si puede actualizar (tiempo transcurrido)
     if (!force && !this.canUpdate()) {
-      console.log('🛑 Actualización omitida por throttling. Intente más tarde.');
       return;
     }
-
+    
     try {
       // Obtener el account_number del localStorage
-      const lastActiveAccount = localStorage.getItem('smartalgo_last_active_account');
+      const currentAccount = localStorage.getItem('smartalgo_current_account');
       
-      if (!lastActiveAccount) {
-        console.log('No se encontró número de cuenta activa');
+      if (!currentAccount) {
         this.updateStatus({
           isUpdating: false,
           error: 'No se encontró número de cuenta activa'
@@ -207,13 +195,11 @@ class UpdateManager {
 
       this.updateStatus({ isUpdating: true, error: null });
       
-      console.log(`🔄 Iniciando actualización de datos... [ID: ${this.instanceId}]`);
 
       const mt5Client = MT5Client.getInstance();
-      const response = await mt5Client.updateAccountData(lastActiveAccount);
+      const response = await mt5Client.updateAccountData(currentAccount);
 
       if (response.success && response.data) {
-        console.log(`✅ Datos actualizados correctamente [ID: ${this.instanceId}]`);
         refreshData();
         
         // Actualizar la referencia de tiempo de la última actualización
@@ -222,9 +208,23 @@ class UpdateManager {
         
         // Programar próxima actualización
         const nextUpdate = this.scheduleNextUpdate();
-        console.log(`⏱️ Próxima actualización programada para: ${formatNextUpdateTime(nextUpdate)} [ID: ${this.instanceId}]`);
       } else {
+        // Mejorar el manejo de errores específicos
+        let errorMessage = response.message || 'Error desconocido en la actualización';
+        
+        // Detectar error específico de método no permitido
+        if (response.message && response.message.includes('Method Not Allowed')) {
+          errorMessage = 'Error de configuración: El método de solicitud HTTP es incorrecto. Contacta al administrador del sistema.';
+          console.error('❌ Error en la API: Método HTTP incorrecto. La API espera POST pero se está usando otro método.');
+        }
+        
         console.error('❌ Error en respuesta de actualización:', response);
+        
+        this.updateStatus({
+          isUpdating: false,
+          error: errorMessage
+        });
+        return;
       }
 
       this.updateStatus({
@@ -236,16 +236,24 @@ class UpdateManager {
 
     } catch (err: any) {
       console.error(`❌ Error en actualización [ID: ${this.instanceId}]:`, err);
+      
+      // Mensaje de error más descriptivo
+      let errorMessage = err.message || 'Error desconocido durante la actualización';
+      
+      // Detectar error de conexión
+      if (err.name === 'TypeError' && err.message.includes('Failed to fetch')) {
+        errorMessage = 'Error de conexión: No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+      }
+      
       this.updateStatus({
         isUpdating: false,
-        error: err.message || 'Error desconocido durante la actualización'
+        error: errorMessage
       });
     }
   }
 
   public toggleAutoUpdate(refreshData: () => void): void {
     if (this.status.autoUpdateEnabled) {
-      console.log(`⏹️ Actualización automática desactivada [ID: ${this.instanceId}]`);
       this.clearAllIntervals();
       
       this.updateStatus({
@@ -258,7 +266,6 @@ class UpdateManager {
         localStorage.removeItem(ACTIVE_INSTANCE_KEY);
       }
     } else {
-      console.log(`🔄 Actualización automática activada [ID: ${this.instanceId}]`);
       
       // Limpiar cualquier intervalo anterior
       this.clearAllIntervals();
@@ -269,7 +276,6 @@ class UpdateManager {
       
       // Configurar el nuevo intervalo
       this.updateIntervalRef = setInterval(() => {
-        console.log(`🔄 Ejecutando actualización programada [ID: ${this.instanceId}]`);
         this.performUpdate(false, refreshData);
       }, UPDATE_INTERVAL);
       
@@ -289,13 +295,11 @@ class UpdateManager {
     
     // Si ya hay una instancia activa y no es esta, no hacer nada
     if (activeInstanceId && activeInstanceId !== this.instanceId) {
-      console.log(`⚠️ Ya hay una instancia activa [ID: ${activeInstanceId}], esta instancia [ID: ${this.instanceId}] no iniciará la actualización automática`);
       return;
     }
     
     // Prevenir inicializaciones múltiples
     if (this.initialized) {
-      console.log(`⚠️ UpdateManager ya inicializado, omitiendo inicialización duplicada [ID: ${this.instanceId}]`);
       return;
     }
     
@@ -303,11 +307,9 @@ class UpdateManager {
     
     // Solo configurar si la actualización automática está habilitada
     if (!this.status.autoUpdateEnabled) {
-      console.log(`ℹ️ Actualización automática deshabilitada, omitiendo configuración [ID: ${this.instanceId}]`);
       return;
     }
     
-    console.log(`⏱️ Configurando actualización automática inicial en ${INITIAL_UPDATE_DELAY/1000} segundos [ID: ${this.instanceId}]`);
     
     // Registrar esta instancia como la activa
     localStorage.setItem(ACTIVE_INSTANCE_KEY, this.instanceId);
@@ -324,34 +326,28 @@ class UpdateManager {
       
       // Si han pasado menos de 2 minutos desde la última actualización, retrasamos la próxima
       if (timeSince < 2 * 60 * 1000) {
-        console.log(`ℹ️ Actualización reciente detectada hace ${Math.floor(timeSince/1000)} segundos, ajustando temporización [ID: ${this.instanceId}]`);
         
         // Ajustar el tiempo de última actualización en este singleton
         this.lastUpdateTime = lastUpdateTime;
         
         // Calcular tiempo para la próxima actualización (para evitar actualizaciones demasiado cercanas)
         const timeToNextUpdate = Math.max(MIN_TIME_BETWEEN_UPDATES - timeSince, INITIAL_UPDATE_DELAY);
-        console.log(`⏱️ Próxima actualización en ${timeToNextUpdate/1000} segundos [ID: ${this.instanceId}]`);
         
         // Ajustar el timeout inicial
         this.initialUpdateTimeoutRef = setTimeout(() => {
-          console.log(`🔄 Ejecutando actualización inicial retrasada [ID: ${this.instanceId}]`);
           this.performUpdate(true, refreshData);
         }, timeToNextUpdate);
       } else {
         // Actualización normal si ha pasado suficiente tiempo
-        console.log(`ℹ️ Han pasado ${Math.floor(timeSince/1000)} segundos desde la última actualización, procediendo con normalidad [ID: ${this.instanceId}]`);
         this.setupInitialUpdate(refreshData);
       }
     } else {
       // Primera actualización (no hay registro previo)
-      console.log(`ℹ️ No hay registro de actualización previa, configurando actualización inicial [ID: ${this.instanceId}]`);
       this.setupInitialUpdate(refreshData);
     }
     
     // Configurar el intervalo para actualizaciones regulares
     if (this.updateIntervalRef) {
-      console.log(`⚠️ Ya existe un intervalo de actualización, se elimina y reemplaza [ID: ${this.instanceId}]`);
       clearInterval(this.updateIntervalRef);
     }
     
@@ -359,12 +355,10 @@ class UpdateManager {
       // Verificar si esta instancia sigue siendo la activa antes de realizar la actualización
       const currentActiveInstance = localStorage.getItem(ACTIVE_INSTANCE_KEY);
       if (currentActiveInstance !== this.instanceId) {
-        console.log(`⚠️ Esta instancia [ID: ${this.instanceId}] ya no es la activa, omitiendo actualización programada`);
         this.clearAllIntervals(); // Detener intervalos si ya no es la instancia activa
         return;
       }
       
-      console.log(`🔄 Ejecutando actualización programada [ID: ${this.instanceId}]`);
       this.performUpdate(false, refreshData);
     }, UPDATE_INTERVAL);
     
@@ -376,13 +370,11 @@ class UpdateManager {
       nextUpdateTime: nextUpdate
     });
     
-    console.log(`⏱️ Próxima actualización automática programada para: ${formatNextUpdateTime(nextUpdate)} [ID: ${this.instanceId}]`);
   }
   
   private setupInitialUpdate(refreshData: () => void): void {
     // Configurar la actualización inicial
     this.initialUpdateTimeoutRef = setTimeout(() => {
-      console.log(`🔄 Ejecutando actualización inicial [ID: ${this.instanceId}]`);
       this.performUpdate(true, refreshData);
     }, INITIAL_UPDATE_DELAY);
   }
@@ -409,9 +401,14 @@ export function useAutoUpdate(userId: string | undefined) {
   // Usar la instancia singleton del UpdateManager
   const updateManager = useRef<UpdateManager>(UpdateManager.getInstance());
   
+  // Referencia para controlar si ya se inició el proceso
+  const setupComplete = useRef(false);
+  
+  // Referencia para controlar intentos de actualización
+  const attemptCount = useRef(0);
+  
   // Efecto para suscribirse a los cambios de estado
   useEffect(() => {
-    console.log(`🔄 Iniciando hook useAutoUpdate #${instanceNum.current}`);
     
     // Sincronizar estado inicial
     setStatus(updateManager.current.getStatus());
@@ -422,35 +419,103 @@ export function useAutoUpdate(userId: string | undefined) {
     });
     
     return () => {
-      console.log(`👋 Finalizando hook useAutoUpdate #${instanceNum.current}`);
       unsubscribe();
     };
   }, []);
   
   // Efecto para iniciar la actualización automática, solo se ejecuta una vez
   useEffect(() => {
-    if (userId) {
-      console.log(`🔑 Usuario identificado en hook #${instanceNum.current}, iniciando actualización automática`);
-      updateManager.current.startAutoUpdate(refreshData);
+    if (userId && !setupComplete.current) {
+      setupComplete.current = true;
+      
+      // Verificar si ya hubo una actualización reciente (desde cualquier componente)
+      const lastUpdateTimeStr = localStorage.getItem('smartalgo_last_update_time');
+      const lastRefreshTimeStr = localStorage.getItem('smartalgo_last_refresh_time');
+      
+      if (lastUpdateTimeStr || lastRefreshTimeStr) {
+        const now = Date.now();
+        const lastUpdate = parseInt(lastUpdateTimeStr || '0');
+        const lastRefresh = parseInt(lastRefreshTimeStr || '0');
+        const mostRecentUpdate = Math.max(lastUpdate, lastRefresh);
+        
+        const timeSinceLastUpdate = now - mostRecentUpdate;
+        
+        // Si la última actualización fue hace menos de 30 segundos, no iniciar otra inmediatamente
+        if (timeSinceLastUpdate < 30000) {
+          return;
+        }
+      }
+      
+      // Iniciar actualización con un temporizador más largo para evitar ciclos
+      setTimeout(() => {
+        try {
+          updateManager.current.startAutoUpdate(refreshData);
+        } catch (error) {
+          console.error(`❌ Error al iniciar actualización automática:`, error);
+          setStatus(prev => ({
+            ...prev,
+            error: error instanceof Error ? error.message : String(error)
+          }));
+        }
+      }, 8000); // Aumentar a 8 segundos para evitar problemas de sincronización
     } else {
-      console.log(`⚠️ Sin usuario en hook #${instanceNum.current}, no se inicia actualización automática`);
     }
     
     return () => {
-      console.log(`👋 Limpieza de useEffect en hook #${instanceNum.current}`);
     };
-  }, [userId, refreshData]);
+  }, [userId, refreshData]); // Agregar refreshData como dependencia
   
   // Función para realizar actualización manual
   const manualUpdate = useCallback(() => {
-    console.log(`🖱️ Actualización manual solicitada desde hook #${instanceNum.current}`);
-    updateManager.current.performUpdate(true, refreshData);
+    if (attemptCount.current > 5) {
+      
+      // Reiniciar después de 30 segundos
+      setTimeout(() => {
+        attemptCount.current = 0;
+      }, 30000);
+      
+      return;
+    }
+    
+    attemptCount.current++;
+    
+    try {
+      // Limpiar la bandera de actualización reciente en localStorage para forzar una actualización
+      localStorage.removeItem('smartalgo_last_refresh_time');
+      localStorage.removeItem('smartalgo_last_update_time');
+      
+      // Notificar inicio de actualización
+      setStatus(prev => ({ ...prev, isUpdating: true, error: null }));
+      
+      // Ejecutar actualización
+      updateManager.current.performUpdate(true, refreshData);
+      
+      // Programar un reinicio del contador después de un tiempo
+      setTimeout(() => {
+        if (attemptCount.current > 0) {
+          attemptCount.current--;
+        }
+      }, 60000);
+    } catch (error) {
+      console.error(`❌ Error en actualización manual:`, error);
+      setStatus(prev => ({
+        ...prev,
+        isUpdating: false,
+        error: error instanceof Error ? error.message : String(error)
+      }));
+    }
   }, [refreshData]);
   
   // Función para activar/desactivar la actualización automática
   const toggleAutoUpdate = useCallback(() => {
-    console.log(`🔄 Cambio de estado de actualización automática desde hook #${instanceNum.current}`);
-    updateManager.current.toggleAutoUpdate(refreshData);
+    try {
+      updateManager.current.toggleAutoUpdate(refreshData);
+    } catch (error) {
+      setStatus(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : String(error)
+      }));
+    }
   }, [refreshData]);
   
   return {

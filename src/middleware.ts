@@ -41,7 +41,6 @@ export async function middleware(req: NextRequest) {
     redirectRes.headers.set('Pragma', 'no-cache');
     redirectRes.headers.set('Expires', '0');
     
-    console.log('No session found, redirecting to:', redirectUrl.toString());
     return redirectRes;
   }
 
@@ -54,7 +53,6 @@ export async function middleware(req: NextRequest) {
     redirectRes.headers.set('Pragma', 'no-cache');
     redirectRes.headers.set('Expires', '0');
     
-    console.log('Session found, redirecting to dashboard:', redirectUrl.toString());
     return redirectRes;
   }
 

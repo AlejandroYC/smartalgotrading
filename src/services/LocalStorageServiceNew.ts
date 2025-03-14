@@ -65,10 +65,8 @@ export class LocalStorageServiceNew {
   // Método crucial que falta
   static saveAccountData(userId: string, data: any): boolean {
     try {
-      console.log('LocalStorageServiceNew.saveAccountData llamado con:', userId, data);
       
       if (!userId || !data) {
-        console.error('Datos inválidos para saveAccountData');
         return false;
       }
       
@@ -80,9 +78,8 @@ export class LocalStorageServiceNew {
       
       // Verificar que tenemos un ID válido
       if (!connectionId) {
-        console.error('Error: No hay connectionId en los datos. Usando ID fallback.');
         // Si no hay connectionId, usar un fallback, pero esto es un caso de error
-        const fallbackId = normalizedData.accountId || 'manual_trade';
+        const fallbackId = normalizedData.accountId || normalizedData.accountNumber || 'manual_trade';
         
         // Si estamos usando un fallback, loguear para diagnóstico
         console.warn('⚠️ Usando ID fallback en lugar de connectionId:', fallbackId);
@@ -110,12 +107,17 @@ export class LocalStorageServiceNew {
         // Establecer como cuenta activa
         this.setLastActiveAccount(userId, fallbackId);
         
-        console.log('Datos guardados con ID fallback');
+        // IMPORTANTE: Guardar también con la clave específica para esta cuenta
+        const accountStorageKey = `${this.PREFIX}${fallbackId}_account_data`;
+        localStorage.setItem(accountStorageKey, JSON.stringify(normalizedData));
+        
+        // IMPORTANTE: También guardar como smartalgo_last_active_account para compatibilidad
+        localStorage.setItem('smartalgo_last_active_account', fallbackId);
+        
         return true;
       }
       
       // Si llegamos aquí, tenemos un connectionId válido del backend
-      console.log('✅ connectionId encontrado:', connectionId);
       
       // IMPORTANTE: Guardar el connectionId directamente en localStorage
       // para que useAutoUpdate pueda encontrarlo fácilmente
@@ -124,6 +126,13 @@ export class LocalStorageServiceNew {
       // También guardar el accountNumber para referencia
       if (normalizedData.accountNumber) {
         localStorage.setItem('accountNumber', normalizedData.accountNumber);
+        
+        // IMPORTANTE: Guardar también con la clave específica para esta cuenta
+        const accountStorageKey = `${this.PREFIX}${normalizedData.accountNumber}_account_data`;
+        localStorage.setItem(accountStorageKey, JSON.stringify(normalizedData));
+        
+        // IMPORTANTE: También guardar como smartalgo_last_active_account para compatibilidad
+        localStorage.setItem('smartalgo_last_active_account', normalizedData.accountNumber);
       }
       
       // Asegurarnos de que connectionId esté en los datos normalizados
@@ -151,10 +160,8 @@ export class LocalStorageServiceNew {
       // Establecer como cuenta activa
       this.setLastActiveAccount(userId, connectionId);
       
-      console.log('Datos guardados correctamente usando connectionId');
       return true;
     } catch (error) {
-      console.error('Error en saveAccountData:', error);
       return false;
     }
   }
@@ -168,18 +175,14 @@ export class LocalStorageServiceNew {
       const connectionId = localStorage.getItem('connectionId');
       
       if (!connectionId) {
-        console.log('No hay connectionId en localStorage para validar');
         return false;
       }
       
-      console.log(`Validando connectionId: ${connectionId}`);
       const response = await fetch(`${apiUrl}/account-status/${connectionId}`);
       
       if (!response.ok) {
-        console.error(`Error validando connectionId: ${response.status}`);
         // Si es 404, limpiar el localStorage
         if (response.status === 404) {
-          console.warn('ConnectionId no encontrado en el servidor, limpiando localStorage');
           localStorage.removeItem('connectionId');
           localStorage.removeItem('accountNumber');
         }
@@ -189,16 +192,13 @@ export class LocalStorageServiceNew {
       const data = await response.json();
       
       if (!data.success || !data.is_active) {
-        console.warn('Conexión encontrada pero inactiva, limpiando localStorage');
         localStorage.removeItem('connectionId');
         localStorage.removeItem('accountNumber');
         return false;
       }
       
-      console.log('ConnectionId validado correctamente');
       return true;
     } catch (error) {
-      console.error('Error validando connectionId:', error);
       return false;
     }
   }
@@ -210,7 +210,6 @@ export class LocalStorageServiceNew {
       const storedData = localStorage.getItem(key);
       
       if (!storedData) {
-        console.log(`No accounts found for user ${userId}`);
         return {};
       }
       
@@ -259,55 +258,4 @@ export class LocalStorageServiceNew {
       console.error('Error setting last active account:', error);
     }
   }
-
-  static debugDump(userId: string): void {
-    try {
-      console.log("===== DEBUG LOCALSTORAGE =====");
-      
-      // Ver todas las claves en localStorage
-      console.log("Todas las claves:");
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key) {
-          console.log(`- ${key}`);
-        }
-      }
-      
-      // Ver claves específicas del usuario
-      const userKey = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
-      const activeKey = `${this.PREFIX}${userId}_${this.LAST_ACTIVE_KEY}`;
-      
-      console.log(`\nClave de cuentas del usuario: ${userKey}`);
-      console.log(`Valor: ${localStorage.getItem(userKey)}`);
-      
-      console.log(`\nClave de cuenta activa: ${activeKey}`);
-      console.log(`Valor: ${localStorage.getItem(activeKey)}`);
-      
-      // Mostrar datos de la cuenta activa
-      const activeAccount = this.getLastActiveAccount(userId);
-      if (activeAccount) {
-        console.log("\nDatos de la cuenta activa:");
-        console.log("ID:", activeAccount.accountId || activeAccount.connectionId);
-        console.log("Account Number:", activeAccount.accountNumber);
-        console.log("Statistics:", activeAccount.statistics);
-        
-        if (activeAccount.history) {
-          console.log(`History: Array de longitud ${activeAccount.history.length}`);
-          if (activeAccount.history.length > 0) {
-            console.log(`Primer elemento es array: ${Array.isArray(activeAccount.history[0])}`);
-            const trades = Array.isArray(activeAccount.history[0]) ? 
-                           activeAccount.history[0].length : 
-                           'N/A';
-            console.log(`Cantidad de trades: ${trades}`);
-          }
-        }
-      } else {
-        console.log("\nNo hay cuenta activa");
-      }
-      
-      console.log("===== FIN DEBUG =====");
-    } catch (error) {
-      console.error("Error en debugDump:", error);
-    }
-  }
-} 
+}

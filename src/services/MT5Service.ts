@@ -19,7 +19,6 @@ export class MT5Service {
   // Método para conectar cuenta MT5
   async connectAccount(accountInfo: MT5AccountInfo): Promise<any> {
     try {
-      console.log('⏳ Conectando cuenta MT5:', accountInfo.account_number);
       
       const response = await fetch(`${this.apiUrl}/connect`, {
         method: 'POST',
@@ -31,16 +30,13 @@ export class MT5Service {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ Error en respuesta del servidor:', errorData);
         throw new Error(errorData.detail || 'Error connecting account');
       }
 
       const data = await response.json();
-      console.log('✅ Respuesta de MT5 recibida:', data.success);
       
       // Importante: Guardar la respuesta completa en localStorage
       if (data.success && accountInfo.user_id) {
-        console.log('🔑 Connection ID recibido:', data.connection_id);
         
         // Limpiar datos antiguos por seguridad
         localStorage.removeItem('connectionId');
@@ -59,7 +55,6 @@ export class MT5Service {
   // Método para desconectar una cuenta MT5
   async disconnectAccount(connectionId: string): Promise<boolean> {
     try {
-      console.log('⏳ Desconectando cuenta con ID:', connectionId);
       
       const response = await fetch(`${this.apiUrl}/disconnect/${connectionId}`, {
         method: 'POST'
@@ -74,7 +69,6 @@ export class MT5Service {
       localStorage.removeItem('connectionId');
       localStorage.removeItem('accountNumber');
       
-      console.log('✅ Cuenta desconectada correctamente');
       return true;
     } catch (error) {
       console.error('Error in disconnectAccount:', error);
@@ -102,7 +96,6 @@ export class MT5Service {
   // Método para reparar la inconsistencia entre localStorage y Supabase
   async repairConnectionId(userId: string, correctConnectionId: string): Promise<boolean> {
     try {
-      console.log('🔧 Reparando connectionId a:', correctConnectionId);
       
       // Verificar primero si el ID es válido
       const statusResponse = await this.checkAccountStatus(correctConnectionId);
@@ -129,10 +122,8 @@ export class MT5Service {
       // Usar userId y el connectionId correcto
       LocalStorageServiceNew.saveAccountData(userId, mockData);
       
-      console.log('✅ ConnectionId reparado correctamente');
       return true;
     } catch (error) {
-      console.error('Error reparando connectionId:', error);
       return false;
     }
   }

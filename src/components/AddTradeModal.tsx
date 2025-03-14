@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import Image from 'next/image';
 import metatrader4Img from '../images/metatrader4.png';
 import metatrader5Img from '../images/metatrader5.png';
@@ -29,11 +29,21 @@ const encryptPassword = async (password: string): Promise<string> => {
 };
 
 const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccountConnected }) => {
+  const serveroption = [
+    {
+      label: 'Weltrade-Real',
+      value: 'Weltrade-Real'
+    },
+    {
+      label: 'Weltrade-Demo',
+      value: 'Weltrade-Demo'
+    }
+  ]
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPlatform, setSelectedPlatform] = useState<'mt4' | 'mt5' | null>(null);
   const [formData, setFormData] = useState<MTConnectionForm>({
-    server: '',
+    server: serveroption[0].value,
     account_number: '',
     password: '',
   });
@@ -44,9 +54,27 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
     accountInfo?: any;
   } | null>(null);
 
+  // Asegurar que el servidor siempre tenga un valor seleccionado
+  useEffect(() => {
+    if (currentStep === 2 && !formData.server) {
+      setFormData(prev => ({
+        ...prev,
+        server: serveroption[0].value
+      }));
+    }
+  }, [currentStep]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    console.log("handleSubmit ejecutándose");
+
+    
+    if (!formData.server || !formData.account_number || !formData.password) {
+      setError('Todos los campos son obligatorios. Por favor, complete el formulario.');
+      toast.error('Todos los campos son obligatorios');
+      return;
+    }
+
+ 
     
     setError(null);
     setIsSubmitting(true);
@@ -54,18 +82,17 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
     const toastId = 'mt5-connection';
     try {
       // Depurando información del usuario
-      console.log("Información del usuario:", user);
+ 
       
       if (!user?.id) {
         console.error("Error: user.id no está disponible. user:", user);
         throw new Error('User not authenticated');
       }
       
-      console.log("Intentando conectar cuenta con user_id:", user.id);
-      console.log("Datos del formulario:", formData);
+    
 
       // Limpiar todo el localStorage relacionado con nuestro proyecto
-      console.log("Limpiando localStorage antes de conectar nueva cuenta...");
+   
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && (
@@ -75,29 +102,29 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
           key.includes('trades') ||
           key.includes('positions')
         )) {
-          console.log(`Eliminando clave: ${key}`);
+       
           localStorage.removeItem(key);
           i--; // Ajustar el índice ya que eliminamos un elemento
         }
       }
-      console.log("localStorage limpiado exitosamente");
+
 
       const mt5Client = MT5Client.getInstance();
 
       toast.loading('Connecting to MT5...', { id: toastId });
 
-      // Conectar sin especificar connection_id, dejando que el backend lo genere
+      // Asegurarnos de que los campos coincidan exactamente con lo que espera la interfaz MT5ConnectionParams
       const connectionResult = await mt5Client.connectAccount(user.id, {
-        accountNumber: formData.account_number,
+        accountNumber: formData.account_number.trim(),  // Asegurarnos de que no haya espacios
         password: formData.password,
-        server: formData.server
+        server: formData.server.trim()  // Asegurarnos de que no haya espacios
       });
 
-      console.log("connectionResult recibido:", connectionResult);
+     
 
       // La respuesta de connectAccount ya está normalizada a MT5FullAccountData
       if (connectionResult) {
-        console.log("Estructura de datos recibida:", Object.keys(connectionResult));
+     
         
         // Preparar los datos para almacenamiento
         const accountData = {
@@ -121,7 +148,7 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
           lastUpdated: new Date().toISOString()
         };
         
-        console.log("Datos preparados para localStorage:", accountData);
+
         
         if (user.id) {
           const accountId = accountData.connectionId;
@@ -146,8 +173,7 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
           
           // Establecer como cuenta activa
           localStorage.setItem(`smartalgo_${user.id}_last_active_account`, accountId);
-          
-          console.log("Datos guardados en localStorage");
+ 
         }
 
         setConnectionStatus({
@@ -194,7 +220,7 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 text-black">
       <div className="bg-white rounded-lg w-full max-w-4xl h-[90vh] max-h-[800px] overflow-y-auto relative">
         <button 
           onClick={onClose}
@@ -206,11 +232,11 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
         </button>
 
         <div className="p-8">
-          <h2 className="text-2xl font-bold mb-6">Connect Trading Account</h2>
+          <h2 className="text-2xl font-bold mb-6">Conectar cuenta</h2>
           
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h3 className="text-xl font-semibold">Select Platform</h3>
+              <h3 className="text-xl font-semibold">Seleccionar plataforma</h3>
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => {
@@ -239,17 +265,36 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
                 </div>
               )}
 
+              {/* Depuración - Solo visible en desarrollo */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="bg-gray-100 p-3 rounded-lg mb-4 text-xs">
+                  <h4 className="font-bold mb-1">Valores actuales:</h4>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify({
+                      server: formData.server,
+                      account_number: formData.account_number,
+                      password: formData.password ? '******' : '',
+                    }, null, 2)}
+                  </pre>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium mb-2">
                   Server
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.server}
                   onChange={(e) => setFormData(prev => ({ ...prev, server: e.target.value }))}
                   className="w-full p-2 border rounded"
                   required
-                />
+                >
+                  {serveroption.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

@@ -28,14 +28,8 @@ const RecentTradesSection: React.FC = () => {
     // Convertir las fechas del rango a inicio y fin del día para comparación precisa
     const rangeStart = startOfDay(dateRange.startDate);
     const rangeEnd = endOfDay(dateRange.endDate);
-
-    console.log('RecentTradesSection - Rango de fechas:', {
-      start: rangeStart.toISOString(),
-      end: rangeEnd.toISOString()
-    });
     
     if (!processedData?.rawTrades || !Array.isArray(processedData.rawTrades)) {
-      console.log('RecentTradesSection - No hay trades disponibles');
       return [];
     }
 
@@ -64,7 +58,7 @@ const RecentTradesSection: React.FC = () => {
       trade.profit !== 0 // Solo trades cerrados con profit
     );
 
-    console.log('RecentTradesSection - Trades válidos:', validTrades.length);
+
 
     // Filtrar por rango de fechas
     const filteredTrades = validTrades.filter((trade: Trade) => {
@@ -74,7 +68,6 @@ const RecentTradesSection: React.FC = () => {
         const tradeDate = new Date(timestamp);
 
         if (isNaN(tradeDate.getTime())) {
-          console.log('RecentTradesSection - Fecha inválida:', trade.time);
           return false;
         }
 
@@ -83,12 +76,7 @@ const RecentTradesSection: React.FC = () => {
           end: rangeEnd
         });
 
-        if (!isInRange) {
-          console.log('RecentTradesSection - Trade fuera de rango:', {
-            ticket: trade.ticket,
-            date: tradeDate.toISOString()
-          });
-        }
+      
 
         return isInRange;
       } catch (error) {
@@ -97,7 +85,7 @@ const RecentTradesSection: React.FC = () => {
       }
     });
 
-    console.log('RecentTradesSection - Trades en rango:', filteredTrades.length);
+
 
     // Ordenar por fecha más reciente
     const sortedTrades = filteredTrades.sort((a: Trade, b: Trade) => {
@@ -109,7 +97,7 @@ const RecentTradesSection: React.FC = () => {
 
     // Tomar solo los primeros 50 trades
     const limitedTrades = sortedTrades.slice(0, 50);
-    console.log('RecentTradesSection - Trades finales:', limitedTrades.length);
+  
     
     return limitedTrades;
   }, [processedData?.rawTrades, dateRange]);

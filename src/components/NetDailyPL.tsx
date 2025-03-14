@@ -28,7 +28,6 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
     // Usar el método centralizado que accede directamente a la misma fuente que el calendario
     if (typeof (dailyResults as any).calculateTotalPL === 'function') {
       const calculatedPL = (dailyResults as any).calculateTotalPL();
-      console.log('NetDailyPL: Usando método centralizado calculateTotalPL:', calculatedPL);
       return calculatedPL;
     }
     
@@ -39,26 +38,17 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
       return sum + profit;
     }, 0);
     
-    console.log('NetDailyPL: Calculando P&L desde daily_results:', total);
     return total;
   }, [dailyResults]);
 
   // Añadimos un efecto para hacer logging de la información
   useEffect(() => {
     // Solo ejecutar en modo desarrollo
-    if (process.env.NODE_ENV !== 'development') return;
-    
-    console.group('🔍 DEBUG NET DAILY P&L');
-    
-    console.log('Usando dailyResults como fuente primaria de datos');
-    console.log('Total días disponibles:', Object.keys(dailyResults).length);
-    
+    if (process.env.NODE_ENV !== 'development') return;    
     if (typeof (dailyResults as any).verifyDailyResultsConsistency === 'function') {
       const consistency = (dailyResults as any).verifyDailyResultsConsistency();
-      console.log('Verificación de consistencia:', consistency);
     }
     
-    console.groupEnd();
   }, [dailyResults]);
 
   const chartData = useMemo(() => {

@@ -10,7 +10,6 @@ export default function SessionCheck() {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      console.log('No user found in client, redirecting to login');
       router.push('/login');
     }
   }, [user, isLoading, router]);

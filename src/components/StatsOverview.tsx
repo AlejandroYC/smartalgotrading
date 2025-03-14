@@ -6,18 +6,6 @@ const StatsOverview: React.FC = () => {
   const { processedData, loading, error, dateRange } = useTradingData();
   
   // Agregar logs para depuración
-  useEffect(() => {
-    if (processedData) {
-      console.log(`Stats Overview - Datos procesados para rango ${dateRange.label}:`, {
-        net_profit: processedData.net_profit,
-        win_rate: processedData.win_rate,
-        total_trades: processedData.total_trades,
-        daily_results_count: Object.keys(processedData.daily_results || {}).length
-      });
-    }
-  }, [processedData, dateRange]);
-  
-  // Si todavía no hay datos, mostrar un estado de carga
   if (loading || !processedData) {
     return (
       <div className="p-6">

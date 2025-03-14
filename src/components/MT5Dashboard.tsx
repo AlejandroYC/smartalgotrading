@@ -33,7 +33,7 @@ export default function MT5Dashboard() {
     try {
       setLoading(true);
       const mt5Client = MT5Client.getInstance();
-      
+
       if (!activeConnection.password || !activeConnection.server) {
         throw new Error('Missing MT5 credentials');
       }
@@ -48,15 +48,9 @@ export default function MT5Dashboard() {
         }
       );
 
-      console.log('MT5 Data Update:', {
-        balance: accountData.balance,
-        equity: accountData.equity,
-        positions: accountData.positions?.length || 0
-      });
-
       setAccountInfo(accountData);
       setPositions(accountData.positions || []);
-      
+
       // Agregar a los logs
       setUpdateLogs(prev => [{
         timestamp: new Date().toISOString(),
@@ -67,7 +61,7 @@ export default function MT5Dashboard() {
           profit: accountData.floating_pl || 0
         }
       }, ...prev.slice(0, 19)]);  // Mantener solo los últimos 20 logs
-      
+
       setError(null);
     } catch (err) {
       console.error('Error loading MT5 data:', err);
@@ -87,24 +81,21 @@ export default function MT5Dashboard() {
   // Actualización automática cada 5 minutos
   useEffect(() => {
     if (!user?.id || !activeConnection?.id) return;
-
-    console.log('Setting up MT5 data auto-refresh...');
     const interval = setInterval(() => {
-      console.log('Auto-refreshing MT5 data...');
       loadMT5Data();
     }, 5 * 60 * 1000); // 5 minutos
 
     return () => {
-      console.log('Cleaning up MT5 data auto-refresh');
+
       clearInterval(interval);
     };
   }, [user?.id, activeConnection?.id, loadMT5Data]);
 
   const startPolling = useCallback(() => {
     if (!user?.id || !activeConnection?.id) return;
-    
-    console.log('Starting polling with connection ID:', activeConnection.id);
-    
+
+
+
     const pollInterval = setInterval(async () => {
       try {
         const mt5Client = MT5Client.getInstance();
@@ -114,10 +105,10 @@ export default function MT5Dashboard() {
           undefined,  // fromDate (opcional)
           undefined   // toDate (opcional)
         );
-        
+
         setAccountInfo(accountData);
         setPositions(accountData.positions || []);
-        
+
         // Agregar a los logs
         setUpdateLogs(prev => [{
           timestamp: new Date().toISOString(),
@@ -128,13 +119,13 @@ export default function MT5Dashboard() {
             profit: accountData.floating_pl || 0
           }
         }, ...prev.slice(0, 19)]);
-        
+
         setError(null);
       } catch (err) {
         console.error('Error polling MT5 data:', err);
       }
     }, 30000);
-    
+
     return pollInterval;
   }, [user?.id, activeConnection?.id]);
 
@@ -216,8 +207,8 @@ export default function MT5Dashboard() {
       </div>
 
       {/* Ventana de actualizaciones fuera del contenedor principal */}
-      <div 
-        className="fixed bottom-4 right-4 w-96 bg-white shadow-2xl rounded-lg overflow-hidden border border-gray-200" 
+      <div
+        className="fixed bottom-4 right-4 w-96 bg-white shadow-2xl rounded-lg overflow-hidden border border-gray-200"
         style={{ zIndex: 9999 }}
       >
         <div className="bg-purple-50 px-4 py-3 border-b border-purple-100 flex justify-between items-center">
@@ -226,7 +217,7 @@ export default function MT5Dashboard() {
             <h3 className="text-sm font-medium text-gray-700">Live Updates</h3>
           </div>
           <span className="text-xs text-gray-500">
-            {updateLogs.length > 0 
+            {updateLogs.length > 0
               ? `Last update: ${new Date(updateLogs[0].timestamp).toLocaleTimeString()}`
               : 'Waiting for updates...'}
           </span>

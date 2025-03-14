@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addMonths, subMonths, isSameDay, parseISO, startOfMonth, endOfMonth, isEqual } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 import { useTradingData } from '@/contexts/TradingDataContext';
@@ -74,13 +74,20 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   // Acceder a los datos desde processedData
   const processedData = tradingData.processedData || {};
   const dailyResults = processedData.daily_results || {};
+  const lastDataTimestamp = tradingData.lastDataTimestamp || 0;
+  const refreshIfStale = tradingData.refreshIfStale;
   
-  console.log('ProgressTrackerNew: Datos procesados encontrados:', Object.keys(dailyResults).length);
+  
+  // Verificar datos obsoletos al montar el componente
+  useEffect(() => {
+    refreshIfStale();
+  }, [refreshIfStale]);
   
   // Estados para manejar la navegación y visualización
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [tooltipInfo, setTooltipInfo] = useState<{date: Date, info: string} | null>(null);
   const [calendarData, setCalendarData] = useState<CalendarDay[][]>([]);
+  const [lastRefreshTime, setLastRefreshTime] = useState<number>(Date.now());
   const [todayScore, setTodayScore] = useState({
     current: 0,
     total: 5,
@@ -89,82 +96,101 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   
   // Verificar que tenemos datos y mostrar algunos para debug
   useEffect(() => {
-    console.log(`Días con resultados: ${Object.keys(dailyResults).length}`);
     if (Object.keys(dailyResults).length > 0) {
       const sampleKey = Object.keys(dailyResults)[0];
-      console.log('Ejemplo de un día:', sampleKey, dailyResults[sampleKey]);
     }
   }, [dailyResults]);
   
   // Organizar trades por fecha para acceso rápido
   const tradesByDate = useMemo(() => {
-    console.log('Organizando trades por fecha, total días:', Object.keys(dailyResults).length);
     const byDate: Record<string, {trades: number, profit: number}> = {};
     
-    // Transformamos dailyResults a nuestro formato
-    Object.entries(dailyResults).forEach(([dateStr, dayData]) => {
-      try {
-        // Verificar que la fecha es válida
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) {
-          console.error('Fecha inválida en dailyResults:', dateStr);
-          return;
-        }
-        
-        byDate[dateStr] = {
-          trades: (dayData as any)?.trades || 0,
-          profit: (dayData as any)?.profit || 0
-        };
-      } catch (err) {
-        console.error('Error procesando día:', dateStr, err);
-      }
-    });
+    const rawTrades = processedData.rawTrades || [];
     
-    // Mostrar algunas estadísticas para debug
-    console.log('Total de días procesados:', Object.keys(byDate).length);
-    if (Object.keys(byDate).length > 0) {
-      console.log('Ejemplo de un día procesado:', Object.entries(byDate)[0]);
+    if (rawTrades.length > 0) {
+      const tradesByDateMap = new Map<string, { trades: number, profit: number }>();
+      
+      rawTrades.forEach((trade: { 
+        dateStr?: string; 
+        time: string | number; 
+        profit: number;
+        ticket: number;
+      }) => {
+        try {
+          let dateStr;
+          if (trade.dateStr) {
+            dateStr = trade.dateStr;
+          } else if (typeof trade.time === 'number') {
+            dateStr = new Date(trade.time * 1000).toISOString().split('T')[0];
+          } else {
+            dateStr = new Date(trade.time).toISOString().split('T')[0];
+          }
+          
+          if (!tradesByDateMap.has(dateStr)) {
+            tradesByDateMap.set(dateStr, { trades: 0, profit: 0 });
+          }
+          
+          const dayData = tradesByDateMap.get(dateStr)!;
+          dayData.trades += 0.5;
+          dayData.profit += trade.profit;
+        } catch (err) {
+          console.error('Error procesando trade:', err);
+        }
+      });
+      
+      tradesByDateMap.forEach((value, key) => {
+        byDate[key] = {
+          trades: Math.ceil(value.trades),
+          profit: value.profit
+        };
+      });
+    } else {
+      Object.entries(dailyResults).forEach(([dateStr, dayData]) => {
+        try {
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) {
+            console.error('Fecha inválida en dailyResults:', dateStr);
+            return;
+          }
+          
+          byDate[dateStr] = {
+            trades: (dayData as any)?.trades || 0,
+            profit: (dayData as any)?.profit || 0
+          };
+        } catch (err) {
+          console.error('Error procesando día:', dateStr, err);
+        }
+      });
     }
     
     return byDate;
-  }, [dailyResults]);
+  }, [dailyResults, processedData]);
   
   // Generar datos reales para el calendario
-  const generateCalendarData = () => {
-    console.log('Generando datos del calendario...');
+  const generateCalendarData = useCallback(() => {
     const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
     
-    // Nombres de los meses que queremos mostrar (según la imagen)
     const months = [
       format(subMonths(currentMonth, 1), 'MMM', { locale: es }).toLowerCase(),
       format(currentMonth, 'MMM', { locale: es }).toLowerCase(),
       format(addMonths(currentMonth, 1), 'MMM', { locale: es }).toLowerCase()
     ];
     
-    console.log('Meses a mostrar:', months);
-    
-    // Generamos datos para 3 meses
     const data: CalendarDay[][] = Array(7).fill(0).map(() => []);
     
-    // Para cada mes
     for (let monthIndex = 0; monthIndex < 3; monthIndex++) {
-      // Obtener primer día del mes
       const firstDayOfMonth = new Date(
         startDate.getFullYear(), 
         startDate.getMonth() + monthIndex, 
         1
       );
       
-      // Obtener último día del mes
       const lastDayOfMonth = new Date(
         startDate.getFullYear(), 
         startDate.getMonth() + monthIndex + 1, 
         0
       );
       
-      console.log(`Generando días para ${months[monthIndex]}: ${format(firstDayOfMonth, 'yyyy-MM-dd')} al ${format(lastDayOfMonth, 'yyyy-MM-dd')}`);
-      
-      // Para cada día del mes
       for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
         const date = new Date(
           startDate.getFullYear(), 
@@ -172,20 +198,11 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
           day
         );
         
-        // Obtener el día de la semana (0-6, siendo 0 = domingo)
         const dayOfWeek = date.getDay();
-        
-        // Determinar si es un día activo y la cantidad de trades
         const active = isActiveDay(dayOfWeek);
         const dateStr = format(date, 'yyyy-MM-dd');
         const dailyData = tradesByDate[dateStr] || { trades: 0, profit: 0 };
         
-        // Para debug, si hay trades en este día, mostrar
-        if (dailyData.trades > 0) {
-          console.log(`Encontrados ${dailyData.trades} trades para ${dateStr} (${['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][dayOfWeek]})`);
-        }
-        
-        // Añadir el día a la fila correspondiente al día de la semana
         data[dayOfWeek].push({
           date,
           dayOfWeek,
@@ -197,49 +214,44 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       }
     }
     
-    // Debug: mostrar algunos datos generados
-    let totalTradesFound = 0;
-    data.forEach((row, index) => {
-      const tradesInRow = row.reduce((sum, day) => sum + day.trades, 0);
-      totalTradesFound += tradesInRow;
-      if (tradesInRow > 0) {
-        console.log(`Fila ${index} (${['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][index]}) tiene ${tradesInRow} trades`);
-      }
-    });
-    
-    console.log(`Total trades encontrados en calendario: ${totalTradesFound}`);
-    
     return data;
-  };
+  }, [currentMonth, tradesByDate]);
   
   // Generar datos al cargar o cambiar el mes o los trades
   useEffect(() => {
-    console.log('Actualizando datos del calendario...');
     const data = generateCalendarData();
     setCalendarData(data);
     
     // Verificar que se generaron datos
     const totalTrades = data.flat().reduce((sum, day) => sum + day.trades, 0);
-    console.log(`Total de trades mostrados en el calendario: ${totalTrades}`);
     
-  }, [currentMonth, tradesByDate]);
+    // Validación adicional: verificar que coincide con el total calculado anteriormente
+    const totalFromTradesByDate = Object.values(tradesByDate).reduce((sum, day) => sum + day.trades, 0);
+    if (totalTrades !== totalFromTradesByDate) {
+    } else {
+    }
+    
+    // Comparar con el número total reportado por el contexto
+    if (processedData && processedData.total_trades) {
+    }
+  }, [currentMonth, tradesByDate, processedData]);
   
   // Calcular el score de hoy basado en operaciones reales
   useEffect(() => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
-    console.log('Calculando score para hoy:', todayStr);
     
     const todayData = dailyResults[todayStr];
     
     if (todayData && (todayData as any)?.trades > 0) {
-      console.log(`Hay ${todayData.trades} trades hoy`);
+      // Asegurar que estamos usando el número ajustado de trades
+      const tradesAdjusted = Math.ceil((todayData as any)?.trades / 2);
+      
       // Si tenemos acceso a los trades individuales podríamos calcular las operaciones ganadoras
       // Como no tenemos esa información, usaremos un aproximado basado en el profit
-      const winningTradesEstimate = (todayData as any)?.profit > 0 ? Math.ceil((todayData as any)?.trades / 2) : 0;
+      const winningTradesEstimate = (todayData as any)?.profit > 0 ? Math.ceil(tradesAdjusted / 2) : 0;
       const scoreTotal = 5; // Meta diaria
       
-      console.log(`Trades ganadores estimados hoy: ${winningTradesEstimate}/${scoreTotal}`);
       
       setTodayScore({
         current: winningTradesEstimate,
@@ -247,7 +259,6 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
         percentage: Math.min(100, (winningTradesEstimate / scoreTotal) * 100)
       });
     } else {
-      console.log('No hay trades hoy');
       // No hay trades hoy
       setTodayScore({
         current: 0,
@@ -259,7 +270,11 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   
   // Función para navegar entre meses
   const navigateMonth = (direction: 'prev' | 'next') => {
-    console.log(`Navegando al mes ${direction === 'prev' ? 'anterior' : 'siguiente'}`);
+    
+    // Primero verificar si los datos están obsoletos
+    refreshIfStale();
+    
+    // Actualizar el mes seleccionado
     setCurrentMonth(prev => 
       direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1)
     );
@@ -280,7 +295,6 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   // Manejar clic en una celda
   const handleDayClick = (day: CalendarDay) => {
     const dateStr = format(day.date, 'yyyy-MM-dd');
-    console.log(`Clic en día ${dateStr}, trades: ${day.trades}`);
     
     const dailyData = tradesByDate[dateStr];
     
@@ -291,7 +305,6 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
         : `-$${Math.abs(day.profit).toFixed(2)}`;
       
       const message = `${formattedDate} - ${day.trades} operaciones - ${profitText}`;
-      console.log('Mostrando info:', message);
       
       setTooltipInfo({
         date: day.date,
@@ -306,6 +319,17 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       toast('No hay operaciones para este día');
     }
   };
+  
+  // Detectar cambios en los datos y refrescar si es necesario
+  useEffect(() => {
+    const now = Date.now();
+    // Si han pasado más de 30 segundos desde el último refresco, o hay un nuevo timestamp de datos
+    if (now - lastRefreshTime > 30000 || lastDataTimestamp > lastRefreshTime) {
+      const data = generateCalendarData();
+      setCalendarData(data);
+      setLastRefreshTime(now);
+    }
+  }, [lastDataTimestamp, processedData, dailyResults, tradesByDate, lastRefreshTime, generateCalendarData]);
   
   // Si no hay datos disponibles
   if (!dailyResults || Object.keys(dailyResults).length === 0) {

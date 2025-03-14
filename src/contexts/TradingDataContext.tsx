@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { LocalStorageServiceNew as LocalStorageService } from '@/services/LocalStorageServiceNew';
 import { MT5Client } from '@/services/mt5/mt5Client';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -25,10 +25,16 @@ interface Position {
 
 interface Trade {
   ticket: number;
-  time: string;
+  time: string | number;
+  time_msc?: number;
+  type: number;
+  entry?: number;
   profit: number;
   symbol?: string;
-  type?: string;
+  volume?: number;
+  price?: number;
+  position_id?: number;
+  order?: number;
 }
 
 interface MT5Position {
@@ -55,47 +61,85 @@ interface TradingDataContextType {
   loading: boolean;
   error: string | null;
   rawData: any;
-  processedData: any & { rawTrades?: any[] };
+  processedData: any & { 
+    rawTrades?: any[];
+    calculateTotalPL?: () => number;
+    verifyDailyResultsConsistency?: () => {
+      fromTrades: number;
+      fromDaily: number;
+      difference: number;
+      isConsistent: boolean;
+    };
+  };
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
   availableRanges: DateRange[];
   refreshData: () => void;
   positions: Position[];
+  // Nuevas propiedades para manejo de múltiples cuentas
+  userAccounts: { account_number: string }[];
+  currentAccount: string | null;
+  loadUserAccounts: () => Promise<void>;
+  selectAccount: (accountNumber: string) => void;
+  // Timestamp para forzar actualizaciones en la UI cuando cambian los datos
+  lastDataTimestamp: number;
+  // Utilitarios
+  formatDateKey: (date: Date) => string;
+  isDateInRange: (dateStr: string, range: DateRange) => boolean;
+  // Nuevas funciones para manejar datos obsoletos
+  areDataStale: () => boolean;
+  refreshIfStale: () => boolean;
 }
 
 // Función para obtener rangos de fecha actuales
 const getCurrentRanges = (): DateRange[] => {
   const now = new Date();
+  now.setHours(23, 59, 59, 999); // Establecer al final del día
+  
+  // Crear fecha de inicio para 7D, 30D, etc. (inicio del día)
+  const createStartDate = (daysBack: number) => {
+    const date = new Date(now);
+    date.setDate(date.getDate() - daysBack);
+    date.setHours(0, 0, 0, 0); // Inicio del día
+    return date;
+  };
+  
+  // Crear fecha de inicio para YTD (1 de enero del año actual)
+  const createYTDStartDate = () => {
+    const date = new Date(now.getFullYear(), 0, 1);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  };
   
   return [
     { 
       label: '7D', 
-      startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7), 
+      startDate: createStartDate(7), 
       endDate: now
     },
     { 
       label: '30D', 
-      startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30), 
+      startDate: createStartDate(30), 
       endDate: now
     },
     { 
       label: '90D', 
-      startDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90), 
+      startDate: createStartDate(90), 
       endDate: now
     },
     { 
       label: 'YTD', 
-      startDate: new Date(now.getFullYear(), 0, 1), 
+      startDate: createYTDStartDate(), 
       endDate: now
     },
     { 
       label: '1Y', 
-      startDate: new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()), 
+      startDate: createStartDate(365), 
       endDate: now
     },
     { 
       label: 'Todo', 
-      startDate: new Date(2000, 0, 1), 
+      startDate: new Date(2000, 0, 1, 0, 0, 0, 0), 
       endDate: now
     },
   ];
@@ -106,6 +150,99 @@ const DEFAULT_RANGES = getCurrentRanges();
 
 const TradingDataContext = createContext<TradingDataContextType | undefined>(undefined);
 
+// Agregar constantes para claves de localStorage al inicio del archivo, después de las interfaces
+const STORAGE_PREFIX = 'smartalgo_';
+const CURRENT_ACCOUNT_KEY = `${STORAGE_PREFIX}current_account`;
+const LAST_REFRESH_TIME_KEY = `${STORAGE_PREFIX}last_refresh_time`;
+const LAST_UPDATE_TIME_KEY = `${STORAGE_PREFIX}last_update_time`;
+const ACCOUNT_CHANGE_TIME_KEY = `${STORAGE_PREFIX}account_change_time`;
+const ACCOUNT_DATA_KEY_FORMAT = (accountNumber: string) => `${STORAGE_PREFIX}${accountNumber}_account_data`;
+const USER_ACCOUNTS_KEY = (userId: string) => `${STORAGE_PREFIX}${userId}_accounts`;
+
+// Función utilitaria para deduplicar trades
+const deduplicateTrades = (trades: Trade[]): { uniqueTrades: Trade[], duplicatesCount: number } => {
+  if (!trades || !trades.length) {
+    return { uniqueTrades: [], duplicatesCount: 0 };
+  }
+  
+  const uniqueTradesMap = new Map<number | string, Trade>();
+  let duplicatesCount = 0;
+  
+  trades.forEach(trade => {
+    if (trade && trade.ticket) {
+      if (!uniqueTradesMap.has(trade.ticket)) {
+        uniqueTradesMap.set(trade.ticket, trade);
+      } else {
+        duplicatesCount++;
+      }
+    }
+  });
+  
+  return {
+    uniqueTrades: Array.from(uniqueTradesMap.values()),
+    duplicatesCount
+  };
+};
+
+// Función para inicializar el cliente MT5 si no está disponible
+const initializeMT5Client = () => {
+  try {
+    // Verificar si ya existe el cliente MT5 en la ventana global
+    // @ts-ignore - Ignoramos el error de tipado
+    if (window.mt5Client) {
+      // @ts-ignore
+      return window.mt5Client;
+    }
+
+    
+    // Obtener la URL base del API
+    const apiBaseUrl = localStorage.getItem('smartalgo_api_url_override') || 
+                     process.env.NEXT_PUBLIC_MT5_API_URL || 
+                     'https://18.225.209.243.nip.io';
+    
+    // Crear un objeto simple con método para actualizar datos de cuenta
+    const mt5Client = {
+      apiBaseUrl,
+      updateAccountData: async (accountNumber: string) => {
+        const response = await fetch(`${apiBaseUrl}/update-account-data/${accountNumber}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Error en respuesta del servidor: ${response.status} ${response.statusText}`);
+        }
+        
+        const responseData = await response.json();
+        
+        if (!responseData.success) {
+          throw new Error(responseData.message || 'Error desconocido al actualizar datos');
+        }
+        
+        // Guardar en localStorage
+        const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+        const dataToStore = {
+          ...responseData.data,
+          accountNumber,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        localStorage.setItem(storageKey, JSON.stringify(dataToStore));
+        
+        return dataToStore;
+      }
+    };
+    
+    // Asignar a window para que esté disponible globalmente
+    // @ts-ignore
+    window.mt5Client = mt5Client;
+    
+    return mt5Client;
+  } catch (error) {
+    return null;
+  }
+};
+
 export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const supabase = createClientComponentClient<Database>();
   const [loading, setLoading] = useState(true);
@@ -114,144 +251,474 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [processedData, setProcessedData] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_RANGES[1]);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Nuevos estados para manejo de múltiples cuentas
+  const [userAccounts, setUserAccounts] = useState<{ account_number: string }[]>([]);
+  const [currentAccount, setCurrentAccount] = useState<string | null>(null);
+  // Estado para forzar actualizaciones de UI
+  const [lastDataTimestamp, setLastDataTimestamp] = useState<number>(Date.now());
+  
+  // Refs para controlar el estado de las actualizaciones
+  const isUpdatingAccountData = useRef(false);
+  const didInitializeData = useRef(false);
+  const lastRefreshTimeRef = useRef<Date | null>(null);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollLocalStorageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mover processData aquí y envolverlo en useCallback
+  // Función para verificar si una fecha string está dentro de un rango
+  const isDateInRange = (dateStr: string, range: DateRange): boolean => {
+    try {
+      // Convertir string a objeto Date
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        console.warn("❌ Fecha inválida en daily_results:", dateStr);
+        return false;
+      }
+      
+      // Crear fechas límite sin hora/minutos/segundos para comparar solo fechas
+      const startDate = new Date(range.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      
+      const endDate = new Date(range.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      
+      // Eliminar la hora de la fecha a comparar
+      date.setHours(0, 0, 0, 0);
+      
+      // Verificar si está dentro del rango
+      const isInRange = date >= startDate && date <= endDate;
+      
+      if (!isInRange) {
+      }
+      
+      return isInRange;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Función para mostrar información detallada de depuración
+  const debugCalculations = (filteredTrades: Trade[], dailyResults: any, range: DateRange) => {
+    // Solo ejecutar en modo desarrollo
+    if (process.env.NODE_ENV !== 'development') return;
+    
+    
+    // 1. Mostrar total de trades y sus ganancias/pérdidas
+    const total_trades = filteredTrades.length;
+    
+    // Calcular ganancias y pérdidas manualmente
+    const profitTrades = filteredTrades.filter(t => t.profit > 0);
+    const lossTrades = filteredTrades.filter(t => t.profit < 0);
+    const winningTrades = profitTrades.length;
+    const losingTrades = lossTrades.length;
+    const breakEvenTrades = filteredTrades.filter(t => t.profit === 0).length;
+    
+   
+    
+    // Verificar que sumen correctamente
+    
+    // 2. Calcular profit total y comparar
+    const totalProfit = filteredTrades.reduce((sum, t) => sum + t.profit, 0);
+    const profitSum = profitTrades.reduce((sum, t) => sum + t.profit, 0);
+    const lossSum = lossTrades.reduce((sum, t) => sum + t.profit, 0);
+    
+
+    
+    // 3. Verificar daily results
+    if (dailyResults) {
+      const totalDays = Object.keys(dailyResults).length;
+      const profitDays = Object.values(dailyResults).filter((day: any) => day.profit > 0).length;
+      const lossDays = Object.values(dailyResults).filter((day: any) => day.profit < 0).length;
+      const breakEvenDays = Object.values(dailyResults).filter((day: any) => day.profit === 0).length;
+      
+    
+      
+  
+      
+      // Calcular profit por día y verificar que sume igual al total
+      const dailyProfitSum = Object.values(dailyResults).reduce((sum: number, day: any) => sum + day.profit, 0);
+    
+    }
+    
+    // 4. Mostrar información sobre el rango de fechas
+    
+    // Si hay trades, mostrar el primer y último para verificar el rango
+    if (filteredTrades.length > 0) {
+      const sortedTrades = [...filteredTrades].sort((a, b) => {
+        const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime() / 1000;
+        const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime() / 1000;
+        return timeA - timeB;
+      });
+      
+      const firstTrade = sortedTrades[0];
+      const lastTrade = sortedTrades[sortedTrades.length - 1];
+      
+      const formatTradeDate = (trade: Trade) => {
+        if (typeof trade.time === 'number') {
+          return new Date(trade.time * 1000).toISOString();
+        }
+        return new Date(trade.time).toISOString();
+      };
+      
+    
+    }
+    
+    console.groupEnd();
+  };
+
+  // Nueva función para verificar discrepancias en los resultados diarios
+  const checkDailyResultsDiscrepancies = (
+    originalDailyResults: any, 
+    recalculatedDailyResults: any,
+    tradesByDay: Map<string, Trade[]>
+  ) => {
+    if (process.env.NODE_ENV !== 'development') return;
+
+    
+    // Obtener todas las fechas únicas de ambos conjuntos de datos
+    const allDates = new Set([
+      ...Object.keys(originalDailyResults || {}),
+      ...Object.keys(recalculatedDailyResults)
+    ]);
+    
+    let totalDiscrepancies = 0;
+    
+    allDates.forEach(date => {
+      const originalValue = originalDailyResults?.[date]?.profit || 0;
+      const recalculatedValue = recalculatedDailyResults[date]?.profit || 0;
+      
+      // Si hay una diferencia significativa (más de 0.01)
+      if (Math.abs(originalValue - recalculatedValue) > 0.01) {
+        totalDiscrepancies++;
+
+        
+        // Mostrar los trades de ese día para diagnóstico
+        const tradesForDay = tradesByDay.get(date) || [];
+        if (tradesForDay.length > 0) {
+          tradesForDay.forEach(trade => {
+          });
+        } else {
+        }
+      }
+    });
+    
+    if (totalDiscrepancies === 0) {
+    } else {
+      
+      // Calcular la suma total de ambos conjuntos para ver la diferencia global
+      const originalSum = Object.values(originalDailyResults || {}).reduce(
+        (sum: number, day: any) => sum + (day.profit || 0), 0
+      );
+      
+      const recalculatedSum = Object.values(recalculatedDailyResults).reduce(
+        (sum: number, day: any) => sum + (day.profit || 0), 0
+      );
+      
+    
+    }
+    
+  };
+
+  // Reemplazar la implementación de processData para garantizar nuevos objetos
   const processData = useCallback((data: any, range: DateRange) => {
     if (!data) {
-        console.log("❌ No hay datos para procesar");
       return null;
     }
     
-    console.log("🔄 Procesando datos:", data);
-    
-    // Extraer estadísticas del backend
+    // Extraer estadísticas del backend (con normalizaciones)
     const stats = data.statistics || {};
-    console.log("📊 Estadísticas recibidas:", stats);
-
-    // Extraer trades del historial
+    
+    // Extraer trades del historial, asegurándose de crear un nuevo array
     let trades: Trade[] = [];
     if (data.history) {
-        if (Array.isArray(data.history)) {
-            trades = data.history.flat(); // Aplanar el array en caso de que venga anidado
-        }
+      if (Array.isArray(data.history)) {
+        trades = [...data.history]; // Crear una copia nueva del array
+      }
     }
 
-    console.log(`📊 Trades cargados: ${trades.length}`);
+    
+    // NUEVA FUNCIONALIDAD: Deduplicar trades por ticket usando la función utilitaria
+    const { uniqueTrades, duplicatesCount } = deduplicateTrades(trades);
+    
+    // Usar uniqueTrades en vez de trades para el resto del proceso
+    trades = uniqueTrades;
     
     // Filtrar trades válidos
     const validTrades = trades.filter(trade => {
-        const isValid = trade && trade.ticket && trade.time && typeof trade.profit !== 'undefined';
-        if (!isValid) {
-            console.warn("❌ Trade inválido:", trade);
-        }
-        return isValid;
+      const isValid = trade && trade.ticket && trade.time && typeof trade.profit !== 'undefined';
+      if (!isValid) {
+      }
+      return isValid;
     });
 
-    // Procesar trades por fecha
-    const filteredTrades = validTrades.filter((trade: Trade) => {
-        try {
-            let tradeDate: Date;
-            if (typeof trade.time === 'number') {
-                // Convertir timestamp Unix a fecha
-                tradeDate = new Date(trade.time * 1000); // Multiplicar por 1000 si está en segundos
-            } else {
-          tradeDate = new Date(trade.time);
-            }
 
-            // Validar fecha
-        if (isNaN(tradeDate.getTime())) {
-                console.warn("❌ Fecha inválida:", trade.time);
-          return false;
+    // Normalizar cada trade y añadir propiedades para depuración
+    const normalizedTrades = validTrades.map((trade: Trade) => {
+      try {
+        // Determinar el timestamp
+        let timestamp: Date;
+        if (typeof trade.time === 'number') {
+          // Convertir timestamp Unix a fecha
+          timestamp = new Date(trade.time * 1000); // Multiplicar por 1000 si está en segundos
+        } else {
+          timestamp = new Date(trade.time);
         }
         
-        return tradeDate >= range.startDate && tradeDate <= range.endDate;
+        // Crear objeto de trade procesado
+        const processedTrade: ProcessedTrade = {
+          ...trade,
+          timestamp: timestamp,
+          dateStr: timestamp.toISOString().split('T')[0]
+        };
+        
+        return processedTrade;
       } catch (e) {
-            console.error("❌ Error procesando fecha:", e);
+        return null;
+      }
+    }).filter(trade => trade !== null) as ProcessedTrade[];
+
+
+    // Crear copia segura del rango de fechas para comparaciones
+    const startDateClean = new Date(range.startDate);
+    startDateClean.setHours(0, 0, 0, 0);
+    
+    const endDateClean = new Date(range.endDate);
+    endDateClean.setHours(23, 59, 59, 999);
+    
+
+    // Procesar trades por fecha
+    const filteredTrades = normalizedTrades.filter((trade: ProcessedTrade) => {
+      try {
+        // La fecha ya está normalizada en el paso anterior
+        const tradeDate = trade.timestamp;
+        
+        // Crear copia de fecha para comparación (solo fecha, ignorar hora)
+        const tradeDateClean = new Date(tradeDate);
+        tradeDateClean.setHours(0, 0, 0, 0);
+        
+        // Verificar si está dentro del rango
+        const isInRange = tradeDateClean >= startDateClean && tradeDateClean <= endDateClean;
+        
+        return isInRange;
+      } catch (e) {
+        console.error(`❌ Error filtrando fecha para trade ${trade.ticket}:`, e);
         return false;
       }
     });
     
+    
+    // Si tenemos pocos trades dentro del rango, hacer log para depurar
+    if (filteredTrades.length < 5 && normalizedTrades.length > 0) {
+      // Mostrar las fechas de algunos trades para diagnóstico
+      const sampleTrades = normalizedTrades.slice(0, Math.min(5, normalizedTrades.length));
+      sampleTrades.forEach(trade => {
+        const tradeDate = new Date(trade.timestamp);
+      });
+    }
+    
     // Calcular métricas adicionales
-    const avgWin = stats.winning_trades > 0 ? 
-        filteredTrades.filter(t => t.profit > 0).reduce((sum, t) => sum + t.profit, 0) / stats.winning_trades : 
-        0;
+    const winning_trades = stats.winning_trades || 0;
+    const losing_trades = stats.losing_trades || 0;
+    
+    const avgWin = winning_trades > 0 ? 
+      filteredTrades.filter(t => t.profit > 0).reduce((sum, t) => sum + t.profit, 0) / winning_trades : 
+      0;
 
-    const avgLoss = stats.losing_trades > 0 ? 
-        Math.abs(filteredTrades.filter(t => t.profit < 0).reduce((sum, t) => sum + t.profit, 0)) / stats.losing_trades : 
-        0;
+    const avgLoss = losing_trades > 0 ? 
+      Math.abs(filteredTrades.filter(t => t.profit < 0).reduce((sum, t) => sum + t.profit, 0)) / losing_trades : 
+      0;
 
-    // Procesar resultados diarios
+    // Procesar resultados diarios para filtrar solo los del rango seleccionado
     const dailyResults = stats.daily_results || {};
+    const filteredDailyResults: {[key: string]: any} = {};
+    
+    // Filtrar los resultados diarios según el rango de fechas
+    Object.entries(dailyResults).forEach(([dateStr, dayData]) => {
+      if (isDateInRange(dateStr, range)) {
+        // Ajustar el número de trades por día (dividir entre 2)
+        // Crear un nuevo objeto con las propiedades originales (tipo seguro)
+        const dayDataObj = dayData as Record<string, any>;
+        filteredDailyResults[dateStr] = {
+          profit: dayDataObj.profit || 0,
+          trades: Math.ceil((dayDataObj.trades || 0) / 2), // Ajustar número de trades
+          status: dayDataObj.status || 'neutral'
+        };
+      }
+    });
+    
+
+
+
+    // Calcular estadísticas de días
     let winning_days = 0;
     let losing_days = 0;
     let break_even_days = 0;
 
-    Object.values(dailyResults).forEach((day: any) => {
-        if (day.profit > 0) winning_days++;
-        else if (day.profit < 0) losing_days++;
-        else break_even_days++;
+    Object.values(filteredDailyResults).forEach((day: any) => {
+      if (day.profit > 0) winning_days++;
+      else if (day.profit < 0) losing_days++;
+      else break_even_days++;
     });
 
-    // Construir resultado final
+    // Construir resultado final - siempre un objeto completamente nuevo
     const result = {
-        net_profit: stats.total_profit || 0,
-        win_rate: stats.win_rate || 0,
-        profit_factor: avgLoss ? Math.abs(avgWin / avgLoss) : 1,
-        total_trades: stats.total_trades || 0,
-        winning_trades: stats.winning_trades || 0,
-        losing_trades: stats.losing_trades || 0,
-        day_win_rate: (winning_days / (winning_days + losing_days + break_even_days)) * 100 || 0,
-        avg_win: avgWin,
-        avg_loss: avgLoss,
-        winning_days,
-        losing_days,
-        break_even_days,
-        balance: stats.balance || 0,
-        equity: stats.equity || 0,
-        margin: stats.margin || 0,
-        floating_pl: stats.floating_pl || 0,
-      daily_results: dailyResults,
-        rawTrades: filteredTrades
+      net_profit: filteredTrades.reduce((sum, trade) => sum + trade.profit, 0),
+      win_rate: filteredTrades.length > 0 ? filteredTrades.filter(t => t.profit > 0).length / filteredTrades.length : 0,
+      profit_factor: avgLoss ? Math.abs(avgWin / avgLoss) : 1,
+      
+      // Ajustar el total de trades a la realidad (cada operación genera 2 registros: apertura y cierre)
+      total_trades: Math.ceil(filteredTrades.length / 2),
+      real_trades_count: filteredTrades.length, // Mantener el conteo original para referencia
+      
+      // Ajustar también el conteo de trades ganadores y perdedores
+      winning_trades: Math.ceil(filteredTrades.filter(t => t.profit > 0).length / 2),
+      losing_trades: Math.ceil(filteredTrades.filter(t => t.profit < 0).length / 2),
+      
+      day_win_rate: (winning_days / (winning_days + losing_days + break_even_days)) * 100 || 0,
+      avg_win: avgWin,
+      avg_loss: avgLoss,
+      winning_days,
+      losing_days,
+      break_even_days,
+      balance: stats.balance || 0,
+      equity: stats.equity || 0,
+      margin: stats.margin || 0,
+      floating_pl: stats.floating_pl || 0,
+      daily_results: {...filteredDailyResults}, // Solo incluir días dentro del rango
+      rawTrades: [...filteredTrades], // Crear una copia nueva del array
+      // Agregar timestamp para forzar cambio de referencia
+      _timestamp: Date.now(),
+      
+      // Añadir funciones utilitarias para componentes
+      calculateTotalPL: function() {
+        return this.rawTrades.reduce((sum: number, trade: Trade) => sum + trade.profit, 0);
+      },
+      
+      // Verificar consistencia entre trades y resultados diarios
+      verifyDailyResultsConsistency: function() {
+        const fromTrades = this.calculateTotalPL();
+        const fromDaily = Object.values(this.daily_results).reduce((sum: number, day: any) => sum + day.profit, 0);
+        const difference = Math.abs(fromTrades - fromDaily);
+        const isConsistent = difference < 0.01; // Tolerancia para diferencias de redondeo
+        
+        return {
+          fromTrades,
+          fromDaily,
+          difference,
+          isConsistent
+        };
+      }
     };
 
-    console.log("✅ Datos procesados:", result);
-    return result;
-  }, []);
+    // Si estamos en desarrollo, ejecutar verificaciones
+    if (process.env.NODE_ENV === 'development') {
+      // Verificar si el profit total coincide con la suma de días
+      const consistency = result.verifyDailyResultsConsistency();
+      if (!consistency.isConsistent) {
+        console.warn(`⚠️ Discrepancia en profit total: desde trades=${consistency.fromTrades.toFixed(2)}, desde días=${consistency.fromDaily.toFixed(2)}, diferencia=${consistency.difference.toFixed(2)}`);
+      }
+    }
 
-  // Función para obtener el account_number (primero localStorage, luego Supabase)
+    
+    return result;
+  }, [isDateInRange]);
+
+  // Nueva función para cargar todas las cuentas del usuario desde Supabase
+  const loadUserAccounts = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("Usuario no autenticado");
+        return;
+      }
+
+      const { data: connections, error: connectionsError } = await supabase
+        .from('mt_connections')
+        .select('account_number')
+        .eq('user_id', user.id);
+
+      if (connectionsError) {
+        console.error("Error obteniendo cuentas:", connectionsError);
+        return;
+      }
+
+      if (connections && connections.length > 0) {
+        setUserAccounts(connections);
+        
+        // Verificar si hay una cuenta en localStorage
+        const storedAccount = localStorage.getItem('smartalgo_current_account');
+        const lastActiveKey = `smartalgo_${user.id}_last_active_account`;
+        
+        // Verificar si la cuenta almacenada pertenece a este usuario
+        const isStoredAccountValid = storedAccount && 
+          connections.some(conn => conn.account_number === storedAccount);
+        
+        if (isStoredAccountValid) {
+          setCurrentAccount(storedAccount);
+          localStorage.setItem(lastActiveKey, storedAccount);
+        } else {
+          // Si no hay cuenta válida almacenada, usar la primera
+          setCurrentAccount(connections[0].account_number);
+          localStorage.setItem('smartalgo_current_account', connections[0].account_number);
+          localStorage.setItem(lastActiveKey, connections[0].account_number);
+          
+          // Limpiar indicadores de tiempo para forzar una nueva carga
+          localStorage.removeItem('smartalgo_last_refresh_time');
+          localStorage.removeItem('smartalgo_last_update_time');
+        }
+      } else {
+        console.warn("⚠️ No se encontraron cuentas asociadas al usuario");
+      }
+    } catch (error) {
+      console.error("Error cargando cuentas del usuario:", error);
+    }
+  }, [supabase]);
+
+  // Función para obtener el account_number
   const getAccountNumber = useCallback(async () => {
     try {
+      // Si ya tenemos una cuenta seleccionada, usarla directamente
+      if (currentAccount) {
+        return currentAccount;
+      }
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuario no autenticado");
 
-      // 1. Intentar obtener del localStorage
+      // Intentar obtener la última cuenta activa de localStorage
       const lastActiveKey = `smartalgo_${user.id}_last_active_account`;
       const cachedAccountNumber = localStorage.getItem(lastActiveKey);
 
       if (cachedAccountNumber) {
-        console.log("📱 Cuenta encontrada en cache:", cachedAccountNumber);
+        // Verificar que la cuenta existe en Supabase
+        const { data: connection } = await supabase
+          .from('mt_connections')
+          .select('account_number')
+          .eq('user_id', user.id)
+          .eq('account_number', cachedAccountNumber)
+          .single();
+        
+        if (connection) {
+          setCurrentAccount(cachedAccountNumber);
         return cachedAccountNumber;
+        }
       }
 
-      // 2. Si no está en cache, buscar en Supabase
-      console.log("🔍 Buscando cuenta en base de datos...");
-      const { data: connections, error: connectionsError } = await supabase
+      // Si no hay cuenta en cache, obtener la primera cuenta disponible
+      const { data: connections } = await supabase
         .from('mt_connections')
         .select('account_number')
         .eq('user_id', user.id)
-        .eq('is_active', true)
         .limit(1)
         .single();
 
-      if (connectionsError) throw connectionsError;
-      if (!connections) throw new Error("No se encontraron cuentas asociadas");
+      if (!connections) {
+        throw new Error("No se encontraron cuentas asociadas. Por favor, conecta una cuenta MT5 primero.");
+      }
 
       const accountNumber = connections.account_number;
-      
-      // Guardar en localStorage para futuras referencias
+      setCurrentAccount(accountNumber);
       localStorage.setItem(lastActiveKey, accountNumber);
-      
-      console.log("✅ Cuenta encontrada en BD:", accountNumber);
       return accountNumber;
 
     } catch (err) {
@@ -260,90 +727,988 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [supabase]);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-        setError(null);
+  // Corregir la función getDataFromLocalStorage para que no sea async
+  const getDataFromLocalStorage = useCallback((accountNumber: string): any | null => {
+    if (!accountNumber) {
+      return null;
+    }
 
-        // 1. Obtener el account_number
-        const accountNumber = await getAccountNumber();
-
-        if (!accountNumber) {
-            setError("No se encontró número de cuenta");
-            return;
-        }
-
-        // 2. Enviar al backend para actualización
-        const mt5Client = MT5Client.getInstance();
-        console.log("🔄 Solicitando actualización para cuenta:", accountNumber);
+    
+    // Clave primaria para datos de cuenta
+    const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+    let storedData = localStorage.getItem(storageKey);
+    
+    if (storedData) {
+    } else {
+      
+      // Búsqueda secundaria: recorrer todas las claves para encontrar coincidencias
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
         
-        try {
-            const response = await mt5Client.updateAccountData(accountNumber);
+        // Si la clave contiene el número de cuenta
+        if (key.includes(accountNumber)) {
+          storedData = localStorage.getItem(key);
+          
+          // Si encontramos datos, guardarlos también con la clave estándar
+          if (storedData) {
+            localStorage.setItem(storageKey, storedData);
+          }
+          break;
+        }
+      }
+    }
+    
+    if (!storedData) {
+      return null;
+    }
 
-            if (!response.success) {
-                setError("Error actualizando datos de la cuenta");
-                return;
-            }
+    try {
+      const accountData = JSON.parse(storedData);
+      
+      // Verificar si los datos tienen la estructura esperada
+      const hasHistory = !!accountData.history;
+      const hasPositions = !!accountData.positions;
+      const hasStatistics = !!accountData.statistics || 
+                           (accountData.account_stats && Object.keys(accountData.account_stats).length > 0);
+  
+      
+      // Si los datos no tienen las propiedades esperadas, intenta normalizarlos
+      if (!hasHistory || !hasStatistics) {
+        
+        // Verificar si los datos están anidados bajo una propiedad 'data'
+        if (accountData.data && (accountData.data.history || accountData.data.statistics || accountData.data.account)) {
+          
+          // Crear objeto normalizado
+          const normalizedData = {
+            // Extraer todas las propiedades de data
+            ...accountData.data,
+            // Asegurar que tenemos estas propiedades
+            history: accountData.data.history || [],
+            positions: accountData.data.positions || [],
+            statistics: accountData.data.statistics || {},
+            account: accountData.data.account || {},
+            // Mantener información adicional si existe
+            accountNumber: accountNumber,
+            lastUpdated: accountData.lastUpdated || new Date().toISOString()
+          };
+          
+      
+          
+          // Guardar datos normalizados en localStorage
+          localStorage.setItem(storageKey, JSON.stringify(normalizedData));
+          return normalizedData;
+        }
+      }
+      
+      return accountData;
+    } catch (error) {
+      console.error("❌ Error parseando datos de localStorage:", error);
+      return null;
+    }
+  }, []);
 
-            // Obtener los datos del localStorage después de la actualización
-            const storedData = localStorage.getItem(`smartalgo_${accountNumber}_account_data`);
-            if (!storedData) {
-                setError("No se encontraron datos en localStorage");
+  // Agregar esta función después de getDataFromLocalStorage pero antes de loadData
+  /**
+   * Limpia datos específicos para una cuenta de localStorage
+   */
+  const clearAccountData = (accountNumber: string, fullClear: boolean = false) => {
+    if (!accountNumber) return;
+    
+    
+    // Limpiar siempre los indicadores de tiempo
+    localStorage.removeItem(LAST_REFRESH_TIME_KEY);
+    localStorage.removeItem(LAST_UPDATE_TIME_KEY);
+    localStorage.removeItem(ACCOUNT_CHANGE_TIME_KEY);
+    
+    // Si es una limpieza completa, eliminar también los datos de la cuenta
+    if (fullClear) {
+      const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+      localStorage.removeItem(storageKey);
+    }
+    
+    // Registrar timestamp de esta operación para evitar operaciones duplicadas
+    const now = Date.now();
+    localStorage.setItem(`${STORAGE_PREFIX}last_clear_time`, now.toString());
+  };
+
+  // Corregir la función loadData para usar getDataFromLocalStorage sin await
+  const loadData = useCallback(async (forceBackendLoad: boolean = false) => {
+    setLoading(true);
+    
+    try {
+      // Limpiar error previo si existe
+      if (error) setError(null);
+      
+      // Obtener el número de cuenta como string, no como Promise
+      const accountNumber = await getAccountNumber();
+      if (!accountNumber) {
+        console.error('❌ No hay cuenta seleccionada para cargar datos');
+        setError('No hay cuenta seleccionada. Por favor, seleccione una cuenta.');
+        setLoading(false);
         return;
       }
-
-            const accountData = JSON.parse(storedData);
-            console.log("📊 Datos obtenidos de localStorage:", accountData);
       
-      setRawData(accountData);
       
-            if (accountData.positions) {
-                const convertedPositions: Position[] = accountData.positions.map((pos: MT5Position) => ({
-                    ticket: pos.ticket,
-                    symbol: pos.symbol,
-                    type: pos.type.toString(),
-                    volume: pos.volume,
-                    openTime: pos.time,
-                    openPrice: pos.open_price,
-                    stopLoss: pos.sl,
-                    takeProfit: pos.tp,
-                    profit: pos.profit
-                }));
-                setPositions(convertedPositions);
+      let accountData: any = null;
+      let loadSource = 'localStorage';
+      
+      // Intentar cargar desde el backend si se fuerza o si no hay datos en localStorage
+      if (forceBackendLoad) {
+        try {
+          
+          // Inicializar cliente MT5 si no está disponible
+          const mt5Client = initializeMT5Client();
+          
+          if (mt5Client) {
+            // Actualizar datos desde el backend usando el cliente
+            await mt5Client.updateAccountData(accountNumber);
+            loadSource = 'backend';
+          } else {
+            // Si no se pudo inicializar el cliente, intentar directamente con fetch
+            
+            // Obtener la URL base del API
+            const apiBaseUrl = localStorage.getItem('smartalgo_api_url_override') || 
+                              process.env.NEXT_PUBLIC_MT5_API_URL || 
+                              'https://18.225.209.243.nip.io';
+            
+            // Hacer llamada directa
+            const response = await fetch(`${apiBaseUrl}/update-account-data/${accountNumber}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Error en respuesta del servidor: ${response.status} ${response.statusText}`);
             }
             
-            // Procesar los datos
-      const processedResult = processData(accountData, dateRange);
-            console.log("🔄 Resultado procesado:", processedResult);
-      
-      if (processedResult) {
-        setProcessedData(processedResult);
-        setError(null);
-      } else {
-        setError("No se pudieron procesar los datos");
-      }
-        } catch (error: any) {
-            console.error("Error en la actualización:", error);
-            setError(error.message || "Error actualizando datos");
-        }
+            const responseData = await response.json();
+            
+            if (responseData.success) {
+              // Guardar en localStorage
+              const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+              const dataToStore = {
+                ...responseData.data,
+                accountNumber,
+                lastUpdated: new Date().toISOString()
+              };
+              
+              localStorage.setItem(storageKey, JSON.stringify(dataToStore));
+              loadSource = 'api-direct';
+            } else {
+              throw new Error(responseData.message || 'Error desconocido al actualizar datos');
+            }
+          }
+          
+          // Ahora leemos los datos actualizados desde localStorage
+          accountData = getDataFromLocalStorage(accountNumber);
+        } catch (backendError) {
 
-    } catch (err) {
-      console.error("Error cargando datos:", err);
-      setError(`Error: ${err instanceof Error ? err.message : String(err)}`);
+          
+          // Si falla el backend, intentamos cargar desde localStorage como fallback
+          accountData = getDataFromLocalStorage(accountNumber);
+          
+          if (!accountData) {
+            // Intentamos ser más explícitos sobre por qué no hay datos
+            if (backendError instanceof Error) {
+              throw new Error(`No se pudieron actualizar datos desde el servidor: ${backendError.message}. Por favor, intente de nuevo más tarde.`);
+            } else {
+              throw new Error(`No se pudieron cargar datos para la cuenta ${accountNumber}. Intente actualizar la página.`);
+            }
+          }
+        }
+      } else {
+        // Cargar directamente desde localStorage
+        accountData = getDataFromLocalStorage(accountNumber);
+      }
+      
+      // Si no tenemos datos, lanzar error con mensaje más amigable
+      if (!accountData) {
+        throw new Error(`No se encontraron datos para la cuenta ${accountNumber}. Haga clic en "Actualizar datos" para obtener información del servidor.`);
+      }
+      
+      // Procesar y normalizar los datos obtenidos
+      const processedData = processData(accountData, dateRange);
+      
+      // Actualizar el estado con los datos procesados
+      if (processedData) {
+        setRawData(processedData.rawTrades || []);
+        setProcessedData(processedData);
+        lastRefreshTimeRef.current = new Date();
+        
+        // Actualizar localStorage con timestamp de refreshData
+        localStorage.setItem(LAST_REFRESH_TIME_KEY, Date.now().toString());
+      } else {
+        throw new Error('Error al procesar los datos recibidos');
+      }
+    } catch (loadError) {
+      setError(`Error al cargar datos: ${loadError instanceof Error ? loadError.message : String(loadError)}`);
     } finally {
       setLoading(false);
     }
-}, [dateRange, processData, getAccountNumber]);
+  }, [getAccountNumber, getDataFromLocalStorage, processData, dateRange, error, setError]);
 
-  // Efecto para cargar datos cuando cambia el rango de fechas
+  // Mejorar la función selectAccount para manejar óptimamente el cambio de cuenta
+  const selectAccount = useCallback(async (accountNumber: string) => {
+    if (!accountNumber) {
+      setError('Error: No se proporcionó número de cuenta');
+      return;
+    }
+    
+    // Si ya es la cuenta activa, no hacer nada
+    if (accountNumber === currentAccount) {
+      return;
+    }
+    
+    // Verificar que la cuenta esté en la lista de cuentas disponibles/activas
+    const isAccountValid = userAccounts.some(acc => acc.account_number === accountNumber);
+    if (!isAccountValid) {
+      setError(`La cuenta ${accountNumber} no está disponible o está inactiva.`);
+      return;
+    }
+    
+    
+    // Iniciar el estado de carga
+    setLoading(true);
+    
+    // Limpiar estado de error si existe
+    if (error) setError(null);
+    
+    try {
+      // 1. Limpiar datos específicos de control en localStorage
+      localStorage.removeItem(LAST_REFRESH_TIME_KEY);
+      localStorage.removeItem(LAST_UPDATE_TIME_KEY);
+      localStorage.removeItem(ACCOUNT_CHANGE_TIME_KEY);
+      
+      // 2. Actualizar la información de cuenta actual
+      setCurrentAccount(accountNumber);
+      localStorage.setItem(CURRENT_ACCOUNT_KEY, accountNumber);
+      
+      // También actualizar la última cuenta activa por usuario
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const lastActiveKey = `${STORAGE_PREFIX}${user.id}_last_active_account`;
+        localStorage.setItem(lastActiveKey, accountNumber);
+      }
+      
+      // 3. Solicitar datos actualizados directamente al backend
+      try {
+        
+        // Obtener la URL base del API
+        const apiBaseUrl = localStorage.getItem('smartalgo_api_url_override') || 
+                           process.env.NEXT_PUBLIC_MT5_API_URL || 
+                           'https://18.225.209.243.nip.io';
+        
+        // Hacer la solicitud directa al endpoint de actualización
+        const response = await fetch(`${apiBaseUrl}/update-account-data/${accountNumber}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const statusMessage = `${response.status} ${response.statusText}`;
+          console.error(`❌ Error en respuesta del servidor: ${statusMessage}`);
+          
+          // Intentar obtener más información del error
+          try {
+            const errorData = await response.json();
+            throw new Error(`Error del servidor (${statusMessage}): ${errorData.message || 'Detalles no disponibles'}`);
+          } catch (jsonError) {
+            throw new Error(`Error en respuesta del servidor: ${statusMessage}`);
+          }
+        }
+        
+        const responseData = await response.json();
+        
+        if (responseData.success) {
+          
+          // Guardar los datos en localStorage
+          const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+          const dataToStore = {
+            ...responseData.data,
+            accountNumber,
+            lastUpdated: new Date().toISOString()
+          };
+          
+          localStorage.setItem(storageKey, JSON.stringify(dataToStore));
+          
+          // Procesar los datos y actualizar el estado
+          const processedData = processData(dataToStore, dateRange);
+          if (processedData) {
+            setRawData(dataToStore);
+            setProcessedData(processedData);
+            
+            // Establecer posiciones si están disponibles
+            if (dataToStore.positions) {
+              setPositions([...dataToStore.positions]);
+            }
+            
+            // Forzar actualización en componentes dependientes
+            setLastDataTimestamp(Date.now());
+            
+            // Registrar timestamp de cambio en localStorage
+            localStorage.setItem(ACCOUNT_CHANGE_TIME_KEY, Date.now().toString());
+            localStorage.setItem(LAST_UPDATE_TIME_KEY, Date.now().toString());
+            
+          } else {
+            throw new Error('Error al procesar los datos recibidos');
+          }
+        } else {
+          // Si indica que la cuenta no se encuentra, dar mensaje específico
+          const errorDetail = responseData.message || responseData.detail || 'Error desconocido';
+          
+          if (errorDetail.includes('rows returned') || errorDetail.includes('no encontrada')) {
+            throw new Error(`La cuenta ${accountNumber} no se encontró en el servidor. Es posible que esté inactiva o haya sido eliminada.`);
+          } else {
+            throw new Error(responseData.message || 'Error desconocido al actualizar datos');
+          }
+        }
+      } catch (backendError) {
+     
+        
+        // Si falla el backend, intentamos cargar desde localStorage como fallback
+        const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+        const storedData = localStorage.getItem(storageKey);
+        
+        if (storedData) {
+          try {
+            const accountData = JSON.parse(storedData);
+            const processedData = processData(accountData, dateRange);
+            
+            if (processedData) {
+              setRawData({...accountData});
+              setProcessedData({...processedData});
+              
+              if (accountData.positions) {
+                setPositions([...accountData.positions]);
+              }
+              
+              // Forzar actualización en componentes dependientes
+              setLastDataTimestamp(Date.now());
+              
+              // Registrar timestamp de cambio
+              localStorage.setItem(ACCOUNT_CHANGE_TIME_KEY, Date.now().toString());
+              
+            } else {
+              throw new Error('Error al procesar datos de localStorage');
+            }
+          } catch (parseError) {
+            console.error(`❌ Error parseando datos de localStorage:`, parseError);
+            throw new Error(`No hay datos válidos disponibles para la cuenta ${accountNumber}. Intente actualizar datos más tarde.`);
+          }
+        } else {
+          throw new Error(`No hay datos disponibles para la cuenta ${accountNumber}. Intente actualizar datos.`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error al seleccionar cuenta:', error);
+      
+      // Proporcionar mensajes más amigables para el usuario
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          setError(`No se pudo conectar con el servidor. Verifique su conexión a internet.`);
+        } else if (error.message.includes('no se encontró')) {
+          setError(`${error.message} Intente seleccionar otra cuenta.`);
+        } else {
+          setError(`Error al seleccionar cuenta: ${error.message}`);
+        }
+      } else {
+        setError(`Error desconocido al seleccionar cuenta. Intente nuevamente.`);
+      }
+      
+      // Si hay un error al cambiar de cuenta, restaurar la cuenta anterior
+      if (currentAccount) {
+        localStorage.setItem(CURRENT_ACCOUNT_KEY, currentAccount);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [currentAccount, userAccounts, error, setError, processData, dateRange, supabase]);
+
+  // Efecto para cargar datos cuando cambia la cuenta seleccionada
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    // Usar el ref declarado en el nivel superior
+    if (isUpdatingAccountData.current) return;
+    
+    const loadAccountData = async () => {
+      if (!currentAccount || isInitialLoad) return;
+      
+      // Evitar actualizaciones simultáneas
+      isUpdatingAccountData.current = true;
 
-  // Función para refrescar manualmente
-  const refreshData = () => {
-    loadData();
+      try {
+        
+        // Verificar el tiempo desde la última actualización
+        const lastRefreshTime = localStorage.getItem('smartalgo_last_refresh_time');
+        const now = Date.now();
+        
+        // Solo cargar datos si han pasado al menos 10 segundos desde la última actualización
+        if (!lastRefreshTime || (now - parseInt(lastRefreshTime)) >= 10000) {
+          // Verificar si ya tenemos datos en localStorage
+          const storageKey = ACCOUNT_DATA_KEY_FORMAT(currentAccount);
+          const hasStoredData = localStorage.getItem(storageKey);
+          
+          // Solo actualizar desde el backend si no hay datos en cache
+          if (!hasStoredData) {
+            await loadData(true);
+          } else if (!processedData) {
+            await loadData(false);
+          }
+        } else {
+        }
+      } catch (error) {
+      } finally {
+        isUpdatingAccountData.current = false;
+      }
+    };
+
+    // Usar un timeout para evitar actualizaciones en cascada
+    const timeoutId = setTimeout(() => {
+      loadAccountData();
+    }, 500);
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [currentAccount, isInitialLoad, loadData, processedData]);  // Añadir dependencias faltantes
+
+  // Efecto para la carga inicial
+  useEffect(() => {
+    // Usar la referencia declarada en el nivel superior
+    if (didInitializeData.current || !isInitialLoad) return;
+    
+    const initializeData = async () => {
+      didInitializeData.current = true;
+
+      try {
+        await loadUserAccounts();
+        setIsInitialLoad(false);
+      } catch (error) {
+        // Restablecer el flag en caso de error para permitir reintentos
+        didInitializeData.current = false;
+      }
+    };
+
+    initializeData();
+  }, [isInitialLoad, loadUserAccounts]); // Añadir loadUserAccounts como dependencia
+
+  // Agregar un efecto para monitorear cambios en localStorage
+  useEffect(() => {
+    // Función para verificar cambios en localStorage
+    const checkForUpdates = () => {
+      if (!currentAccount || loading) return;
+      
+      try {
+        // 1. Verificar timestamp de última actualización en localStorage
+        const lastUpdateTime = localStorage.getItem(LAST_UPDATE_TIME_KEY);
+        const currentTimestamp = Date.now();
+        
+        if (lastUpdateTime) {
+          const lastUpdate = parseInt(lastUpdateTime);
+          const timeDiff = currentTimestamp - lastUpdate;
+          
+          // Si han pasado menos de 5 segundos desde la última actualización,
+          // verificar datos en localStorage
+          if (timeDiff < 60000) { // 1 minuto
+            
+            const storageKey = ACCOUNT_DATA_KEY_FORMAT(currentAccount);
+            const storedData = localStorage.getItem(storageKey);
+            
+            if (storedData) {
+              try {
+                const accountData = JSON.parse(storedData);
+                
+                // Verificar si los datos tienen la historia y la fecha de actualización
+                if (accountData.history && accountData.lastUpdated) {
+                  const updateDate = new Date(accountData.lastUpdated);
+                  
+                  // Si tenemos datos procesados, verificar si los datos del localStorage son más recientes
+                  if (processedData && processedData._timestamp) {
+                    const currentDataDate = new Date(processedData._timestamp);
+                    
+                    // Si los datos en localStorage son más recientes
+                    if (updateDate > currentDataDate) {
+                      
+                      // Procesar los nuevos datos
+                      const processed = processData(accountData, dateRange);
+                      if (processed) {
+                        setRawData({...accountData});
+                        setProcessedData({...processed});
+                        
+                        if (accountData.positions) {
+                          setPositions([...accountData.positions]);
+                        }
+                        
+                        // Actualizar timestamp para forzar re-renders
+                        setLastDataTimestamp(Date.now());
+                      
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+              }
+            }
+          }
+        }
+      } catch (error) {
+      }
+      
+      // Programar la próxima verificación
+      if (pollLocalStorageTimeoutRef.current) {
+        clearTimeout(pollLocalStorageTimeoutRef.current);
+      }
+      
+      pollLocalStorageTimeoutRef.current = setTimeout(checkForUpdates, 10000); // Revisar cada 10 segundos
+    };
+    
+    // Iniciar la verificación periódica
+    checkForUpdates();
+    
+    // Limpiar al desmontar
+    return () => {
+      if (pollLocalStorageTimeoutRef.current) {
+        clearTimeout(pollLocalStorageTimeoutRef.current);
+      }
+    };
+  }, [currentAccount, loading, processData, dateRange, processedData]);
+
+  // Agregar función para detectar nuevos datos en localStorage y actualizarlos inmediatamente
+  const detectAndLoadNewData = useCallback(() => {
+    if (!currentAccount || loading || isUpdatingAccountData.current) return;
+    
+    try {
+      
+      const storageKey = ACCOUNT_DATA_KEY_FORMAT(currentAccount);
+      const storedData = localStorage.getItem(storageKey);
+      
+      if (!storedData) {
+        return;
+      }
+      
+      const accountData = JSON.parse(storedData);
+      
+      // Verificar si hay datos nuevos (posiciones, historia, etc.)
+      const hasNewData = (
+        accountData && 
+        accountData.history && 
+        accountData.history.length > 0 && 
+        (!processedData || !processedData.rawTrades || 
+         accountData.history.length !== processedData.rawTrades.length)
+      );
+      
+      if (hasNewData) {
+        
+        // Procesar los nuevos datos
+        const processed = processData(accountData, dateRange);
+        if (processed) {
+          setRawData({...accountData});
+          setProcessedData({...processed});
+          
+          if (accountData.positions) {
+            setPositions([...accountData.positions]);
+          }
+          
+          // Actualizar timestamp para forzar re-renders
+          setLastDataTimestamp(Date.now());
+          return true;
+        }
+      } else {
+      }
+    } catch (error) {
+    }
+    
+    return false;
+  }, [currentAccount, loading, processData, dateRange, processedData]);
+
+  // Modificar la función refreshData para utilizar detectAndLoadNewData si es posible
+  const refreshData = useCallback(async () => {
+    
+    // Marcar que estamos cargando
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Obtener el número de cuenta actual
+      const accountNumber = await getAccountNumber();
+      if (!accountNumber) {
+        setLoading(false);
+        setError('No hay cuenta seleccionada');
+        return;
+      }
+      
+      
+      // Intentar inicializar el cliente MT5 por si es necesario
+      initializeMT5Client();
+      
+      // 1. PRIMERO: Intentar actualizar desde el backend
+      let successFromBackend = false;
+      
+      try {
+        
+        // Obtener la URL base del API como string
+        const apiBaseUrl: string = localStorage.getItem('smartalgo_api_url_override') || 
+                          (process.env.NEXT_PUBLIC_MT5_API_URL as string) || 
+                          'https://18.225.209.243.nip.io';
+        
+        // Hacer la solicitud directa al endpoint de actualización
+        const response = await fetch(`${apiBaseUrl}/update-account-data/${accountNumber}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const statusMessage = `${response.status} ${response.statusText}`;
+          
+          // Intentar obtener más información del error
+          try {
+            const errorData = await response.json();
+            throw new Error(`Error del servidor (${statusMessage}): ${errorData.message || 'Detalles no disponibles'}`);
+          } catch (jsonError) {
+            throw new Error(`Error en respuesta del servidor: ${statusMessage}`);
+          }
+        }
+        
+        const responseData = await response.json();
+        
+        if (responseData.success) {
+          
+          // Normalizar datos para asegurar estructura consistente
+          let normalizedData = responseData.data;
+          
+          // Si los datos están anidados, extraerlos
+          if (responseData.data && responseData.data.data) {
+            normalizedData = responseData.data.data;
+          }
+          
+          // Deduplicar trades si existen
+          if (normalizedData && normalizedData.history && normalizedData.history.length > 0) {
+            
+            const { uniqueTrades, duplicatesCount } = deduplicateTrades(normalizedData.history);
+            
+            if (duplicatesCount > 0) {
+              normalizedData.history = uniqueTrades;
+            }
+          }
+          
+          // Añadir información adicional
+          normalizedData = {
+            ...normalizedData,
+            accountNumber,
+            lastUpdated: new Date().toISOString()
+          };
+          
+          // Guardar los datos normalizados en localStorage
+          const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+          localStorage.setItem(storageKey, JSON.stringify(normalizedData));
+          localStorage.setItem(LAST_REFRESH_TIME_KEY, Date.now().toString());
+          
+          // Guardar en estado raw
+          setRawData({...normalizedData}); // Crear copia para asegurar nueva referencia
+          
+          // Procesar los datos
+          const processed = processData(normalizedData, dateRange);
+          if (processed) {
+            
+            // IMPORTANTE: Actualizar estado con nuevos objetos para forzar re-render
+            setProcessedData({...processed});
+            
+            if (normalizedData.positions) {
+              setPositions([...normalizedData.positions]);
+            }
+            
+            // Establecer timestamp para forzar actualizaciones en componentes
+            setLastDataTimestamp(Date.now());
+            
+            successFromBackend = true; // Marcar éxito
+            
+            // Establecer timestamp de actualización en localStorage para que otros componentes lo detecten
+            localStorage.setItem(LAST_UPDATE_TIME_KEY, Date.now().toString());
+          } else {
+          }
+        } else {
+          // Proporcionar un mensaje más detallado para el usuario
+          const errorDetail = responseData.message || responseData.detail || 'Error desconocido';
+          
+          // Si indica que la cuenta no se encuentra, dar mensaje específico
+          if (errorDetail.includes('rows returned') || errorDetail.includes('no encontrada')) {
+            throw new Error(`Cuenta ${accountNumber} no encontrada en el servidor. Es posible que la cuenta esté inactiva o haya sido eliminada.`);
+          } else {
+            throw new Error(`El servidor no devolvió datos válidos: ${errorDetail}`);
+          }
+        }
+      } catch (backendError) {
+        
+        // Si es un error de red, mostrarlo de manera más amigable
+        if (backendError instanceof Error && backendError.message.includes('Failed to fetch')) {
+          setError(`No se pudo conectar con el servidor. Verifique su conexión a internet e intente nuevamente.`);
+        } else if (backendError instanceof Error) {
+          setError(`Error: ${backendError.message}`);
+        } else {
+          setError(`Ocurrió un error al actualizar los datos. Intente nuevamente más tarde.`);
+        }
+      }
+
+      // Si tuvimos éxito con el backend, terminamos
+      if (successFromBackend) {
+        setLoading(false);
+        return;
+      }
+      
+      // 2. SEGUNDO INTENTO: Cargar desde localStorage como respaldo
+      let successFromLocalStorage = false;
+      
+      try {
+        const localData = getDataFromLocalStorage(accountNumber);
+        
+        if (localData) {
+          
+          // Deduplicar trades si existen
+          if (localData && localData.history && localData.history.length > 0) {
+            
+            const { uniqueTrades, duplicatesCount } = deduplicateTrades(localData.history);
+            
+            if (duplicatesCount > 0) {
+              localData.history = uniqueTrades;
+              
+              // Actualizar localStorage con datos deduplicados
+              const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
+              localStorage.setItem(storageKey, JSON.stringify(localData));
+            }
+          }
+          
+          // Guardar en estado raw (asegurando nueva referencia)
+          setRawData({...localData});
+          
+          // Procesar los datos
+          const processed = processData(localData, dateRange);
+          if (processed) {
+            
+            // IMPORTANTE: Actualizar estado con nuevos objetos para forzar re-render
+            setProcessedData({...processed});
+            
+            if (localData.positions) {
+              setPositions([...localData.positions]);
+            }
+            
+            // Actualizar timestamp para forzar re-renders en componentes dependientes
+            setLastDataTimestamp(Date.now());
+            
+            successFromLocalStorage = true; // Marcar éxito
+          } else {
+          }
+        } else {
+        }
+      } catch (localStorageError) {
+      }
+      
+      // Si tuvimos éxito con localStorage, terminamos
+      if (successFromLocalStorage) {
+        setLoading(false);
+        return;
+      }
+      
+      // Si llegamos aquí, no pudimos obtener datos válidos
+      setError('No se pudieron cargar datos válidos. Intenta actualizar datos o seleccionar otra cuenta si está disponible.');
+    } catch (error) {
+      
+      // Proporcionar mensajes de error más amigables según el tipo de error
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          setError(`No se pudo conectar con el servidor. Verifique su conexión a internet.`);
+        } else if (error.message.includes('account_number')) {
+          setError(`Error al identificar la cuenta. Intente cerrar sesión y volver a iniciarla.`);
+        } else {
+          setError(`Error: ${error.message}`);
+        }
+      } else {
+        setError(`Error desconocido al actualizar datos. Intente recargar la página.`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [getAccountNumber, getDataFromLocalStorage, processData, dateRange]);
+
+  // Nueva función para verificar si los datos están obsoletos
+  const areDataStale = useCallback(() => {
+    // Si no hay datos, se consideran obsoletos
+    if (!rawData || !processedData) return true;
+    
+    // Obtener la marca de tiempo de la última actualización
+    const lastUpdateTime = localStorage.getItem(LAST_UPDATE_TIME_KEY);
+    if (!lastUpdateTime) return true;
+    
+    // Convertir a número
+    const lastUpdateTimeNum = parseInt(lastUpdateTime, 10);
+    if (isNaN(lastUpdateTimeNum)) return true;
+    
+    // Si han pasado más de 5 minutos desde la última actualización, considerar los datos obsoletos
+    const fiveMinutesInMs = 5 * 60 * 1000;
+    const isOlderThanThreshold = Date.now() - lastUpdateTimeNum > fiveMinutesInMs;
+    
+    if (isOlderThanThreshold) {
+      return true;
+    }
+    
+    return false;
+  }, [rawData, processedData]);
+  
+  // Función para forzar una actualización si los datos están obsoletos
+  const refreshIfStale = useCallback(() => {
+    if (areDataStale()) {
+      refreshData();
+      return true;
+    }
+    return false;
+  }, [areDataStale, refreshData]);
+  
+  // Monitorear periodos de inactividad
+  useEffect(() => {
+    // Función para manejar eventos cuando el usuario regresa a la página
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshIfStale();
+      }
+    };
+    
+    // Añadir event listener para visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Cleanup
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshIfStale]);
+  
+  // Modificar también handleDateRangeChange para usar refreshIfStale
+  const handleDateRangeChange = (newRange: DateRange) => {
+    
+    // Detectar si es un cambio real de fechas o si es el mismo rango
+    const isSameRange = 
+      newRange.startDate.getTime() === dateRange.startDate.getTime() && 
+      newRange.endDate.getTime() === dateRange.endDate.getTime();
+      
+    if (isSameRange) {
+    }
+    
+    // Verificar si los datos están obsoletos antes de procesar
+    const wasStale = refreshIfStale();
+    
+    // Si los datos estaban obsoletos y se forzó una actualización, solo cambiar el rango
+    // El refreshData ya se encargará de procesar los datos con el nuevo rango
+    if (wasStale) {
+      setDateRange(newRange);
+      return newRange;
+    }
+    
+    // Actualizar el estado del rango de fechas
+    setDateRange(newRange);
+    
+    // Forzar un timestamp nuevo para garantizar actualizaciones en componentes
+    setLastDataTimestamp(Date.now());
+    
+    // Procesar los datos existentes con el nuevo rango sin hacer una nueva solicitud al backend
+    if (rawData) {
+      try {
+        // Mostrar el total de trades en el rawData para diagnóstico
+        const totalHistoryItems = rawData.history ? rawData.history.length : 0;
+        
+        // Primero crear una copia de los datos raw para evitar posibles mutaciones
+        const rawDataCopy = {
+          ...rawData,
+          // Si hay arrays, hacer una copia profunda de ellos
+          history: rawData.history ? [...rawData.history] : [],
+          positions: rawData.positions ? [...rawData.positions] : [],
+          statistics: rawData.statistics ? {...rawData.statistics} : {}
+        };
+        
+        // Verificar si existe duplicación de trades en los datos raw
+        if (rawDataCopy.history && rawDataCopy.history.length > 0) {
+          const { uniqueTrades, duplicatesCount } = deduplicateTrades(rawDataCopy.history);
+          
+          if (duplicatesCount > 0) {
+            rawDataCopy.history = uniqueTrades;
+          }
+        }
+        
+        // Establecer una bandera para verificar si se procesaron los datos correctamente
+        let dataProcessedSuccessfully = false;
+        
+        // Procesar los datos con el nuevo rango
+        const processedResult = processData(rawDataCopy, newRange);
+        
+        if (processedResult) {
+          
+          
+          // Actualizar el estado con los datos procesados
+          // Usar objetos nuevos para forzar re-renders en componentes que dependen de estos datos
+          setProcessedData({...processedResult});
+          
+          // Forzar actualización de la UI con un nuevo timestamp
+          setLastDataTimestamp(Date.now());
+          
+          // Guardar en localStorage para otros componentes o refrescos
+          localStorage.setItem(LAST_UPDATE_TIME_KEY, Date.now().toString());
+          
+          dataProcessedSuccessfully = true;
+          
+          // Verificar si necesitamos actualizar posiciones si contienen fechas
+          if (rawData.positions && rawData.positions.length > 0 && 
+              typeof rawData.positions[0].openTime !== 'undefined') {
+            // Filtrar posiciones por fecha si tienen openTime
+            const filteredPositions = rawData.positions.filter((pos: Position) => {
+              if (!pos.openTime) return true; // Si no hay openTime, mantenerla
+              
+              try {
+                let posDate;
+                if (typeof pos.openTime === 'number') {
+                  posDate = new Date(pos.openTime * 1000);
+                } else {
+                  posDate = new Date(pos.openTime);
+                }
+                
+                return posDate >= newRange.startDate && posDate <= newRange.endDate;
+              } catch (e) {
+                console.error("❌ Error filtrando posición por fecha:", e);
+                return true; // En caso de error, mantener la posición
+              }
+            });
+            
+            setPositions([...filteredPositions]);
+          }
+        } else {
+          console.error("❌ Error al procesar datos con nuevo rango");
+        }
+        
+        // Si el procesamiento falló o no ocurrió, intentar refrescar datos completos
+        if (!dataProcessedSuccessfully) {
+          refreshData();
+        }
+      } catch (error) {
+        console.error("❌ Error al cambiar rango de fechas:", error);
+        // Intentar refrescar datos como fallback
+        refreshData();
+      }
+    } else {
+      refreshData();
+    }
+    
+    return newRange;
   };
+
+  // Función para formatear fecha en formato ISO YYYY-MM-DD (para usar en los componentes)
+  const formatDateKey = useCallback((date: Date): string => {
+    try {
+      return date.toISOString().split('T')[0];
+    } catch (e) {
+      return new Date().toISOString().split('T')[0]; // Fallback a fecha actual
+    }
+  }, []);
 
   const value = {
     loading,
@@ -351,10 +1716,22 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     rawData,
     processedData,
     dateRange,
-    setDateRange,
+    setDateRange: handleDateRangeChange,
     availableRanges: DEFAULT_RANGES,
     refreshData,
     positions,
+    // Nuevas propiedades para manejo de múltiples cuentas
+    userAccounts,
+    currentAccount,
+    loadUserAccounts,
+    selectAccount,
+    lastDataTimestamp, // Añadir el timestamp para que los componentes que lo usen puedan re-renderizar
+    // Utilitarios
+    formatDateKey,
+    isDateInRange,
+    // Nuevas funciones para manejar datos obsoletos
+    areDataStale,
+    refreshIfStale
   };
 
   return (

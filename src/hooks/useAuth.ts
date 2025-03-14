@@ -2,6 +2,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
+import { useLogout } from './useLogout';
 
 export const useAuth = () => {
   const supabase = createClientComponentClient();
@@ -9,6 +10,7 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { logout: performLogout } = useLogout();
 
   useEffect(() => {
     const initSession = async () => {
@@ -82,27 +84,8 @@ export const useAuth = () => {
     try {
       setIsLoading(true);
       
-      // Limpiar estado local primero
-      setSession(null);
-      setUser(null);
-      
-      // Limpiar localStorage
-      if (typeof window !== 'undefined') {
-        // Limpiar todos los datos relacionados con Supabase
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('supabase.auth.') || key.includes('supabase')) {
-            localStorage.removeItem(key);
-          }
-        });
-      }
-      
-      // Intentar hacer logout en Supabase, pero no esperar por su resultado
-      supabase.auth.signOut().catch(e => {
-        console.log('Error en signOut de Supabase (ignorado):', e);
-      });
-      
-      // Redirigir inmediatamente sin esperar respuesta
-      router.push('/login');
+      // Utilizar el nuevo hook de logout que maneja la limpieza de localStorage
+      await performLogout();
       
     } catch (error) {
       console.error('Error during sign out:', error);

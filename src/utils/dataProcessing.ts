@@ -17,16 +17,12 @@ export const processTransactionsToDaily = (historyData: any) => {
     tradesToProcess = historyData;
   } else if (historyData && Array.isArray(historyData[0])) {
     // Si es el formato que mostraste: acceder específicamente al primer array [0-99]
-    console.log("Detectado formato de array anidado, usando el primer array");
     tradesToProcess = historyData[0];
   } else if (historyData && historyData.history && Array.isArray(historyData.history[0])) {
     // Si los datos están dentro de una propiedad history
-    console.log("Detectado formato con propiedad history, usando el primer array");
     tradesToProcess = historyData.history[0];
   }
-  
-  console.log(`Procesando ${tradesToProcess.length} transacciones del array correcto`);
-  
+    
   // Procesar cada transacción
   let procesadas = 0;
   
@@ -76,18 +72,11 @@ export const processTransactionsToDaily = (historyData: any) => {
       dailyResults[dateStr].trades += 1;
       procesadas++;
       
-      // Log de depuración para ver qué estamos procesando
-      if (index < 5 || index % 20 === 0) {
-        console.log(`Trade #${index}: ${dateStr}, profit=${profit}, ticket=${trade.ticket}`);
-      }
+    
     } catch (error) {
       console.error(`Error procesando trade #${index}:`, error, trade);
     }
   });
-  
-  console.log(`Procesamiento completado: ${procesadas} transacciones procesadas`);
-  console.log(`Días totales procesados: ${Object.keys(dailyResults).length}`);
-  console.log("Días procesados:", Object.keys(dailyResults));
   
   // Determinar el status (win/loss) para cada día
   Object.keys(dailyResults).forEach(date => {
@@ -115,11 +104,9 @@ export const processTransactionsToDaily = (historyData: any) => {
 // Función de diagnóstico para revisar todas las transacciones
 export const diagnoseDailyResults = (transactions: any[]) => {
   if (!transactions || !Array.isArray(transactions)) {
-    console.log("No hay transacciones para diagnosticar");
     return;
   }
   
-  console.log(`Diagnóstico de ${transactions.length} transacciones`);
   
   // Verificar fechas
   const fechasUnicas = new Set<string>();
@@ -145,20 +132,7 @@ export const diagnoseDailyResults = (transactions: any[]) => {
       fechasInvalidas.push({ index, fecha: trans.time, error: e.message, transaction: trans });
     }
   });
-  
-  console.log("Diagnóstico completado:");
-  console.log(`- Fechas únicas: ${fechasUnicas.size}`);
-  console.log(`- Transacciones sin fecha: ${fechasFaltantes.length}`);
-  console.log(`- Transacciones con fecha inválida: ${fechasInvalidas.length}`);
-  
-  if (fechasFaltantes.length > 0) {
-    console.log("Ejemplo de transacción sin fecha:", fechasFaltantes[0]);
-  }
-  
-  if (fechasInvalidas.length > 0) {
-    console.log("Ejemplo de transacción con fecha inválida:", fechasInvalidas[0]);
-  }
-  
+
   return {
     fechasUnicas: Array.from(fechasUnicas),
     fechasFaltantes,

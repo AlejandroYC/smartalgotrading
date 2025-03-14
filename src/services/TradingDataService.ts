@@ -63,11 +63,9 @@ export class TradingDataService {
       return null;
     }
     
-    console.log("TradingDataService: Procesando datos de cuenta:", accountData);
     
     // Si ya tenemos estadísticas procesadas, usarlas directamente
     if (accountData.statistics) {
-      console.log("TradingDataService: Usando estadísticas existentes");
       
       return {
         // Información de cuenta
@@ -104,7 +102,6 @@ export class TradingDataService {
     }
     
     // Si no hay estadísticas, calcularlas a partir de los trades
-    console.log("TradingDataService: Calculando estadísticas desde los trades");
     
     return this.calculateMetricsFromTrades(accountData);
   }

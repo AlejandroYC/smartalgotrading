@@ -15,12 +15,7 @@ interface ProgressTrackerSimpleProps {
 const ProgressTrackerSimple: React.FC<ProgressTrackerSimpleProps> = ({ dailyResults = {} }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   
-  // Mostrar datos de depuración
-  console.log("ProgressTrackerSimple recibió datos:", {
-    diasTotales: Object.keys(dailyResults).length,
-    primerDia: Object.keys(dailyResults).length > 0 ? Object.keys(dailyResults)[0] : 'ninguno',
-    mesSeleccionado: format(selectedMonth, 'yyyy-MM')
-  });
+
   
   // Generar el calendario
   const generateCalendar = () => {

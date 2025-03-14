@@ -49,19 +49,7 @@ const TradingCalendar: React.FC = () => {
 
     // IMPORTANTE: Utilizar daily_results para mantener consistencia con otros componentes
     if (!processedData?.daily_results || !processedData?.rawTrades) {
-      console.log('No hay datos disponibles para procesar');
       return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
-    }
-
-    if (process.env.NODE_ENV === 'development') {
-      console.group('🔍 DEBUG TRADING CALENDAR - FUENTE DE DATOS');
-      console.log('Usando processedData.daily_results como fuente primaria de datos');
-      console.log('Total días disponibles:', Object.keys(processedData.daily_results).length);
-      
-      // Ver si podemos usar el método centralizado
-      if (typeof processedData.calculateTotalPL === 'function') {
-        console.log('Método calculateTotalPL disponible:', processedData.calculateTotalPL());
-      }
     }
 
     // CAMBIO IMPORTANTE: Usar los daily_results para las estadísticas diarias para mantener consistencia
@@ -146,19 +134,6 @@ const TradingCalendar: React.FC = () => {
       }
     });
     
-    // Cerrar el grupo de consola al final
-    if (process.env.NODE_ENV === 'development') {
-      // Verificar consistencia con el contexto
-      console.log(`🧮 Total P&L calculado en calendario: ${totalCalendarPL.toFixed(2)}`);
-      console.log(`🧮 Total P&L en el contexto: ${processedData.net_profit ? processedData.net_profit.toFixed(2) : 'N/A'}`);
-      
-      // Verificar si tenemos el método centralizado
-      if (typeof processedData.calculateTotalPL === 'function') {
-        console.log(`🧮 Total P&L usando método centralizado: ${processedData.calculateTotalPL().toFixed(2)}`);
-      }
-      
-      console.groupEnd();
-    }
 
     return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
   }, [processedData]);
@@ -237,28 +212,18 @@ const TradingCalendar: React.FC = () => {
     // Solo ejecutar si tenemos datos procesados
     if (!processedData || !processedData.daily_results) return;
     
-    console.group('🔄 COMPARACIÓN DE CÁLCULOS DE P&L CALENDARIO');
     
     // 1. Verificar consistencia con el contexto
     let contextTotal;
     if (typeof processedData.calculateTotalPL === 'function') {
       contextTotal = processedData.calculateTotalPL();
-      console.log('P&L Total según método centralizado:', contextTotal.toFixed(2));
+    
     } else {
       contextTotal = processedData.net_profit;
-      console.log('P&L Total según contexto (net_profit):', contextTotal.toFixed(2));
+
     }
     
-    // 2. Total calculado en el calendario (ahora debería ser igual)
-    console.log('P&L Total calculado en calendario:', totalCalendarPL.toFixed(2));
-    
-    // 3. Diferencia
-    const difference = Math.abs(totalCalendarPL - contextTotal);
-    console.log(`Diferencia: ${difference.toFixed(2)} ${difference < 0.01 ? '✅' : '❌'}`);
-    
-    // 4. Verificar si tenemos problemas con días específicos
-    console.log('Verificando días con posibles problemas:');
-    
+ 
     // Buscar días con estadísticas inconsistentes
     let inconsistentDays = 0;
     
@@ -276,11 +241,7 @@ const TradingCalendar: React.FC = () => {
       }
     });
     
-    if (inconsistentDays === 0) {
-      console.log('✅ Todos los días tienen valores consistentes con el contexto');
-    } else {
-      console.warn(`⚠️ Se encontraron ${inconsistentDays} días con valores inconsistentes`);
-    }
+ 
     
     console.groupEnd();
   }, [processedData, dailyStats, totalCalendarPL]);
@@ -302,24 +263,7 @@ const TradingCalendar: React.FC = () => {
     const dayTrades = tradesByDate.get(dateStr);
     if (!dayTrades || dayTrades.length === 0) return;
 
-    // Log de diagnóstico para entender la discrepancia
-    if (process.env.NODE_ENV === 'development') {
-      console.group(`🔍 DIAGNÓSTICO DE TRADES PARA ${dateStr}`);
-      console.log(`Trades según daily_results (stats.trades): ${stats.trades}`);
-      console.log(`Trades encontrados en rawTrades (dayTrades.length): ${dayTrades.length}`);
-      
-      if (stats.trades !== dayTrades.length) {
-        console.warn(`⚠️ DISCREPANCIA DETECTADA: La diferencia es de ${stats.trades - dayTrades.length} trades`);
-        console.log('Posibles causas:');
-        console.log('1. Los trades en rawTrades pueden estar filtrados o deduplicados de manera diferente');
-        console.log('2. daily_results puede contener datos precalculados que no coinciden exactamente con los trades disponibles');
-        console.log('3. Algunos trades pueden haberse perdido durante el filtrado por fecha');
-      } else {
-        console.log('✅ El número de trades coincide perfectamente');
-      }
-      
-      console.groupEnd();
-    }
+  
 
     // Establecer los detalles del día seleccionado
     // Usar parseISO en lugar de new Date para evitar problemas de zona horaria
@@ -345,10 +289,7 @@ const TradingCalendar: React.FC = () => {
     const formattedDate = `${diasSemana[fecha.getDay()]}, ${meses[fecha.getMonth()]} ${fecha.getDate()}, ${fecha.getFullYear()}`;
     
     // Para propósitos de depuración, mostrar la fecha original en desarrollo
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Modal fecha seleccionada:', selectedDayDetails.date);
-      console.log('Modal fecha formateada:', formattedDate);
-    }
+ 
     
     const { stats, trades } = selectedDayDetails;
 
@@ -500,7 +441,7 @@ const TradingCalendar: React.FC = () => {
             <button 
               onClick={() => {
                 // Implementar lógica para ver más detalles si es necesario
-                console.log('Ver más detalles de', formattedDate);
+     
               }}
               className="px-3 py-1 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
             >

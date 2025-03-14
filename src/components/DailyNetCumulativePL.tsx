@@ -61,27 +61,20 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ dailyResult
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
     
-    console.group('🔍 DEBUG DAILY NET CUMULATIVE P&L');
-    console.log('Usando dailyResults como fuente primaria de datos');
-    
     // Verificar si tenemos el método centralizado
     if (typeof (dailyResults as any).calculateTotalPL === 'function') {
       const centralTotal = (dailyResults as any).calculateTotalPL();
-      console.log('Total desde método centralizado:', centralTotal.toFixed(2));
+
     }
     
     // Total calculado por el gráfico (último valor acumulado)
     if (chartData.length > 0) {
-      console.log('Total acumulado final en gráfico:', chartData[chartData.length - 1].value.toFixed(2));
-      console.log('Total en datos de entrada:', 
-        Object.values(dailyResults).reduce((sum: number, day: any) => {
-          const profit = typeof day.profit === 'string' ? parseFloat(day.profit) : day.profit;
-          return sum + profit;
-        }, 0).toFixed(2)
-      );
+      Object.values(dailyResults).reduce((sum: number, day: any) => {
+        const profit = typeof day.profit === 'string' ? parseFloat(day.profit) : day.profit;
+        return sum + profit;
+      }, 0).toFixed(2)
     }
     
-    console.groupEnd();
   }, [dailyResults, chartData]);
 
   if (chartData.length === 0) {

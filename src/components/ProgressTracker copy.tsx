@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format, parseISO, startOfMonth, endOfMonth, addDays, subMonths, addMonths } from 'date-fns';
+import { DailyResult } from '@/services/TradingDataService';
 
 // Versión protegida contra errores
 const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayClick }) => {
@@ -7,16 +8,7 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [processedResults, setProcessedResults] = useState({});
   
-  // Verificar si hay datos y mostrar información de depuración
-  useEffect(() => {
-    console.log("ProgressTracker recibió: ", {
-      accountData,
-      propDailyResults,
-      hasDailyResults: !!accountData?.statistics?.daily_results || !!propDailyResults,
-      dailyResultsKeys: Object.keys(accountData?.statistics?.daily_results || propDailyResults || {})
-    });
-  }, [accountData, propDailyResults]);
-  
+
   // Si no hay datos, mostrar mensaje
   const hasData = !!(
     (accountData?.statistics?.daily_results && Object.keys(accountData.statistics.daily_results).length > 0) ||
@@ -37,40 +29,30 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
   
   // Procesar los datos al cargar el componente
   useEffect(() => {
-    // Obtener los datos desde accountData o propDailyResults
     const dailyData = accountData?.statistics?.daily_results || propDailyResults || {};
     
-    // Extraer todos los meses únicos disponibles en los datos
     const months = new Set<string>();
     Object.keys(dailyData).forEach(dateStr => {
-      const month = dateStr.substring(0, 7); // yyyy-MM
+      const month = dateStr.substring(0, 7);
       months.add(month);
     });
     
     const sortedMonths = Array.from(months).sort();
     setAvailableMonths(sortedMonths);
     
-    // Si hay meses disponibles y ninguno coincide con el mes seleccionado actualmente,
-    // cambiar al mes más reciente con datos
     if (sortedMonths.length > 0) {
       const currentMonthStr = format(selectedMonth, 'yyyy-MM');
       if (!sortedMonths.includes(currentMonthStr)) {
-        // Usar el mes más reciente (último en la lista ordenada)
         const latestMonth = sortedMonths[sortedMonths.length - 1];
         const [year, month] = latestMonth.split('-').map(Number);
-        setSelectedMonth(new Date(year, month - 1, 1)); // Mes es 0-indexado en Date
+        setSelectedMonth(new Date(year, month - 1, 1));
       }
     }
-    
-    console.log("Meses disponibles:", sortedMonths);
-    console.log("Mes seleccionado:", format(selectedMonth, 'yyyy-MM'));
-    console.log("Total de días con datos:", Object.keys(dailyData).length);
   }, [accountData, propDailyResults, selectedMonth]);
   
   // Procesar los datos cuando cambien
   useEffect(() => {
-    console.log("ProgressTracker recibió accountData:", accountData);
-    console.log("ProgressTracker recibió dailyResults:", propDailyResults);
+   
     
     // Objeto para almacenar resultados
     const results = {};
@@ -78,16 +60,13 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
     try {
       // Intentar obtener daily_results de accountData
       if (accountData?.statistics?.daily_results) {
-        console.log("Usando daily_results de accountData");
         Object.assign(results, accountData.statistics.daily_results);
       } 
       // Si no, intentar usar propDailyResults
       else if (propDailyResults) {
-        console.log("Usando propDailyResults");
         Object.assign(results, propDailyResults);
       }
       
-      console.log("Resultados procesados:", results);
     } catch (error) {
       console.error("Error procesando resultados:", error);
     }
@@ -97,26 +76,19 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
   
   // Dentro del useEffect que procesa los datos
   useEffect(() => {
-    console.log("ProgressTracker - fechas disponibles:", 
-      Object.keys(accountData?.statistics?.daily_results || propDailyResults || {}));
-    console.log("ProgressTracker - mes seleccionado:", format(selectedMonth, 'yyyy-MM'));
+   
   }, [accountData, propDailyResults, selectedMonth]);
   
   // Generar el calendario
   const generateCalendar = useCallback(() => {
-    console.log("Generando calendario para mes:", format(selectedMonth, 'yyyy-MM'));
-    console.log("Datos diarios disponibles:", processedResults);
-    
     const results = processedResults;
     const start = startOfMonth(selectedMonth);
     const end = endOfMonth(selectedMonth);
     const days: Array<{ date: Date; data?: DailyResult }> = [];
 
-    // Preparar datos diarios en un mapa para acceso rápido
     const resultsByDate = results.reduce((acc, day) => {
       try {
         const dateStr = format(day.date, 'yyyy-MM-dd');
-        console.log("Día procesado:", dateStr, day);
         acc[dateStr] = {
           profit: day.profit,
           trades: day.trades,
@@ -128,16 +100,10 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
       return acc;
     }, {} as DailyResults);
 
-    console.log("Mapa de resultados por fecha:", resultsByDate);
-
     let current = start;
     while (current <= end) {
       const dateStr = format(current, 'yyyy-MM-dd');
       const dayData = resultsByDate[dateStr];
-      
-      if (dayData) {
-        console.log("Encontrado dato para:", dateStr, dayData);
-      }
       
       days.push({
         date: new Date(current),
@@ -156,8 +122,7 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
     const dateStr = format(day.date, 'yyyy-MM-dd');
     const hasData = !!day.data;
     
-    // Simplificar la lógica de colores para depuración
-    let bgColor = 'bg-gray-100'; // Default (sin datos)
+    let bgColor = 'bg-gray-100';
     let textColor = 'text-gray-600';
     let profitText = '';
     
@@ -176,10 +141,7 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
     return (
       <button
         key={dateStr}
-        onClick={() => {
-          console.log("Día clickeado:", dateStr, day.data);
-          hasData && onDayClick?.(dateStr);
-        }}
+        onClick={() => hasData && onDayClick?.(dateStr)}
         className={`
           w-full h-12 rounded-md 
           ${bgColor}

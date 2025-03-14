@@ -646,15 +646,6 @@ const StatCard: React.FC<StatCardProps> = ({
     );
   };
 
-  // Debug (opcional): Mostrar en consola cuando hay discrepancia
-  if (variant === 'day-winrate') {
-    const calculatedPercentage = calculateDayWinRate();
-    const providedValue = typeof value === 'number' ? value : parseFloat(String(value));
-    if (Math.abs(calculatedPercentage - providedValue) > 0.01) {
-      console.log(`Day Win Rate - Valor proporcionado: ${providedValue.toFixed(2)}%, Valor calculado: ${calculatedPercentage.toFixed(2)}%`);
-      console.log(`Wins: ${wins}, Losses: ${losses}, Draws: ${draws}, Total: ${wins + losses + draws}`);
-    }
-  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 text-black">

@@ -18,44 +18,20 @@ const TradeTimePerformance: React.FC = () => {
   const tradePoints = useMemo(() => {
     if (!processedData?.rawTrades) return [];
 
-    // Filtrar trades válidos
     const validTrades = processedData.rawTrades.filter((trade: any) => {
       return trade && trade.time && trade.profit !== undefined;
     });
 
-    // Log de diagnóstico en modo desarrollo
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`🔍 TradeTimePerformance: Procesando ${validTrades.length} trades válidos`);
-      if (validTrades.length > 0) {
-        console.log('Ejemplo de trade:', validTrades[0]);
-      }
-    }
-
-    // Convertir trades a puntos para el gráfico
     return validTrades.map((trade: any) => {
       try {
-        // Normalizar el timestamp a un objeto Date
         let date;
         if (typeof trade.time === 'number') {
-          // Si es timestamp en segundos, convertir a milisegundos
           const timestamp = trade.time > 10000000000 ? trade.time : trade.time * 1000;
           date = new Date(timestamp);
         } else {
-          // Si es string, parsear directamente
           date = new Date(trade.time);
         }
 
-        // Debug log
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Processing trade:', {
-            originalTime: trade.time,
-            parsedDate: date.toISOString(),
-            hour: date.getHours(),
-            minutes: date.getMinutes()
-          });
-        }
-
-        // Ajustar al año actual si es necesario
         const currentYear = new Date().getFullYear();
         if (date.getFullYear() > currentYear) {
           date.setFullYear(currentYear);
@@ -75,53 +51,18 @@ const TradeTimePerformance: React.FC = () => {
     }).filter(point => point !== null) as TradePoint[];
   }, [processedData?.rawTrades]);
 
-  // Añadir log de diagnóstico
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    
-    console.group('🔍 DEBUG TRADE TIME PERFORMANCE');
-    console.log(`Total de puntos para gráfico: ${tradePoints.length}`);
-    
-    if (tradePoints.length > 0) {
-      console.log('Muestra de trades procesados:');
-      tradePoints.slice(0, 5).forEach((point: TradePoint) => {
-        console.log({
-          hour: point.hour,
-          formattedTime: format(point.timestamp, 'HH:mm:ss'),
-          profit: point.profit,
-          symbol: point.symbol,
-          ticket: point.ticket
-        });
-      });
-    }
-    
-    // Analizar distribución por horas
-    const hourDistribution = new Map<number, {count: number, profit: number}>();
+  const hourDistribution = useMemo(() => {
+    const distribution = new Map<number, {count: number, profit: number}>();
     tradePoints.forEach((point: TradePoint) => {
       const hour = Math.floor(point.hour);
-      if (!hourDistribution.has(hour)) {
-        hourDistribution.set(hour, {count: 0, profit: 0});
+      if (!distribution.has(hour)) {
+        distribution.set(hour, {count: 0, profit: 0});
       }
-      const data = hourDistribution.get(hour)!;
+      const data = distribution.get(hour)!;
       data.count++;
       data.profit += point.profit;
     });
-    
-    console.log('Distribución de trades por hora:');
-    Array.from(hourDistribution.entries())
-      .sort(([hourA], [hourB]) => hourA - hourB)
-      .forEach(([hour, data]) => {
-        console.log(`${hour}:00 - ${data.count} trades, P&L: $${data.profit.toFixed(2)}`);
-      });
-    
-    // Verificar trades ganadores vs perdedores
-    const winners = tradePoints.filter((point: TradePoint) => point.profit > 0);
-    const losers = tradePoints.filter((point: TradePoint) => point.profit < 0);
-    
-    console.log(`Trades ganadores: ${winners.length} (${(winners.length / tradePoints.length * 100).toFixed(1)}%)`);
-    console.log(`Trades perdedores: ${losers.length} (${(losers.length / tradePoints.length * 100).toFixed(1)}%)`);
-    
-    console.groupEnd();
+    return distribution;
   }, [tradePoints]);
 
   const CustomTooltip = ({ active, payload }: any) => {

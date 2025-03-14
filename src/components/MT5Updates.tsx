@@ -30,14 +30,10 @@ export const MT5Updates = ({ userId, connectionId, MT5_API_URL, onUpdate }: MT5U
 
       const data = await response.json();
       if (!data.success) {
-        console.error('❌ Connection failed:', data.error);
         return false;
       }
-
-      console.log('✅ MT5 Connected successfully');
       return true;
     } catch (error) {
-      console.error('❌ Connection error:', error);
       return false;
     }
   };
@@ -51,7 +47,6 @@ export const MT5Updates = ({ userId, connectionId, MT5_API_URL, onUpdate }: MT5U
       const data = await response.json();
       
       if (!data.success) {
-        console.error('❌ Server error:', data.error, 'Code:', data.code);
         
         if (data.code === 'NO_CONNECTION') {
           setStatus('loading');
@@ -67,11 +62,7 @@ export const MT5Updates = ({ userId, connectionId, MT5_API_URL, onUpdate }: MT5U
         return;
       }
 
-      console.log('📊 MT5 Data Update:', {
-        trades: data.data.total_trades,
-        balance: data.data.balance,
-        timestamp: new Date().toLocaleTimeString()
-      });
+      
       
       setLastUpdate(new Date().toLocaleTimeString());
       setUpdateCount(prev => prev + 1);
@@ -79,7 +70,6 @@ export const MT5Updates = ({ userId, connectionId, MT5_API_URL, onUpdate }: MT5U
       onUpdate?.(data.data);
       
     } catch (err) {
-      console.error('❌ Error fetching account info:', err);
       setStatus('error');
     }
   };

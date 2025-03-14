@@ -35,10 +35,8 @@ export function useMTConnections() {
         displayName: conn.login ? `MT5 ${conn.login}` : 'MT5 undefined'
       }));
 
-      console.log('MT5 Connections loaded:', formattedConnections);
       setConnections(formattedConnections);
     } catch (err) {
-      console.error('Error loading MT5 connections:', err);
       setError(err instanceof Error ? err.message : 'Failed to load connections');
       setConnections([]);
     } finally {
