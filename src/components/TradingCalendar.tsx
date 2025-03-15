@@ -95,13 +95,20 @@ const TradingCalendar: React.FC = () => {
       
       // Calcular estadísticas adicionales a partir de los trades
       if (dayTrades.length > 0) {
-        dayStats.winningTrades = dayTrades.filter((t: any) => t.profit > 0).length;
-        dayStats.losingTrades = dayTrades.filter((t: any) => t.profit < 0).length;
-      dayStats.winRate = dayStats.trades > 0 
-        ? (dayStats.winningTrades / dayStats.trades) * 100 
-        : 0;
-      
-        // Guardar los trades para visualización detallada
+        // Filtrar trades con P&L distinto de cero para estadísticas más relevantes
+        const nonZeroTrades = dayTrades.filter((t: any) => parseFloat(String(t.profit || 0)) !== 0);
+        
+        // Actualizar el contador de operaciones para mostrar solo las relevantes
+        dayStats.trades = nonZeroTrades.length;
+        
+        // Calcular estadísticas solo con operaciones relevantes (no cero)
+        dayStats.winningTrades = nonZeroTrades.filter((t: any) => parseFloat(String(t.profit || 0)) > 0).length;
+        dayStats.losingTrades = nonZeroTrades.filter((t: any) => parseFloat(String(t.profit || 0)) < 0).length;
+        dayStats.winRate = dayStats.trades > 0 
+          ? (dayStats.winningTrades / dayStats.trades) * 100 
+          : 0;
+        
+        // Guardar todos los trades para poder filtrar después en el modal
         tradesByDate.set(dateStr, dayTrades);
       }
       
@@ -263,14 +270,32 @@ const TradingCalendar: React.FC = () => {
     const dayTrades = tradesByDate.get(dateStr);
     if (!dayTrades || dayTrades.length === 0) return;
 
-  
+    // Filtrar trades con P&L distinto de cero
+    const nonZeroTrades = dayTrades.filter(trade => {
+      const profit = parseFloat(String(trade.profit || 0));
+      return profit !== 0;
+    });
 
-    // Establecer los detalles del día seleccionado
-    // Usar parseISO en lugar de new Date para evitar problemas de zona horaria
+    // Si después de filtrar no quedan trades, mostrar mensaje o no abrir el modal
+    if (nonZeroTrades.length === 0) {
+      alert('No hay operaciones con P&L distinto de cero para este día.');
+      return;
+    }
+
+    // Recalcular estadísticas excluyendo los trades con valor 0
+    const filteredStats = {...stats};
+    filteredStats.trades = nonZeroTrades.length;
+    filteredStats.winningTrades = nonZeroTrades.filter(t => parseFloat(String(t.profit || 0)) > 0).length;
+    filteredStats.losingTrades = nonZeroTrades.filter(t => parseFloat(String(t.profit || 0)) < 0).length;
+    filteredStats.winRate = filteredStats.trades > 0 
+      ? (filteredStats.winningTrades / filteredStats.trades) * 100 
+      : 0;
+
+    // Establecer los detalles del día seleccionado con los trades filtrados
     setSelectedDayDetails({
       date: parseISO(dateStr),
-      stats,
-      trades: dayTrades
+      stats: filteredStats,
+      trades: nonZeroTrades
     });
 
     // Abrir el modal
@@ -298,7 +323,10 @@ const TradingCalendar: React.FC = () => {
     const winRateColor = stats.winRate >= 50 ? 'text-green-600' : 'text-amber-600';
 
     // Verificar si hay discrepancia entre el número de trades
-    const hasTradeCountDiscrepancy = stats.trades !== trades.length;
+    const totalOriginalTrades = trades.length;
+    const totalNonZeroTrades = trades.filter(t => parseFloat(String(t.profit || 0)) !== 0).length;
+    // La discrepancia ahora se verifica contra el conteo filtrado
+    const hasTradeCountDiscrepancy = stats.trades !== totalNonZeroTrades || totalOriginalTrades > totalNonZeroTrades;
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 text-black">
@@ -333,10 +361,9 @@ const TradingCalendar: React.FC = () => {
                   <h3 className="text-sm font-medium text-amber-800">Nota sobre los datos</h3>
                   <div className="mt-1 text-sm text-amber-700">
                     <p>
-                      Hay una discrepancia entre el número de operaciones registradas ({stats.trades}) y 
-                      las operaciones mostradas en la tabla ({trades.length}). Esto puede deberse a 
-                      diferencias en el procesamiento de datos o a operaciones que no están disponibles 
-                      en el conjunto de datos actual.
+                      La discrepancia entre el número de operaciones registradas y 
+                      las mostradas se debe a que se están excluyendo las operaciones con P&L = $0.00 para 
+                      una visualización más relevante de tus resultados.
                     </p>
                   </div>
                 </div>
@@ -545,7 +572,7 @@ const TradingCalendar: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-black">Calendario de Trading</h2>
+        <h2 className="text-3xl font-bold text-black">Calendario de Trading</h2>
         <div className="flex items-center space-x-4">
           <button 
             onClick={goToCurrentMonth}

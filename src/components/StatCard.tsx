@@ -274,7 +274,7 @@ const StatCard: React.FC<StatCardProps> = ({
         </div>
         
         <div className="flex items-center justify-between">
-          <div className="text-2xl font-bold text-slate-800">
+          <div className="text-3xl font-bold text-slate-800">
             {formatValue()}
           </div>
           {renderProfitFactorChart()}
@@ -512,8 +512,8 @@ const StatCard: React.FC<StatCardProps> = ({
             </div>
             <div className="text-xs text-gray-500">{totalTrades}</div>
           </div>
-          <div className="flex items-center justify-between">
-            <div className={`text-2xl font-bold ${getValueColor()}`}>
+          <div className="flex items-center justify-between mt-7">
+            <div className={`text-3xl font-bold ${getValueColor()}`}>
               {prefix}{formatValue()}{suffix}
             </div>
             <div className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
@@ -551,7 +551,7 @@ const StatCard: React.FC<StatCardProps> = ({
           </div>
           
           <div className="flex items-center justify-between">
-            <div className="text-2xl font-bold text-slate-800">
+            <div className="text-3xl font-bold text-slate-800">
               {/* Usar el valor calculado según el tipo */}
               {prefix}
               {variant === 'day-winrate' ? calculateDayWinRate().toFixed(2) : calculateWinRate().toFixed(2)}
@@ -637,7 +637,7 @@ const StatCard: React.FC<StatCardProps> = ({
         </div>
         
         <div className="flex items-center justify-between">
-          <div className={`text-2xl font-bold ${getValueColor()}`}>
+          <div className={`text-3xl font-bold ${getValueColor()}`}>
             {prefix}{formatValue()}{suffix}
           </div>
           {renderChart()}

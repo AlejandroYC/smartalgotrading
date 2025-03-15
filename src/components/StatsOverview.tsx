@@ -50,7 +50,7 @@ const StatsOverview: React.FC = () => {
     : 2.00; // Valor por defecto si no hay suficientes datos
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8 text-3xl">
       <StatCard 
         title={`Net P&L (${dateRange.label})`} 
         value={net_profit}

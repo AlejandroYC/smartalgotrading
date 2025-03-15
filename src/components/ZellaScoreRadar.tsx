@@ -155,7 +155,7 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ className = '' }) => {
     <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-start justify-start">
-          <h1 className="text-2xl text-black font-bold text-left">Zella Score</h1>
+          <h1 className="text-3xl text-black font-bold text-left">Zella Score</h1>
         </div>
 
         <div className="flex items-center">

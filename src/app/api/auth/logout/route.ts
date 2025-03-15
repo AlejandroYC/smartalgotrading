@@ -11,6 +11,7 @@ export async function POST() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
+      console.error('Error al cerrar sesión en Supabase:', error);
       return NextResponse.json(
         { error: error.message },
         { status: 400 }
@@ -23,10 +24,30 @@ export async function POST() {
       message: 'Logged out successfully' 
     });
 
-    // Limpiar cookies estableciendo su tiempo de expiración a 0
-    response.cookies.set('sb-access-token', '', { maxAge: 0 });
-    response.cookies.set('sb-refresh-token', '', { maxAge: 0 });
-    response.cookies.set('token', '', { maxAge: 0 });
+    // Limpiar todas las cookies relacionadas con la autenticación
+    const cookiesToDelete = [
+      'sb-access-token',
+      'sb-refresh-token',
+      'supabase-auth-token',
+      'token',
+      '__client'
+    ];
+    
+    cookiesToDelete.forEach(cookieName => {
+      try {
+        response.cookies.set(cookieName, '', { 
+          maxAge: 0, 
+          path: '/' 
+        });
+      } catch (e) {
+        console.error(`Error al eliminar cookie ${cookieName}:`, e);
+      }
+    });
+    
+    // Asegurar que la respuesta no se almacene en caché
+    response.headers.set('Cache-Control', 'no-store, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
     
     return response;
 

@@ -82,13 +82,20 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
+      console.log('useAuth: iniciando signOut');
       setIsLoading(true);
       
-      // Utilizar el nuevo hook de logout que maneja la limpieza de localStorage
+      // Limpiar el estado de la sesión inmediatamente para evitar navegaciones no deseadas
+      setUser(null);
+      setSession(null);
+      
+      // Utilizar el hook de logout que maneja la limpieza de localStorage y la redirección
       await performLogout();
       
     } catch (error) {
       console.error('Error during sign out:', error);
+      // En caso de error, intentar redirigir manualmente
+      router.push('/login');
     } finally {
       setIsLoading(false);
     }

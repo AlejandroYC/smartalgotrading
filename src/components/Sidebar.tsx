@@ -5,8 +5,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 
 export function Sidebar() {
-  const { user, signOut } = useAuth();  // Cambiado a signOut
+  const { user, signOut } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const menuItems = [
     { icon: '🏠', name: 'Dashboard', href: '/dashboard' },
@@ -19,6 +20,26 @@ export function Sidebar() {
     { icon: '🎬', name: 'Trade Replay', href: '/replay' },
     { icon: '📚', name: 'Resource Center', href: '/resources' },
   ];
+
+  // Función mejorada para manejar el logout
+  const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevenir múltiples clics
+    
+    try {
+      setIsLoggingOut(true);
+      console.log('Sidebar: iniciando logout');
+      
+      // Cerrar el menú de perfil
+      setIsProfileOpen(false);
+      
+      // Ejecutar el proceso de logout
+      await signOut();
+      
+    } catch (error) {
+      console.error('Error en logout desde Sidebar:', error);
+      // No necesitamos restablecer isLoggingOut ya que la página se recargará
+    }
+  };
 
   return (
     <div className="fixed left-0 top-0 h-screen w-64 bg-[#0F1729] text-white">
@@ -85,16 +106,13 @@ export function Sidebar() {
               Profile Settings
             </Link>
             <button
-              onClick={async () => {
-                try {
-                  await signOut();
-                } catch (error) {
-                  console.error('Logout error:', error);
-                }
-              }}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className={`block w-full text-left px-4 py-2 text-sm ${
+                isLoggingOut ? 'text-gray-500' : 'text-gray-300 hover:bg-gray-700'
+              }`}
             >
-              Sign Out
+              {isLoggingOut ? 'Cerrando sesión...' : 'Sign Out'}
             </button>
           </div>
         )}

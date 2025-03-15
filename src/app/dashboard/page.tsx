@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import { useAuth } from '@/hooks/useAuth';
 import ZellaScoreRadar from '@/components/ZellaScoreRadar';
@@ -16,6 +16,8 @@ import StatsOverview from '@/components/StatsOverview';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import DebugDataView from '@/components/DebugDataView';
 import AccountSelector from '@/components/AccountSelector';
+import { FullScreenLoading, LoadingIndicator, ButtonLoading } from '@/components/LoadingIndicator';
+import Link from 'next/link';
 
 // Agregar una bandera para controlar si se muestra la vista de depuración
 const SHOW_DEBUG_VIEW = process.env.NODE_ENV === 'development';
@@ -434,19 +436,75 @@ function DiagnosticPanel() {
   );
 }
 
-// Agregar un componente para mostrar el estado de carga durante el cambio de cuenta
+// Componente mejorado para mostrar el cambio de cuenta
 const AccountChangeIndicator = ({ isChanging, account }: { isChanging: boolean, account: string | null }) => {
   if (!isChanging) return null;
   
   return (
-    <div className="fixed top-0 left-0 right-0 bg-primary/80 text-white py-2 px-4 flex justify-center items-center z-50">
-      <div className="animate-pulse mr-2">
-        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+    <div className="fixed top-0 inset-x-0 z-50">
+      <div className="bg-gradient-to-r from-indigo-600/90 to-purple-600/90 backdrop-blur-md shadow-lg text-white py-3 px-4 flex justify-center items-center">
+        <div className="flex items-center max-w-4xl mx-auto">
+          <div className="mr-4">
+            <LoadingIndicator 
+              type="pulse" 
+              size="sm" 
+              color="secondary" 
+            />
+          </div>
+          <div>
+            <p className="font-medium text-white">
+              Cargando cuenta <span className="font-bold">{account}</span>
+            </p>
+            <p className="text-xs text-white/80 mt-0.5">
+              Estamos preparando tus datos financieros y estadísticas
+            </p>
+          </div>
+        </div>
       </div>
-      <span>Cargando datos para cuenta {account}...</span>
+    </div>
+  );
+};
+
+// Componente mejorado para mostrar el cambio de rango de fechas
+const DateRangeChangeIndicator = ({ isChanging, dateRange }: { 
+  isChanging: boolean, 
+  dateRange: { startDate?: Date, endDate?: Date } | null 
+}) => {
+  if (!isChanging || !dateRange || !dateRange.startDate || !dateRange.endDate) return null;
+
+  // Formatear las fechas para mostrarlas
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const formattedStartDate = formatDate(dateRange.startDate);
+  const formattedEndDate = formatDate(dateRange.endDate);
+  
+  return (
+    <div className="fixed bottom-0 inset-x-0 z-50 mb-4">
+      <div className="max-w-md mx-auto bg-gradient-to-r from-cyan-600/90 to-blue-600/90 backdrop-blur-md rounded-xl shadow-lg text-white py-3 px-4">
+        <div className="flex items-center">
+          <div className="mr-3">
+            <LoadingIndicator 
+              type="dots" 
+              size="sm" 
+              color="secondary" 
+            />
+          </div>
+          <div>
+            <p className="font-medium text-white text-sm">
+              Actualizando periodo de análisis
+            </p>
+            <p className="text-xs text-white/80 mt-0.5">
+              <span className="font-semibold">{formattedStartDate}</span> - <span className="font-semibold">{formattedEndDate}</span>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -478,6 +536,9 @@ export default function Dashboard() {
   const [isChangingAccount, setIsChangingAccount] = useState(false);
   const [selectedAccountNumber, setSelectedAccountNumber] = useState<string | null>(null);
   
+  // Nuevo estado para controlar cuando se está cambiando el rango de fechas
+  const [isChangingDateRange, setIsChangingDateRange] = useState(false);
+  
   // Simplificar la función handleAccountSelect para usar la nueva implementación
   const handleAccountSelect = async (account: string) => {
     if (!account || account === selectedAccountNumber) return;
@@ -486,14 +547,9 @@ export default function Dashboard() {
     setSelectedAccountNumber(account);
     
     try {
-    
-      
       // Usar directamente la función selectAccount mejorada
       await selectAccount(account);
-
     } catch (error) {
-  
-      
       // Informar al usuario sobre el error
       alert(`Error al cambiar de cuenta: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -502,6 +558,23 @@ export default function Dashboard() {
         setIsChangingAccount(false);
       }, 500);
     }
+  };
+
+  // Nueva función para manejar el cambio de rango de fechas
+  const handleDateRangeChange = (range: any) => {
+    setIsChangingDateRange(true);
+    
+    // No necesitamos llamar a setDateRange aquí ya que eso lo hace
+    // internamente el componente DateRangeSelector
+    
+    // Esperamos a que los datos se procesen antes de ocultar el indicador
+    // El tiempo dependerá del volumen de datos y la complejidad del procesamiento
+    const processingTimeout = setTimeout(() => {
+      setIsChangingDateRange(false);
+    }, 1500); // Ajustable según la complejidad del procesamiento
+    
+    // Limpiar el timeout si el componente se desmonta
+    return () => clearTimeout(processingTimeout);
   };
   
   // Efecto para cargar datos iniciales
@@ -555,58 +628,71 @@ export default function Dashboard() {
   }, [user?.id, currentAccount, processedData, userAccounts.length]);
 
   if (loading) {
-    return <div className="p-8">Cargando...</div>;
+    return (
+      <FullScreenLoading 
+        message="Preparando tu Dashboard" 
+        description="Estamos cargando tus datos financieros y análisis de trading..."
+        color="primary"
+        type="wave"
+      />
+    );
   }
 
-  if (error) {
+  if (!loading && error) {
     return (
-      <div className="p-8">
-        <div className="bg-red-50 p-4 rounded-lg border border-red-200 text-red-700">
-          <h3 className="font-semibold text-lg mb-2">Error</h3>
-          <p>{error}</p>
-          
-          {/* Mostrar mensajes adicionales según el tipo de error */}
-          {error.includes('Method Not Allowed') && (
-            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-              <p>
-                <strong>Información técnica:</strong> El servidor espera un método HTTP diferente. 
-                Este es un problema de configuración que debe ser resuelto por el administrador del sistema.
-              </p>
-              <p className="mt-1">
-                Por favor, intenta la opción "Limpiar datos y forzar actualización" en el panel de diagnóstico 
-                o contacta al soporte técnico si el problema persiste.
-              </p>
+      <div className="w-full h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+          <div className="bg-red-600 p-4">
+            <div className="flex items-center justify-center mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             </div>
-          )}
-
-          {error.includes('no existe en el servidor') && (
-            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-              <p>
-                <strong>Sugerencia:</strong> La cuenta seleccionada no está registrada correctamente en el servidor.
-              </p>
-              <p className="mt-1">
-                Verifica que la cuenta esté correctamente configurada en el sistema o selecciona otra cuenta disponible.
-              </p>
-            </div>
-          )}
+            <h3 className="text-lg font-bold text-white text-center">Error al cargar el dashboard</h3>
+          </div>
           
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={refreshData}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition"
-            >
-              Reintentar
-            </button>
-            <button
-              onClick={() => {
-                localStorage.removeItem('smartalgo_last_refresh_time');
-                localStorage.removeItem('smartalgo_last_update_time');
-                window.location.reload();
-              }}
-              className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 transition"
-            >
-              Recargar página
-            </button>
+          <div className="p-6">
+            <p className="text-gray-700 dark:text-gray-300 mb-4">
+              {error === 'no-accounts' && 'No se encontraron cuentas configuradas para este usuario.'}
+              {error === 'no-account-data' && 'No se pudieron obtener datos para la cuenta seleccionada.'}
+              {error === 'account-error' && 'Se produjo un error al cargar los datos de la cuenta.'}
+              {error === 'multiple-errors' && 'Se produjeron múltiples errores al cargar los datos.'}
+              {!['no-accounts', 'no-account-data', 'account-error', 'multiple-errors'].includes(error) && 'Se produjo un error inesperado.'}
+            </p>
+            
+            <div className="flex flex-col space-y-3">
+              <button 
+                onClick={refreshData}
+                className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition duration-200 flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refrescar datos
+              </button>
+              
+              <button 
+                onClick={() => window.location.reload()}
+                className="py-2 px-4 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white rounded-md transition duration-200 flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Recargar página
+              </button>
+              
+              {error === 'no-accounts' && (
+                <Link 
+                  href="/settings/accounts" 
+                  className="py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-md transition duration-200 flex items-center justify-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Configurar cuentas
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -615,7 +701,7 @@ export default function Dashboard() {
 
   if (!processedData) {
     return (
-      <div className="p-8">
+      <div className="p-8 bg-gray-300">
         <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-700">
           <p>No hay datos disponibles para mostrar.</p>
           <div className="mt-4">
@@ -641,9 +727,9 @@ export default function Dashboard() {
   }
   
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+    <div className=" bg-gray-100 text-black">
+      <div className="flex items-center justify-between mb-6 p-8 bg-white">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="flex items-center space-x-3">
           {/* Selector de cuentas */}
           {userAccounts.length > 0 && (
@@ -660,11 +746,8 @@ export default function Dashboard() {
           {/* Indicador de actualización */}
           {status.isUpdating && (
             <div className="text-sm text-gray-600 flex items-center">
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Actualizando...
+              <ButtonLoading color="primary" className="mr-2" />
+              <span>Actualizando...</span>
             </div>
           )}
           
@@ -731,31 +814,35 @@ export default function Dashboard() {
             Actualizar datos
           </button>
           
-          <DateRangeSelector />
+          <div onClick={(e) => e.stopPropagation()}>
+            <DateRangeSelector onDateRangeChange={handleDateRangeChange} />
+          </div>
         </div>
       </div>
 
       {status.error && (
-        <div className="mb-4 p-2 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+        <div className="mb-4 pr-8 bg-red-50 border border-red-200 text-red-700 rounded text-sm ">
           Error: {status.error}
         </div>
       )}
       
       {status.lastUpdate && (
-        <div className="text-xs text-gray-500 mb-4">
+        <div className="text-xs text-gray-500 mb-4 pr-8 pl-8">
           Última actualización: {status.lastUpdate.toLocaleString()}
         </div>
       )}
 
-      <div className="text-sm text-gray-500 mb-4">
+      <div className="text-sm text-gray-500 mb-4 pr-8 pl-8">
         Mostrando datos del {dateRange.startDate.toLocaleDateString()} al {dateRange.endDate.toLocaleDateString()}
       </div>
       
       {/* Estadísticas básicas */}
-      <StatsOverview />
+      <div className="pr-8 pl-8">
+        <StatsOverview />
+      </div>
       
       {/* ZellaScore y otros componentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pr-8 pl-8">
         <ZellaScoreRadar />
         <div className="">
           <ProgressTrackerNew 
@@ -782,13 +869,17 @@ export default function Dashboard() {
         </div>
       </div>
       
-      <div className="flex flex-col gap-4 w-3/4 mt-4">
+      <div className="flex flex-col gap-4 w-3/4 p-8">
         <div className="w-full">
           <TradingCalendar />
         </div>
       </div>
 
       <AccountChangeIndicator isChanging={isChangingAccount} account={selectedAccountNumber} />
+      <DateRangeChangeIndicator 
+        isChanging={isChangingDateRange} 
+        dateRange={dateRange} 
+      />
     </div>
   );
 } 

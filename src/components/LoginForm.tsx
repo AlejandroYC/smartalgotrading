@@ -3,8 +3,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
+import { LoadingIndicator } from './LoadingIndicator';
 
-export function LoginForm() {
+interface LoginFormProps {
+  onLoadingStart?: () => void;
+  onLoadingEnd?: () => void;
+}
+
+export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,18 +23,20 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    onLoadingStart?.(); // Notificar al componente padre que ha comenzado la carga
 
     try {
       await signIn(email, password);
       router.push('/dashboard'); // O donde quieras redirigir después del login
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al ingresar');
+      onLoadingEnd?.(); // Notificar al componente padre que ha terminado la carga en caso de error
     } finally {
       setLoading(false);
+      // No llamamos a onLoadingEnd aquí para mantener el indicador de carga
+      // mientras se redirige al dashboard en caso de éxito
     }
   };
-
-
 
   return (
     <div className="space-y-6">
@@ -37,8 +45,6 @@ export function LoginForm() {
           {error}
         </div>
       )}
-
-     
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
@@ -57,7 +63,8 @@ export function LoginForm() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Correo Electronico"
             required
-            className="w-full px-4 py-3 border border-gray-300  text-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+            className="w-full px-4 py-3 border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+            disabled={loading}
           />
         </div>
 
@@ -69,6 +76,7 @@ export function LoginForm() {
             placeholder="Contraseña"
             required
             className="w-full px-4 py-3 border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+            disabled={loading}
           />
           <div className="text-right mt-2">
             <Link
@@ -83,9 +91,29 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+          className={`
+            w-full py-3 rounded-lg 
+            transition-all duration-300
+            flex items-center justify-center relative
+            ${loading 
+              ? 'bg-gradient-to-r from-purple-600 to-purple-700 shadow-inner text-white/90' 
+              : 'bg-gradient-to-r from-purple-500 to-purple-700 shadow-md hover:shadow-lg text-white hover:from-purple-600 hover:to-purple-800'
+            }
+          `}
         >
-          {loading ? 'Signing in...' : 'Ingresar'}
+          {loading ? (
+            <div className="flex items-center">
+              <LoadingIndicator 
+                type="dots" 
+                size="xs" 
+                color="secondary" 
+                className="mr-3"
+              />
+              <span className="font-medium animate-pulse">Accediendo</span>
+            </div>
+          ) : (
+            <span className="font-medium">Ingresar</span>
+          )}
         </button>
       </form>
 

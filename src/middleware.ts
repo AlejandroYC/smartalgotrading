@@ -14,6 +14,27 @@ export async function middleware(req: NextRequest) {
   res.headers.set('Pragma', 'no-cache');
   res.headers.set('Expires', '0');
   
+  // Verificar si la ruta actual es la de logout
+  const isLogoutRoute = req.nextUrl.pathname === '/logout' || req.nextUrl.pathname === '/api/auth/logout';
+  
+  // Si es la ruta de logout, limpiar cookies y redirigir al login
+  if (isLogoutRoute) {
+    const redirectUrl = new URL('/login', req.url);
+    const logoutResponse = NextResponse.redirect(redirectUrl);
+    
+    // Limpiar todas las cookies relacionadas con la sesión
+    logoutResponse.cookies.delete('sb-access-token');
+    logoutResponse.cookies.delete('sb-refresh-token');
+    logoutResponse.cookies.delete('supabase-auth-token');
+    
+    // Configurar encabezados anti-caché
+    logoutResponse.headers.set('Cache-Control', 'no-store, max-age=0');
+    logoutResponse.headers.set('Pragma', 'no-cache');
+    logoutResponse.headers.set('Expires', '0');
+    
+    return logoutResponse;
+  }
+  
   const supabase = createMiddlewareClient({ req, res });
 
   // Obtener la sesión actual
@@ -32,6 +53,7 @@ export async function middleware(req: NextRequest) {
     // Limpiar cookies de sesión para asegurar que no queden residuos
     res.cookies.delete('sb-access-token');
     res.cookies.delete('sb-refresh-token');
+    res.cookies.delete('supabase-auth-token');
     
     // Crear una redirección con encabezados anti-caché
     const redirectUrl = new URL('/login', req.url);
@@ -66,6 +88,8 @@ export const config = {
     '/settings/:path*',
     '/trades/:path*',
     '/login',
-    '/signup'
+    '/signup',
+    '/logout',
+    '/api/auth/logout'
   ],
 }; 

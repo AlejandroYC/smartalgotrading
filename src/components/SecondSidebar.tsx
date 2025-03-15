@@ -4,11 +4,23 @@ import { useAuth } from '@/hooks/useAuth';
 
 const SecondSidebar = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { signOut } = useAuth();
 
   const handleLogout = async () => {
-    await signOut();
-    setIsProfileMenuOpen(false);
+    if (isLoggingOut) return;
+    
+    try {
+      setIsLoggingOut(true);
+      console.log('SecondSidebar: iniciando logout');
+      
+      setIsProfileMenuOpen(false);
+      
+      await signOut();
+      
+    } catch (error) {
+      console.error('Error en logout desde SecondSidebar:', error);
+    }
   };
 
   return (
@@ -88,9 +100,12 @@ const SecondSidebar = () => {
             </Link>
             <button 
               onClick={handleLogout}
-              className="px-4 py-2 text-red-500 hover:bg-gray-700 block w-full text-left"
+              disabled={isLoggingOut}
+              className={`px-4 py-2 text-red-500 hover:bg-gray-700 block w-full text-left ${
+                isLoggingOut ? 'text-gray-500' : ''
+              }`}
             >
-              Logout
+              {isLoggingOut ? 'Saliendo...' : 'Logout'}
             </button>
           </div>
         )}

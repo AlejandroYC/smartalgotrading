@@ -20,6 +20,27 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+/* Delays de animación para elementos secuenciales */
+.animation-delay-100 {
+  animation-delay: 0.1s !important;
+}
+
+.animation-delay-200 {
+  animation-delay: 0.2s !important;
+}
+
+.animation-delay-300 {
+  animation-delay: 0.3s !important;
+}
+
+.animation-delay-400 {
+  animation-delay: 0.4s !important;
+}
+
+.animation-delay-500 {
+  animation-delay: 0.5s !important;
+}
+
 @keyframes floatEmber {
   0% {
     transform: translate(0, 0) rotate(0deg);
