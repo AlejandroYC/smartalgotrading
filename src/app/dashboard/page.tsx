@@ -584,22 +584,26 @@ export default function Dashboard() {
     
     const initializeDashboard = async () => {
       initialized.current = true;
+      console.log('🚀 Inicializando dashboard para usuario:', user.id);
       
       try {
-  
-        
         // Primero cargar las cuentas del usuario
         await loadUserAccounts();
         
-        // Si no hay datos procesados, intentar cargarlos
-        if (!processedData && currentAccount) {
-         
-          
-          // Intentar actualizar manualmente con un breve retraso para evitar loops
-          setTimeout(() => {
-            manualUpdate();
-          }, 1000);
-        }
+        // IMPORTANTE: Forzar una actualización manual inmediata
+        // Limpiar cualquier cache para asegurar datos frescos
+        localStorage.removeItem('smartalgo_last_refresh_time');
+        localStorage.removeItem('smartalgo_last_update_time');
+        
+        console.log('✅ Dashboard inicializado, solicitando actualización inmediata');
+        
+        // Solicitar actualización inmediata con menor retraso
+        setTimeout(() => {
+          if (currentAccount) {
+            console.log('🔄 Actualizando datos para cuenta:', currentAccount);
+            manualUpdate(); 
+          }
+        }, 500); // Reducir a 0.5 segundos (antes era 1 segundo)
       } catch (error) {
         console.error('❌ Error inicializando dashboard:', error);
         // No resetear initialized.current en caso de error para evitar múltiples intentos
@@ -607,7 +611,7 @@ export default function Dashboard() {
     };
 
     initializeDashboard();
-  }, [user?.id, loadUserAccounts, manualUpdate]); // Dependencias mínimas necesarias
+  }, [user?.id, loadUserAccounts, manualUpdate, currentAccount]); // Añadir currentAccount como dependencia
 
   // Log para depuración con más detalles, usando un contador de renderizados
   useEffect(() => {
@@ -832,25 +836,27 @@ export default function Dashboard() {
           {/* Botón de actualización manual */}
           <button 
             onClick={() => {
-             
+              console.log('🔄 Solicitud manual de actualización iniciada por el usuario');
               
               // Limpiar indicadores de tiempo para forzar una actualización completa
               localStorage.removeItem('smartalgo_last_refresh_time');
               localStorage.removeItem('smartalgo_last_update_time');
               
-              // Mostrar toast o alguna indicación visual
-              // (opcional) Puedes agregar alguna librería de toast en el futuro
+              // Mostrar indicación visual de actualización en curso
+              const toastId = Math.random().toString(36).substring(7);
+              // Aquí podrías usar toast.info si tienes una librería de toasts
               
-              // Invocar actualización
+              // Invocar actualización forzada
               manualUpdate();
               
               // Después de un breve retraso, actualizar UI con refreshData
               // Esto es para asegurar que incluso si manualUpdate falla, 
               // al menos intentamos cargar desde localStorage
               setTimeout(() => {
-               
+                console.log('⚡ Forzando actualización de datos en la UI');
                 refreshData();
-              }, 2000);
+                // toast.success("Datos actualizados", { id: toastId });
+              }, 1000);
             }}
             disabled={status.isUpdating}
             className="px-3 py-1 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 transition"
