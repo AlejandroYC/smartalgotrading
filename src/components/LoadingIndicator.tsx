@@ -261,10 +261,10 @@ export const FullScreenLoading: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
       <div className={`absolute inset-0 bg-gradient-to-br ${gradientMap[color]} backdrop-blur-md opacity-90`}></div>
       
-      <div className="relative z-10 flex flex-col items-center justify-center text-white max-w-md mx-auto p-8">
+      <div className="relative z-10 flex flex-col items-center justify-center text-white max-w-md mx-auto p-8 animate-enhanced-pulse">
         <div className="mb-6">
           <LoadingIndicator
             type={type}
@@ -290,6 +290,8 @@ export const FullScreenLoading: React.FC<{
             <span className="h-2 w-2 bg-white rounded-full inline-block animation-delay-100 animate-pulse"></span>
             <span className="h-2 w-2 bg-white rounded-full inline-block ml-1 animation-delay-200 animate-pulse"></span>
             <span className="h-2 w-2 bg-white rounded-full inline-block ml-1 animation-delay-300 animate-pulse"></span>
+            <span className="h-2 w-2 bg-white rounded-full inline-block ml-1 animation-delay-400 animate-pulse"></span>
+            <span className="h-2 w-2 bg-white rounded-full inline-block ml-1 animation-delay-500 animate-pulse"></span>
           </span>
         </div>
       </div>

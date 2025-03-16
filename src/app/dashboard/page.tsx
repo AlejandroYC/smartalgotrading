@@ -521,7 +521,8 @@ export default function Dashboard() {
     userAccounts,
     currentAccount,
     selectAccount,
-    loadUserAccounts
+    loadUserAccounts,
+    hasNoAccounts
   } = useTradingData();
   
   // Refs para controlar inicialización y renderizado
@@ -627,7 +628,49 @@ export default function Dashboard() {
     return () => clearTimeout(resetRenderFlag);
   }, [user?.id, currentAccount, processedData, userAccounts.length]);
 
-  if (loading) {
+  // Mostrar mensaje elegante cuando el usuario no tiene cuentas
+  if (hasNoAccounts) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex items-center justify-between p-6 bg-white shadow-sm">
+          <h1 className="text-2xl font-bold text-gray-800">SmartAlgoTrading</h1>
+        </div>
+        
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="max-w-lg w-full bg-white rounded-xl shadow-md overflow-hidden">
+            <div className="p-8">
+              <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              
+              <h2 className="text-xl font-semibold text-center mb-2 text-gray-800">Bienvenido a tu Dashboard</h2>
+              
+              <p className="text-gray-600 text-center mb-6">
+                Para comenzar a utilizar el dashboard, necesitas conectar una cuenta de MetaTrader 5.
+              </p>
+              
+              <div className="flex justify-center">
+                <Link 
+                  href="/settings/accounts" 
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  Conectar Cuenta MT5
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar loading solo cuando realmente estamos cargando y tenemos cuentas
+  if (loading && !hasNoAccounts) {
     return (
       <FullScreenLoading 
         message="Preparando tu Dashboard" 
@@ -638,6 +681,7 @@ export default function Dashboard() {
     );
   }
 
+  // Mostrar errores
   if (!loading && error) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -657,7 +701,7 @@ export default function Dashboard() {
               {error === 'no-account-data' && 'No se pudieron obtener datos para la cuenta seleccionada.'}
               {error === 'account-error' && 'Se produjo un error al cargar los datos de la cuenta.'}
               {error === 'multiple-errors' && 'Se produjeron múltiples errores al cargar los datos.'}
-              {!['no-accounts', 'no-account-data', 'account-error', 'multiple-errors'].includes(error) && 'Se produjo un error inesperado.'}
+              {!['no-accounts', 'no-account-data', 'account-error', 'multiple-errors'].includes(error) && error}
             </p>
             
             <div className="flex flex-col space-y-3">

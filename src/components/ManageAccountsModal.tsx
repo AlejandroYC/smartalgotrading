@@ -2,6 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/db';
+import { mt5Client } from '@/services/mt5/mt5Client';
+
+// Constantes para localStorage
+const STORAGE_PREFIX = 'smartalgo_';
+const CURRENT_ACCOUNT_KEY = `${STORAGE_PREFIX}current_account`;
+const LAST_ACTIVE_ACCOUNT_KEY = `${STORAGE_PREFIX}last_active_account`;
 
 interface MT5Account {
   id: string;
@@ -45,22 +51,148 @@ export const ManageAccountsModal = ({ isOpen, onClose }: { isOpen: boolean; onCl
 
   const handleSetActive = async (accountId: string) => {
     try {
-      // Desactivar todas las cuentas
-      await supabase
+      // Primero obtenemos la información de la cuenta que será activada
+      const accountToActivate = accounts.find(account => account.id === accountId);
+      if (!accountToActivate) {
+        throw new Error('Account not found');
+      }
+
+      console.log('Activando cuenta:', accountToActivate.account_number, 'ID:', accountId);
+
+      // VERIFICAR ACCESO A LA BD
+      console.log('Verificando conexión a la base de datos...');
+      const authCheck = supabase.auth.getSession();
+      console.log('Estado de autenticación:', await authCheck);
+
+      // VERIFICAR ID DE CUENTA ANTES DE MODIFICAR
+      const { data: checkData, error: checkError } = await supabase
+        .from('mt_connections')
+        .select('*')
+        .eq('id', accountId)
+        .single();
+      
+      if (checkError) {
+        console.error('Error al verificar la cuenta:', checkError);
+        throw new Error(`No se pudo verificar la cuenta: ${checkError.message}`);
+      }
+      
+      console.log('Cuenta encontrada en la base de datos:', checkData);
+
+      // Desactivar todas las cuentas en la base de datos - más logging
+      console.log('Desactivando todas las cuentas en la base de datos...');
+      const deactivateResult = await supabase
         .from('mt_connections')
         .update({ is_active: false })
         .eq('user_id', session?.user?.id);
+      
+      console.log('Resultado de desactivación:', deactivateResult);
+      if (deactivateResult.error) {
+        console.error('Error al desactivar cuentas:', deactivateResult.error);
+        throw deactivateResult.error;
+      }
+      console.log('Todas las cuentas desactivadas correctamente. Count:', deactivateResult.count);
 
-      // Activar la cuenta seleccionada
-      await supabase
+      // Activar la cuenta seleccionada en la base de datos - FORZANDO actualización
+      console.log('Activando cuenta seleccionada en la base de datos...');
+      
+      // Intento directo con ID específico
+      const activateResult = await supabase
         .from('mt_connections')
-        .update({ is_active: true })
+        .update({ is_active: true, last_connection: new Date().toISOString() })
         .eq('id', accountId);
+      
+      console.log('Resultado de activación:', activateResult);
+      if (activateResult.error) {
+        console.error('Error al activar cuenta:', activateResult.error);
+        throw activateResult.error;
+      }
+      
+      if (activateResult.count === 0) {
+        console.warn('La actualización no afectó a ninguna fila. Intentando método alternativo...');
+        
+        // Intento alternativo con account_number
+        const altActivateResult = await supabase
+          .from('mt_connections')
+          .update({ is_active: true, last_connection: new Date().toISOString() })
+          .eq('account_number', accountToActivate.account_number)
+          .eq('user_id', session?.user?.id);
+        
+        console.log('Resultado de activación alternativa:', altActivateResult);
+        if (altActivateResult.error) {
+          console.error('Error en método alternativo:', altActivateResult.error);
+        } else if (altActivateResult.count === 0) {
+          console.error('Ambos métodos fallaron. No se pudo activar la cuenta.');
+        } else {
+          console.log('Cuenta activada correctamente usando método alternativo');
+        }
+      } else {
+        console.log('Cuenta activada correctamente en la base de datos');
+      }
 
+      // Verificar que la cuenta se activó correctamente
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('mt_connections')
+        .select('*')
+        .eq('id', accountId)
+        .single();
+      
+      if (verifyError) {
+        console.error('Error al verificar activación:', verifyError);
+      } else {
+        console.log('Estado final de la cuenta:', verifyData);
+        if (!verifyData.is_active) {
+          console.error('¡ADVERTENCIA! La cuenta no aparece como activa después de la actualización');
+        }
+      }
+
+      // LIMPIEZA RADICAL DE LOCALSTORAGE
+      console.log('Limpiando localStorage...');
+      if (typeof window !== 'undefined') {
+        // Borrar TODAS las entradas relacionadas con SmartAlgo
+        const keysToRemove: string[] = [];
+        
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(STORAGE_PREFIX)) {
+            keysToRemove.push(key);
+          }
+        }
+        
+        // Remover las claves en un bucle separado para evitar problemas con los índices
+        console.log('Claves a eliminar:', keysToRemove);
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          console.log('Eliminada clave:', key);
+        });
+        
+        // Establecer la nueva cuenta como activa en el localStorage global
+        localStorage.setItem(CURRENT_ACCOUNT_KEY, accountToActivate.account_number);
+        console.log('Nueva cuenta establecida como activa:', accountToActivate.account_number);
+        
+        // Forzar actualización de la última vez que cambiamos de cuenta
+        localStorage.setItem(`${STORAGE_PREFIX}account_change_time`, new Date().getTime().toString());
+        
+        // Emitir evento para notificar a todos los componentes del cambio de cuenta
+        console.log('Notificando cambio de cuenta a los componentes...');
+        mt5Client.emit('accountChanged', {
+          userId: session?.user?.id,
+          accountNumber: accountToActivate.account_number
+        });
+      }
+
+      // Actualizar la lista de cuentas
       await fetchAccounts();
+      
+      // Cerrar el modal
+      onClose();
+      
+      // Opcionalmente, forzar una recarga de la página para garantizar un estado fresco
+      if (confirm('¿Desea recargar la página para aplicar el cambio de cuenta?')) {
+        window.location.reload();
+      }
     } catch (err) {
       console.error('Error updating account:', err);
-      setError('Failed to update account');
+      setError('Failed to update account. Check console for details.');
     }
   };
 

@@ -323,8 +323,6 @@ export class MT5Client extends EventEmitter {
     try {
       this.isConnecting = true;
       
-     
-      
       // Validar campos requeridos
       if (!userId) {
         console.error('Error: userId es undefined o null');
@@ -353,20 +351,9 @@ export class MT5Client extends EventEmitter {
         platform_type: "MT5"
       });
 
-
       const responseData = response.data;
       if (!responseData.success) {
         throw new Error(responseData.error || 'Failed to connect account');
-      }
-
-      // Si el backend indica que debemos limpiar el localStorage
-      if (responseData.should_clear_storage) {
-        // Obtener todas las keys que empiezan con smartalgo_
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('smartalgo_')) {
-            localStorage.removeItem(key);
-          }
-        });
       }
 
       // Asegurarnos de que tenemos todos los datos necesarios
@@ -375,12 +362,21 @@ export class MT5Client extends EventEmitter {
         throw new Error('No se recibió connection_id del servidor');
       }
 
-   
+      // CRÍTICO: Forzar limpieza de localStorage para evitar problemas con cuentas anteriores
+      if (typeof window !== 'undefined') {
+        // Esto asegura que la referencia a la última cuenta activa se elimine
+        const lastActiveKey = `${STORAGE_PREFIX}${userId}_last_active_account`;
+        localStorage.removeItem(lastActiveKey);
+        
+        // También eliminamos la cuenta actual global para que no haya problemas de caché
+        localStorage.removeItem(CURRENT_ACCOUNT_KEY);
+      }
 
-      const accountData = {
+      // Construir los datos de la cuenta como se hacía originalmente
+      const accountData: StoredAccountData = {
         accountId: connectionId,
         connectionId: connectionId,
-        accountNumber: params.accountNumber,
+        accountNumber: params.accountNumber || '',
         server: params.server,
         positions: responseData.data.positions || [],
         history: Array.isArray(responseData.data.history?.[0]) 
@@ -397,12 +393,23 @@ export class MT5Client extends EventEmitter {
         lastUpdated: new Date().toISOString()
       };
 
+      // Guardar los datos en localStorage
+      LocalStorageService.saveAccountData(userId, accountData);
 
-      const saved = LocalStorageService.saveAccountData(userId, accountData);
-      if (!saved) {
-      }
-
+      // Establecer la nueva cuenta como la cuenta activa
       LocalStorageService.setLastActiveAccount(userId, connectionId);
+      
+      // También actualizar el storage global 
+      if (typeof window !== 'undefined' && params.accountNumber) {
+        localStorage.setItem(CURRENT_ACCOUNT_KEY, params.accountNumber);
+      }
+      
+      // Notificar a los componentes que escuchan cambios de cuenta
+      this.emit('accountChanged', {
+        userId,
+        connectionId,
+        accountNumber: params.accountNumber
+      });
 
       // Convertir la respuesta al formato MT5FullAccountData
       const fullAccountData: MT5FullAccountData = {
@@ -413,7 +420,9 @@ export class MT5Client extends EventEmitter {
           time: typeof pos.time === 'string' ? parseInt(pos.time, 10) : pos.time
         })) || [],
         deals: responseData.data.history || [],
-        statistics: responseData.data.statistics
+        statistics: responseData.data.statistics,
+        server_time: new Date().toISOString(),
+        leverage: responseData.data.account.leverage || 0
       };
 
       return fullAccountData;

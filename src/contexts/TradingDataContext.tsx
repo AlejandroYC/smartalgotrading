@@ -89,6 +89,8 @@ interface TradingDataContextType {
   // Nuevas funciones para manejar datos obsoletos
   areDataStale: () => boolean;
   refreshIfStale: () => boolean;
+  // Nueva propiedad para indicar si el usuario no tiene cuentas
+  hasNoAccounts: boolean;
 }
 
 // Función para obtener rangos de fecha actuales
@@ -976,10 +978,31 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (error) setError(null);
     
     try {
-      // 1. Limpiar datos específicos de control en localStorage
-      localStorage.removeItem(LAST_REFRESH_TIME_KEY);
-      localStorage.removeItem(LAST_UPDATE_TIME_KEY);
-      localStorage.removeItem(ACCOUNT_CHANGE_TIME_KEY);
+      // NUEVO: Limpieza más completa del localStorage
+      console.log('Limpiando localStorage...');
+      const keysToRemove: string[] = [];
+      
+      if (typeof window !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(STORAGE_PREFIX)) {
+            // Solo eliminar keys relacionadas con cuentas y cachés, mantener preferencias
+            if (key.includes('account') || 
+                key.includes('refresh') || 
+                key.includes('update') || 
+                key.includes('history')) {
+              keysToRemove.push(key);
+            }
+          }
+        }
+        
+        // Remover las claves en un bucle separado para evitar problemas con los índices
+        console.log('Claves a eliminar:', keysToRemove);
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          console.log('Eliminada clave:', key);
+        });
+      }
       
       // 2. Actualizar la información de cuenta actual
       setCurrentAccount(accountNumber);
@@ -990,117 +1013,42 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (user) {
         const lastActiveKey = `${STORAGE_PREFIX}${user.id}_last_active_account`;
         localStorage.setItem(lastActiveKey, accountNumber);
-      }
-      
-      // 3. Solicitar datos actualizados directamente al backend
-      try {
         
-        // Obtener la URL base del API
-        const apiBaseUrl = localStorage.getItem('smartalgo_api_url_override') || 
-                           process.env.NEXT_PUBLIC_MT5_API_URL || 
-                           'https://18.225.209.243.nip.io';
+        // NUEVO: Actualizar el estado is_active en la base de datos
+        console.log('Actualizando estado is_active en la base de datos...');
         
-        // Hacer la solicitud directa al endpoint de actualización
-        const response = await fetch(`${apiBaseUrl}/update-account-data/${accountNumber}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        // Primero desactivar todas las cuentas del usuario
+        const deactivateResult = await supabase
+          .from('mt_connections')
+          .update({ is_active: false })
+          .eq('user_id', user.id);
         
-        if (!response.ok) {
-          const statusMessage = `${response.status} ${response.statusText}`;
-          console.error(`❌ Error en respuesta del servidor: ${statusMessage}`);
-          
-          // Intentar obtener más información del error
-          try {
-            const errorData = await response.json();
-            throw new Error(`Error del servidor (${statusMessage}): ${errorData.message || 'Detalles no disponibles'}`);
-          } catch (jsonError) {
-            throw new Error(`Error en respuesta del servidor: ${statusMessage}`);
-          }
-        }
+        console.log('Resultado de desactivación de cuentas:', deactivateResult);
         
-        const responseData = await response.json();
+        // Luego activar la cuenta seleccionada
+        const activateResult = await supabase
+          .from('mt_connections')
+          .update({ is_active: true, last_connection: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .eq('account_number', accountNumber);
         
-        if (responseData.success) {
-          
-          // Guardar los datos en localStorage
-          const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
-          const dataToStore = {
-            ...responseData.data,
-            accountNumber,
-            lastUpdated: new Date().toISOString()
-          };
-          
-          localStorage.setItem(storageKey, JSON.stringify(dataToStore));
-          
-          // Procesar los datos y actualizar el estado
-          const processedData = processData(dataToStore, dateRange);
-          if (processedData) {
-            setRawData(dataToStore);
-            setProcessedData(processedData);
-            
-            // Establecer posiciones si están disponibles
-            if (dataToStore.positions) {
-              setPositions([...dataToStore.positions]);
-            }
-            
-            // Forzar actualización en componentes dependientes
-            setLastDataTimestamp(Date.now());
-            
-            // Registrar timestamp de cambio en localStorage
-            localStorage.setItem(ACCOUNT_CHANGE_TIME_KEY, Date.now().toString());
-            localStorage.setItem(LAST_UPDATE_TIME_KEY, Date.now().toString());
-            
-          } else {
-            throw new Error('Error al procesar los datos recibidos');
-          }
+        console.log('Resultado de activación de cuenta:', activateResult);
+        
+        // Verificar si la cuenta se activó correctamente
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('mt_connections')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('account_number', accountNumber)
+          .single();
+        
+        if (verifyError) {
+          console.error('Error al verificar activación de cuenta:', verifyError);
         } else {
-          // Si indica que la cuenta no se encuentra, dar mensaje específico
-          const errorDetail = responseData.message || responseData.detail || 'Error desconocido';
-          
-          if (errorDetail.includes('rows returned') || errorDetail.includes('no encontrada')) {
-            throw new Error(`La cuenta ${accountNumber} no se encontró en el servidor. Es posible que esté inactiva o haya sido eliminada.`);
-          } else {
-            throw new Error(responseData.message || 'Error desconocido al actualizar datos');
+          console.log('Estado final de la cuenta:', verifyData);
+          if (!verifyData.is_active) {
+            console.warn('¡ADVERTENCIA! La cuenta no aparece como activa después de la actualización');
           }
-        }
-      } catch (backendError) {
-     
-        
-        // Si falla el backend, intentamos cargar desde localStorage como fallback
-        const storageKey = ACCOUNT_DATA_KEY_FORMAT(accountNumber);
-        const storedData = localStorage.getItem(storageKey);
-        
-        if (storedData) {
-          try {
-            const accountData = JSON.parse(storedData);
-            const processedData = processData(accountData, dateRange);
-            
-            if (processedData) {
-              setRawData({...accountData});
-              setProcessedData({...processedData});
-              
-              if (accountData.positions) {
-                setPositions([...accountData.positions]);
-              }
-              
-              // Forzar actualización en componentes dependientes
-              setLastDataTimestamp(Date.now());
-              
-              // Registrar timestamp de cambio
-              localStorage.setItem(ACCOUNT_CHANGE_TIME_KEY, Date.now().toString());
-              
-            } else {
-              throw new Error('Error al procesar datos de localStorage');
-            }
-          } catch (parseError) {
-            console.error(`❌ Error parseando datos de localStorage:`, parseError);
-            throw new Error(`No hay datos válidos disponibles para la cuenta ${accountNumber}. Intente actualizar datos más tarde.`);
-          }
-        } else {
-          throw new Error(`No hay datos disponibles para la cuenta ${accountNumber}. Intente actualizar datos.`);
         }
       }
     } catch (error) {
@@ -1115,8 +1063,6 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } else {
           setError(`Error al seleccionar cuenta: ${error.message}`);
         }
-      } else {
-        setError(`Error desconocido al seleccionar cuenta. Intente nuevamente.`);
       }
       
       // Si hay un error al cambiar de cuenta, restaurar la cuenta anterior
@@ -1731,7 +1677,9 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     isDateInRange,
     // Nuevas funciones para manejar datos obsoletos
     areDataStale,
-    refreshIfStale
+    refreshIfStale,
+    // Nueva propiedad para indicar si el usuario no tiene cuentas
+    hasNoAccounts: userAccounts.length === 0
   };
 
   return (
