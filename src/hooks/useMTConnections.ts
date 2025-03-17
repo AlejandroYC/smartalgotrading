@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/db';
 import type { MTConnection } from '@/types/mt-connection';
 
 export function useMTConnections() {
-  const { session } = useAuth();
+  const { session } = useAuthContext();
   const [connections, setConnections] = useState<MTConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

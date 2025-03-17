@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/db';
 import { useMTConnections } from '@/hooks/useMTConnections';
 import { toast } from 'react-hot-toast';
@@ -38,7 +38,7 @@ export const DailyJournal: React.FC<DailyJournalProps> = ({
   error,
   selectedAccount
 }: DailyJournalProps) => {
-  const { session } = useAuth();
+  const { session } = useAuthContext();
   const { connections } = useMTConnections();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isLoadingLocal, setIsLoadingLocal] = useState(false);
@@ -173,11 +173,10 @@ export const DailyJournal: React.FC<DailyJournalProps> = ({
         throw new Error('Missing account credentials');
       }
 
-      await mt5Client.selectAccount(
+      await mt5Client.connectAccount(
         session?.user?.id || '',
-        account.connection_id,
         {
-          account_number: account.login,
+          accountNumber: account.login,
           password: account.password,
           server: account.server
         }

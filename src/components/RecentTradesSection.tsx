@@ -159,7 +159,7 @@ const RecentTradesSection: React.FC = () => {
         ))
       ) : (
         <EmptyStateCard 
-          icon="positions"
+          icon="cards"
           message="No hay posiciones abiertas"
         />
       );

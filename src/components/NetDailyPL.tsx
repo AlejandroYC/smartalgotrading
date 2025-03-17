@@ -51,17 +51,61 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
     
   }, [dailyResults]);
 
-  const chartData = useMemo(() => {
-    return Object.entries(dailyResults)
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .map(([date, data]) => ({
-        date,
-        profit: Number(data.profit.toFixed(2))
-      }));
+  const data = useMemo(() => {
+    if (!dailyResults) return [];
+    
+    // Ordenar fechas cronológicamente
+    const sortedDates = Object.keys(dailyResults).sort();
+    
+    // Mapear a formato para el gráfico y eliminar días sin trades
+    return sortedDates
+      .map(date => {
+        const result = dailyResults[date];
+        if (!result || result.trades === 0) return null;
+        
+        return {
+          date,
+          profit: result.profit || 0,
+          trades: result.trades || 0
+        };
+      })
+      .filter(Boolean) as Array<{date: string, profit: number, trades: number}>; // Eliminar entradas nulas y tipar explícitamente
   }, [dailyResults]);
+  
+  // Reducir la cantidad de ticks en el eje X si hay muchos datos
+  const xAxisTicks = useMemo(() => {
+    if (data.length <= 8) return undefined; // Usar todos los ticks si hay pocos datos
+    
+    // Tomar puntos distribuidos uniformemente
+    const step = Math.ceil(data.length / 7); // ~7 ticks
+    
+    const ticks: string[] = [];
+    for (let i = 0; i < data.length; i += step) {
+      ticks.push(data[i].date);
+    }
+    
+    // Asegurar que el último punto está incluido
+    if (data.length > 0 && !ticks.includes(data[data.length - 1].date)) {
+      ticks.push(data[data.length - 1].date);
+    }
+    
+    return ticks;
+  }, [data]);
 
-  const maxProfit = Math.max(...chartData.map(d => d.profit));
-  const minProfit = Math.min(...chartData.map(d => d.profit));
+  // Si no hay datos, mostrar un mensaje
+  if (!data.length) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">P&L Diario</h3>
+        <div className="flex items-center justify-center h-56 bg-gray-50 rounded border border-gray-200">
+          <p className="text-gray-500">No hay datos disponibles</p>
+        </div>
+      </div>
+    );
+  }
+
+  const maxProfit = Math.max(...data.map(d => d.profit));
+  const minProfit = Math.min(...data.map(d => d.profit));
   const absMax = Math.max(Math.abs(maxProfit), Math.abs(minProfit));
 
   // Función para formatear valores del eje Y
@@ -122,7 +166,7 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
       <div className="h-[300px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={chartData}
+            data={data}
             margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
             barGap={2}
             barCategoryGap={30}
@@ -134,7 +178,13 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
             />
             <XAxis
               dataKey="date"
-              tickFormatter={(date) => format(parseISO(date), 'MM/dd')}
+              ticks={xAxisTicks}
+              tickFormatter={(value) => {
+                // Formatear fecha: 2023-01-01 -> 01/01
+                const parts = value.split('-');
+                if (parts.length !== 3) return value;
+                return `${parts[2]}/${parts[1]}`;
+              }}
               stroke="#6B7280"
               fontSize={12}
               tickMargin={10}
@@ -153,19 +203,19 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
               y={0}
               stroke="#E5E7EB"
             />
-            <Bar
+            <Bar 
               dataKey="profit"
-              radius={0}
-              maxBarSize={8}
+              fill="#6366F1"
+              isAnimationActive={true}
+              animationDuration={600}
+              animationEasing="ease-out"
             >
-              {
-                chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.profit >= 0 ? '#22c55e' : '#ef4444'}
-                  />
-                ))
-              }
+              {data.map((entry, index) => (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={entry.profit >= 0 ? '#22c55e' : '#ef4444'}
+                />
+              ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -174,4 +224,4 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
   );
 };
 
-export default NetDailyPL;
+export default React.memo(NetDailyPL);

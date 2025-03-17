@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     }
 
     // Obtener información inicial de la cuenta
-    const accountInfo = await mt5Client.getActiveAccountStatus(userId, userId);
+    const accountInfo = await mt5Client.getAccountData(userId, accountNumber);
 
     return NextResponse.json({ 
       success: true,

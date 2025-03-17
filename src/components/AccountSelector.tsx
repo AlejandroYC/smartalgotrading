@@ -27,7 +27,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Cerrar el dropdown al hacer clic fuera
-  useOnClickOutside(dropdownRef, () => setIsOpen(false));
+  useOnClickOutside<HTMLDivElement>(dropdownRef, () => setIsOpen(false));
   
   // También cerrar al presionar ESC
   useEffect(() => {

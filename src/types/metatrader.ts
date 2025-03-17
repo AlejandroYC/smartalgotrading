@@ -14,6 +14,7 @@ export interface MT5AccountInfo {
   margin: number;
   margin_free: number;
   floating_pl: number;
+  leverage: number;
 }
 
 export interface MT5Position {

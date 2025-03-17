@@ -1,7 +1,19 @@
+interface ZellaMetric {
+  name: string;
+  value: number;
+  description: string;
+}
+
 interface ZellaScoreProps {
   metrics: ZellaMetric[];
   score?: number;
 }
+
+const calculateZellaScore = (metrics: ZellaMetric[]): number => {
+  if (!metrics.length) return 0;
+  const total = metrics.reduce((sum, metric) => sum + metric.value, 0);
+  return (total / metrics.length) * 20; // Scale to 0-100
+};
 
 const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ metrics, score }) => {
   const displayScore = score !== undefined ? score : calculateZellaScore(metrics);

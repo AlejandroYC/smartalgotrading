@@ -1,14 +1,33 @@
 'use client';
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Radar,
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
   ResponsiveContainer,
+  PolarRadiusAxis
 } from 'recharts';
 import EmptyStateCard from './EmptyStateCard';
 import { useTradingData } from '@/contexts/TradingDataContext';
+
+// Componente SVG para el ícono de información
+const InfoIcon = () => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    className="h-5 w-5 text-gray-500" 
+    fill="none" 
+    viewBox="0 0 24 24" 
+    stroke="currentColor"
+  >
+    <path 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      strokeWidth={1.5} 
+      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+    />
+  </svg>
+);
 
 interface ZellaMetric {
   name: string;
@@ -20,24 +39,24 @@ interface ZellaScoreProps {
   className?: string;
 }
 
-const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ className = '' }) => {
+// Crear versiones estables de las funciones de cálculo fuera del componente
+const normalizeValue = (value: number, min: number, max: number, defaultValue = 0): number => {
+  if (value === undefined || value === null || isNaN(value)) return defaultValue;
+  // Asegurar que está entre min y max, luego convertir a escala 0-5
+  const normalized = Math.max(min, Math.min(max, value));
+  return ((normalized - min) / (max - min)) * 5;
+};
+
+const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' }) => {
   // Usar el contexto en lugar de props
   const { processedData, loading } = useTradingData();
   
-  // Verificar si hay suficientes datos para mostrar
-  const hasTrades = processedData?.total_trades > 0;
+  // Verificar si hay suficientes datos para mostrar - memoizado para estabilidad
+  const hasTrades = useMemo(() => processedData?.total_trades > 0, [processedData?.total_trades]);
 
-  // Calcular métricas para el Zella Score
-  const calculateMetrics = (): ZellaMetric[] => {
+  // Calcular métricas para el Zella Score - memoizado para evitar cálculos repetidos
+  const metrics: ZellaMetric[] = useMemo(() => {
     if (!processedData) return [];
-
-    // Normalizar valores entre 0-5 para el radar
-    const normalizeValue = (value: number, min: number, max: number, defaultValue = 0): number => {
-      if (value === undefined || value === null || isNaN(value)) return defaultValue;
-      // Asegurar que está entre min y max, luego convertir a escala 0-5
-      const normalized = Math.max(min, Math.min(max, value));
-      return ((normalized - min) / (max - min)) * 5;
-    };
 
     return [
       {
@@ -81,16 +100,14 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ className = '' }) => {
         description: 'Estabilidad en los resultados'
       },
     ];
-  };
-
-  const metrics = calculateMetrics();
+  }, [processedData]);
   
-  // Calcular el Zella Score basado en las métricas
-  const calculateZellaScore = (): number => {
+  // Calcular el Zella Score basado en las métricas - memoizado para estabilidad
+  const zellaScore = useMemo(() => {
     if (!hasTrades || !metrics.length) return 0;
     
     // Pesos para cada métrica (ajustar según importancia)
-    const weights = {
+    const weights: { [key: string]: number } = {
       'Win %': 0.20,
       'Profit factor': 0.25,
       'Avg win/loss': 0.15,
@@ -111,16 +128,16 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ className = '' }) => {
     
     // Normalizar a escala 0-100
     return (weightedSum / totalWeight) * 20;
-  };
-
-  const zellaScore = calculateZellaScore();
+  }, [hasTrades, metrics]);
   
-  // Formato para el radar chart
-  const formattedData = metrics.map(metric => ({
-    subject: metric.name,
-    value: metric.value,
-    fullMark: 5,
-  }));
+  // Formato para el radar chart - memoizado para evitar recreación de objetos
+  const formattedData = useMemo(() => 
+    metrics.map(metric => ({
+      subject: metric.name,
+      value: metric.value,
+      fullMark: 5,
+    })), 
+  [metrics]);
 
   // Si está cargando, mostrar un indicador
   if (loading) {
@@ -144,7 +161,7 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ className = '' }) => {
           <h3 className="text-xl font-semibold text-gray-800">Zella Score</h3>
         </div>
         <EmptyStateCard 
-          icon="chart" 
+          icon="trades" 
           message="Available once there is at least 1 trade."
         />
       </div>
@@ -152,63 +169,101 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ className = '' }) => {
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-start justify-start">
-          <h1 className="text-3xl text-black font-bold text-left">Zella Score</h1>
-        </div>
-
-        <div className="flex items-center">
-          <span className="text-3xl font-bold text-indigo-600">{zellaScore.toFixed(2)}</span>
-          <div className="ml-2 flex h-2 w-24 rounded-full bg-gray-200">
-            <div 
-              className="h-full rounded-full bg-indigo-600 transition-all duration-300"
-              style={{ width: `${Math.min(100, zellaScore)}%` }}
-            />
-          </div>
+    <div className={`bg-white p-6 rounded-lg shadow h-full ${className}`}>
+      <div className="flex items-center mb-3">
+        <h2 className="text-2xl font-bold text-gray-800">Zella score</h2>
+        <div className="ml-2">
+          <InfoIcon />
         </div>
       </div>
       <hr className="w-full border-t border-gray-200 mb-4" />
 
-      <div className="h-[300px] w-full">
+      <div className="h-[350px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <RadarChart outerRadius="80%" data={formattedData}>
+          <RadarChart 
+            cx="50%" 
+            cy="50%" 
+            outerRadius="70%" 
+            data={formattedData}
+          >
             <PolarGrid 
-              gridType="polygon"
-              strokeDasharray="3 3" 
-              stroke="#E5E7EB"
+              gridType="polygon" 
+              stroke="#A5B4FC" 
+              strokeOpacity={0.4} 
             />
-            <PolarAngleAxis
-              dataKey="subject"
-              tick={{ fill: '#6B7280', fontSize: 12 }}
+            <PolarAngleAxis 
+              dataKey="subject" 
+              tick={{ fill: '#818CF8', fontSize: 14, opacity: 0.9 }}
+              axisLine={false}
             />
-            <Radar
-              name="Trader Performance"
-              dataKey="value"
-              stroke="#4F46E5"
-              fill="#818CF8"
-              fillOpacity={0.3}
+            <PolarRadiusAxis 
+              domain={[0, 5]} 
+              tick={false} 
+              axisLine={false}
+              tickCount={6}
+              stroke="#A5B4FC"
+              opacity={0.6}
+            />
+            <Radar 
+              name="Trader Performance" 
+              dataKey="value" 
+              stroke="#818CF8" 
+              fill="#818CF8" 
+              fillOpacity={0.6}
+              dot={{ 
+                fill: 'white', 
+                stroke: '#818CF8', 
+                strokeWidth: 2, 
+                r: 4 
+              }}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             />
           </RadarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-4">
-        {metrics.map((metric) => (
-          <div 
-            key={metric.name}
-            className="flex items-center p-2 rounded hover:bg-gray-50"
-          >
-            <div className="w-2 h-2 rounded-full bg-indigo-600 mr-2" />
-            <div>
-              <p className="text-sm font-medium text-gray-700">{metric.name}</p>
-              <p className="text-xs text-gray-500">{metric.description}</p>
+      <div className="mt-8 border-t border-gray-200 pt-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-gray-700 uppercase">ZELLA SCORE</h3>
+          <div className="text-4xl font-bold text-gray-800">{zellaScore.toFixed(2)}</div>
+        </div>
+        
+        {/* Barra de progreso con espacio para la escala */}
+        <div className="mt-2 mb-8 relative">
+          {/* Barra principal */}
+          <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden">
+            {/* Fondo con degradado */}
+            <div className="absolute top-0 left-0 h-4 w-full bg-gradient-to-r from-red-400 via-yellow-400 to-green-500 rounded-full"></div>
+            
+            {/* Marcador de posición */}
+            <div 
+              className="absolute top-0 flex items-center"
+              style={{ 
+                left: `${Math.min(98, zellaScore)}%`, 
+                transform: 'translateX(-50%)'
+              }}
+            >
+              <div className="h-4 w-4 rounded-full bg-green-500 border-2 border-white shadow-md"></div>
             </div>
           </div>
-        ))}
+          
+          {/* Numeración separada con espacio adecuado */}
+          <div className="mt-5 w-full flex justify-between text-sm text-gray-700 font-medium">
+            <span>0</span>
+            <span>20</span>
+            <span>40</span>
+            <span>60</span>
+            <span>80</span>
+            <span>100</span>
+          </div>
+        </div>
       </div>
     </div>
   );
-};
+});
+
+ZellaScoreRadar.displayName = 'ZellaScoreRadar';
 
 export default ZellaScoreRadar; 

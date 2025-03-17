@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 export default function SessionCheck() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuthContext();
   const router = useRouter();
 
   useEffect(() => {

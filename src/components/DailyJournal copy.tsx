@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/db';
 import { useMTConnections } from '@/hooks/useMTConnections';
 import { toast } from 'react-hot-toast';
@@ -10,7 +10,25 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { LocalStorageService } from '@/services/LocalStorageService';
 
-// ... existing interfaces ...
+interface Account {
+  id: string;
+  name: string;
+  isActive?: boolean;
+  connection_id?: string;
+  login?: string;
+  server?: string;
+  password?: string;
+}
+
+interface DailyJournalProps {
+  selectedCurrency?: string;
+  onAccountChange?: (account: Account) => void;
+  refreshData?: (fromDate?: string, toDate?: string) => Promise<void>;
+  loading?: boolean;
+  parentIsLoading?: boolean;
+  error?: string;
+  selectedAccount?: Account | null;
+}
 
 export const DailyJournal: React.FC<DailyJournalProps> = ({
   selectedCurrency = '$',
@@ -21,7 +39,7 @@ export const DailyJournal: React.FC<DailyJournalProps> = ({
   error,
   selectedAccount
 }: DailyJournalProps) => {
-  const { user, session } = useAuth();  // Añadido user para usar con localStorage
+  const { user, session } = useAuthContext();  // Añadido user para usar con localStorage
   const { connections } = useMTConnections();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isLoadingLocal, setIsLoadingLocal] = useState(false);
@@ -91,7 +109,7 @@ export const DailyJournal: React.FC<DailyJournalProps> = ({
           
           if (accountKey) {
             // Establecer como cuenta activa
-            LocalStorageService.setActiveAccount(user.id, accountKey);
+            LocalStorageService.setLastActiveAccount(user.id, accountKey);
             
             // Obtener datos de la cuenta
             const activeAccount = LocalStorageService.getLastActiveAccount(user.id);
@@ -121,11 +139,10 @@ export const DailyJournal: React.FC<DailyJournalProps> = ({
             throw new Error('Missing account credentials');
           }
 
-          await mt5Client.selectAccount(
+          await mt5Client.connectAccount(
             session?.user?.id || '',
-            account.connection_id,
             {
-              account_number: account.login,
+              accountNumber: account.login,
               password: account.password,
               server: account.server
             }

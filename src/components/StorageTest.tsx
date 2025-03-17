@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { LocalStorageService } from '@/services/LocalStorageService';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 export default function StorageTest() {
   const [testResult, setTestResult] = useState<{success: boolean, message: string}>({
@@ -10,7 +10,7 @@ export default function StorageTest() {
     message: 'Prueba no iniciada'
   });
   
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   
   useEffect(() => {
     try {

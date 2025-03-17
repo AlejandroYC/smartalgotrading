@@ -10,6 +10,7 @@ import {
   ReferenceLine,
   AreaChart,
   Area,
+  Legend,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import DashboardCardTitle from '@/components/DashboardCardTitle';
@@ -22,9 +23,13 @@ interface DailyResult {
 
 interface DailyNetCumulativePLProps {
   dailyResults: Record<string, DailyResult>;
+  height?: number;
 }
 
-const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ dailyResults }) => {
+const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ 
+  dailyResults,
+  height = 300 
+}) => {
   const chartData = useMemo(() => {
     if (!dailyResults || Object.keys(dailyResults).length === 0) {
       return [];
@@ -77,6 +82,29 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ dailyResult
     
   }, [dailyResults, chartData]);
 
+  // Reducir la cantidad de ticks en el eje X
+  const xAxisTicks = useMemo(() => {
+    if (chartData.length <= 10) return undefined; // Usar todos los ticks si hay pocos datos
+    
+    // Tomar puntos distribuidos uniformemente
+    const numTicks = Math.min(8, chartData.length); // Máximo 8 ticks
+    const step = Math.ceil(chartData.length / numTicks);
+    
+    const ticks = [];
+    for (let i = 0; i < chartData.length; i += step) {
+      if (chartData[i]) {
+        ticks.push(chartData[i].date);
+      }
+    }
+    
+    // Asegurar que el último punto está incluido
+    if (chartData.length > 0 && !ticks.includes(chartData[chartData.length - 1].date)) {
+      ticks.push(chartData[chartData.length - 1].date);
+    }
+    
+    return ticks;
+  }, [chartData]);
+
   if (chartData.length === 0) {
     return (
       <div className="bg-white p-6 rounded-lg shadow h-full">
@@ -107,81 +135,75 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ dailyResult
     
 
       <div className="flex-1 w-full min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={height}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
           >
             <CartesianGrid 
               strokeDasharray="3 3" 
-              stroke="#E5E7EB" 
-              vertical={false}
-            />
-            <XAxis
-              dataKey="date"
-              tickFormatter={(date) => format(parseISO(date), 'MM/dd/yy')}
-              stroke="#94A3B8"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              tickFormatter={(value) => `$${value.toFixed(2)}`}
-              stroke="#94A3B8"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-              domain={['auto', 'auto']}
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (active && payload && payload.length) {
-                  const data = payload[0].payload;
-                  return (
-                    <div className="bg-white p-3 shadow-lg rounded-lg border border-gray-200">
-                      <p className="text-sm font-medium text-gray-900">
-                        {format(parseISO(data.date), 'MMM d, yyyy')}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Cumulative P&L: <span className={data.value >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          ${data.valueDisplay.toFixed(2)}
-                        </span>
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Daily P&L: <span className={data.dailyProfit >= 0 ? 'text-green-500' : 'text-red-500'}>
-                          ${data.dailyProfitDisplay.toFixed(2)}
-                        </span>
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        Trades: {data.trades}
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
+              vertical={false} 
+              stroke="#E2E8F0" 
             />
             <defs>
               <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4ade80" stopOpacity={1} />
-                <stop offset="100%" stopColor="#4ade80" stopOpacity={0.0} />
+                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
+                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.1} />
               </linearGradient>
             </defs>
+            <XAxis
+              dataKey="date"
+              ticks={xAxisTicks}
+              tickFormatter={(date) => {
+                if (!date) return '';
+                const parts = date.split('-');
+                if (parts.length !== 3) return date;
+                return `${parts[2]}/${parts[1]}`;
+              }}
+              stroke="#94A3B8"
+              fontSize={12}
+            />
+            <YAxis 
+              tickFormatter={(value) => `$${value.toFixed(0)}`}
+              stroke="#94A3B8"
+              fontSize={12}
+            />
+            <Tooltip
+              formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, undefined]}
+              labelFormatter={(date) => format(parseISO(date as string), 'MMM dd, yyyy')}
+              contentStyle={{
+                backgroundColor: '#1E293B',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+              }}
+              itemStyle={{
+                color: '#E2E8F0'
+              }}
+              labelStyle={{
+                color: '#F8FAFC',
+                fontWeight: 'bold',
+                marginBottom: '5px'
+              }}
+            />
             <Area
               type="monotone"
               dataKey="value"
-              stroke="#5b33ff"
-              strokeWidth={1.8}
+              stroke="#6366F1"
               fill="url(#colorValue)"
-              fillOpacity={1}
-              dot={false}
-              activeDot={{
+              fillOpacity={0.6}
+              strokeWidth={2}
+              dot={{
                 r: 4,
-                stroke: '#4ade80',
+                stroke: '#6366F1',
                 strokeWidth: 2,
                 fill: '#ffffff'
               }}
+              isAnimationActive={true}
+              animationDuration={600}
+              animationEasing="ease-out"
             />
+            <ReferenceLine y={0} stroke="#000" strokeDasharray="3 3" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -189,4 +211,4 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({ dailyResult
   );
 };
 
-export default DailyNetCumulativePL; 
+export default React.memo(DailyNetCumulativePL); 

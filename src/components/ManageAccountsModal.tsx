@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/db';
 import { mt5Client } from '@/services/mt5/mt5Client';
 
@@ -20,7 +20,7 @@ interface MT5Account {
 }
 
 export const ManageAccountsModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-  const { session } = useAuth();
+  const { session } = useAuthContext();
   const [accounts, setAccounts] = useState<MT5Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

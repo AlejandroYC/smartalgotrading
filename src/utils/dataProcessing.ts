@@ -129,7 +129,7 @@ export const diagnoseDailyResults = (transactions: any[]) => {
       const dateStr = date.toISOString().split('T')[0];
       fechasUnicas.add(dateStr);
     } catch (e) {
-      fechasInvalidas.push({ index, fecha: trans.time, error: e.message, transaction: trans });
+      fechasInvalidas.push({ index, fecha: trans.time, error: (e as Error).message, transaction: trans });
     }
   });
 

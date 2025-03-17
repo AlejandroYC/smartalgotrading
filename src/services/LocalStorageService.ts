@@ -1,6 +1,30 @@
 // Tipos que necesitamos
 import { MT5Stats } from '@/types/metatrader';
 
+// Verificar si estamos en el cliente
+const isClient = typeof window !== 'undefined';
+
+// Crear una versión segura de localStorage
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    if (!isClient) return null;
+    return localStorage.getItem(key);
+  },
+  setItem: (key: string, value: string): void => {
+    if (!isClient) return;
+    localStorage.setItem(key, value);
+  },
+  removeItem: (key: string): void => {
+    if (!isClient) return;
+    localStorage.removeItem(key);
+  },
+  key: (index: number): string | null => {
+    if (!isClient) return null;
+    return localStorage.key(index);
+  },
+  length: isClient ? localStorage.length : 0
+};
+
 export interface StoredAccountData {
   accountId: string;
   connectionId?: string;
@@ -43,15 +67,15 @@ export class LocalStorageService {
   // Buscar todas las entradas que podrían contener datos de cuenta
   static findAllAccountData(): Record<string, any> {
     try {
-      const allData = {};
+      const allData: { [key: string]: any } = {};
       
       // Buscar en todo el localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      for (let i = 0; i < safeLocalStorage.length; i++) {
+        const key = safeLocalStorage.key(i);
         
         if (key) {
           try {
-            const value = localStorage.getItem(key);
+            const value = safeLocalStorage.getItem(key);
             if (value) {
               // Intentar parsear como JSON
               const parsedValue = JSON.parse(value);
@@ -100,7 +124,7 @@ export class LocalStorageService {
   static getUserAccounts(userId: string): Record<string, StoredAccountData> {
     try {
       const key = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
-      const storedData = localStorage.getItem(key);
+      const storedData = safeLocalStorage.getItem(key);
       
       if (!storedData) {
         return {};
@@ -236,8 +260,6 @@ export class LocalStorageService {
         return false;
       }
       
-    
-      
       // Asegurarse de que tenga la estructura correcta
       const validatedData: StoredAccountData = {
         accountId: accountId,
@@ -277,8 +299,6 @@ export class LocalStorageService {
         
         lastUpdated: new Date().toISOString()
       };
-
-  
       
       // Obtener cuentas existentes
       const key = `${this.PREFIX}${userId}_${this.USER_ACCOUNTS_KEY}`;
@@ -288,7 +308,7 @@ export class LocalStorageService {
       accounts[accountId] = validatedData;
       
       // Guardar de vuelta en localStorage
-      localStorage.setItem(key, JSON.stringify(accounts));
+      safeLocalStorage.setItem(key, JSON.stringify(accounts));
       
       // Actualizar la última cuenta activa
       this.setLastActiveAccount(userId, accountId);
@@ -303,7 +323,7 @@ export class LocalStorageService {
   static setLastActiveAccount(userId: string, accountId: string): void {
     try {
       const key = `${this.PREFIX}${userId}_${this.LAST_ACTIVE_KEY}`;
-      localStorage.setItem(key, accountId);
+      safeLocalStorage.setItem(key, accountId);
     } catch (error) {
       console.error('Error setting last active account:', error);
     }
@@ -313,7 +333,7 @@ export class LocalStorageService {
   static getLastActiveAccountId(userId: string): string | null {
     try {
       const key = `${this.PREFIX}${userId}_${this.LAST_ACTIVE_KEY}`;
-      return localStorage.getItem(key);
+      return safeLocalStorage.getItem(key);
     } catch (error) {
       console.error('Error getting last active account ID:', error);
       return null;
@@ -356,16 +376,16 @@ export class LocalStorageService {
   
   // Limpiar datos de cuentas
   static clearUserAccounts(userId: string): void {
-    localStorage.removeItem(`mt5_accounts_${userId}`);
-    localStorage.removeItem(`mt5_last_active_${userId}`);
+    safeLocalStorage.removeItem(`mt5_accounts_${userId}`);
+    safeLocalStorage.removeItem(`mt5_last_active_${userId}`);
   }
   
   // Método de diagnóstico
   static testStorage(): boolean {
     try {
-      localStorage.setItem('test_key', 'test_value');
-      const testValue = localStorage.getItem('test_key');
-      localStorage.removeItem('test_key');
+      safeLocalStorage.setItem('test_key', 'test_value');
+      const testValue = safeLocalStorage.getItem('test_key');
+      safeLocalStorage.removeItem('test_key');
       return testValue === 'test_value';
     } catch (e) {
       console.error("Error en test de localStorage:", e);

@@ -4,7 +4,7 @@ import Image from 'next/image';
 import metatrader4Img from '../images/metatrader4.png';
 import metatrader5Img from '../images/metatrader5.png';
 import { MT5Client } from '@/services/mt5/mt5Client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { supabase } from '@/lib/db';
 import { encrypt } from '@/utils/encryption';
 import { MT5Stats } from '@/types/metatrader';
@@ -39,7 +39,7 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
       value: 'Weltrade-Demo'
     }
   ]
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedPlatform, setSelectedPlatform] = useState<'mt4' | 'mt5' | null>(null);
   const [formData, setFormData] = useState<MTConnectionForm>({

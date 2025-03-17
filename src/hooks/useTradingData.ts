@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from './useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { LocalStorageServiceNew as LocalStorageService } from '@/services/LocalStorageServiceNew';
 import { TradingDataService, ProcessedMetrics } from '@/services/TradingDataService';
 import { subDays } from 'date-fns';
@@ -19,7 +19,7 @@ interface UseTradingDataResult {
 }
 
 export function useTradingData(options?: UseTradingDataOptions): UseTradingDataResult {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [accountData, setAccountData] = useState<any>(null);

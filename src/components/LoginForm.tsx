@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import Link from 'next/link';
 import { LoadingIndicator } from './LoadingIndicator';
 
@@ -17,7 +17,7 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   
-  const { signIn } = useAuth();
+  const { signIn } = useAuthContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

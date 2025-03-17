@@ -1,7 +1,8 @@
 // src/components/TradingCalendar.tsx
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 import { format, parseISO } from 'date-fns';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import IntraDayPLChart from './IntraDayPLChart';
@@ -36,6 +37,7 @@ const TradingCalendar: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetails, setSelectedDayDetails] = useState<DayDetails | null>(null);
 
+  // Memoización estable de los datos calculados
   const { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL } = useMemo(() => {
     const dailyStats = new Map<string, DayStats>();
     const weeklyStats = new Map<number, WeekStats>();
@@ -143,9 +145,9 @@ const TradingCalendar: React.FC = () => {
     
 
     return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
-  }, [processedData]);
+  }, [processedData?.daily_results, processedData?.rawTrades]);
 
-  // Renderizar eventos de calendario en lugar de personalizar celdas
+  // Renderizar eventos de calendario en lugar de personalizar celdas - Ahora con memoización estable
   const calendarEvents = useMemo(() => {
     const events: any[] = [];
     
@@ -178,8 +180,8 @@ const TradingCalendar: React.FC = () => {
     return events;
   }, [dailyStats]);
 
-  // Reemplazar el renderDayCell con un eventContent personalizado
-  const renderEventContent = (eventInfo: any) => {
+  // Reemplazar el renderDayCell con un eventContent personalizado - Ahora memoizado
+  const renderEventContent = useCallback((eventInfo: any) => {
     const { extendedProps } = eventInfo.event;
     if (!extendedProps) return null;
     
@@ -210,62 +212,23 @@ const TradingCalendar: React.FC = () => {
         </div>
       </div>
     );
-  };
+  }, []);
 
-  // Añadir un efecto para comparar los resultados
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    
-    // Solo ejecutar si tenemos datos procesados
-    if (!processedData || !processedData.daily_results) return;
-    
-    
-    // 1. Verificar consistencia con el contexto
-    let contextTotal;
-    if (typeof processedData.calculateTotalPL === 'function') {
-      contextTotal = processedData.calculateTotalPL();
-    
-    } else {
-      contextTotal = processedData.net_profit;
-
-    }
-    
- 
-    // Buscar días con estadísticas inconsistentes
-    let inconsistentDays = 0;
-    
-    Object.entries(processedData.daily_results).forEach(([date, dayData]: [string, any]) => {
-      const contextDayValue = dayData.profit || 0;
-      const calendarDayValue = dailyStats.get(date)?.profit || 0;
-      
-      // Debería ser exactamente el mismo valor ahora que usamos la misma fuente
-      if (Math.abs(contextDayValue - calendarDayValue) > 0.01) {
-        console.warn(`⚠️ Discrepancia inesperada en ${date}: 
-          Contexto=${contextDayValue.toFixed(2)}, 
-          Calendario=${calendarDayValue.toFixed(2)}, 
-          Dif=${(contextDayValue - calendarDayValue).toFixed(2)}`);
-        inconsistentDays++;
-      }
-    });
-    
- 
-    
-    console.groupEnd();
-  }, [processedData, dailyStats, totalCalendarPL]);
-
-  const handleDatesSet = (dateInfo: any) => {
+  // Manejar cambio de fechas - Ahora con estabilidad
+  const handleDatesSet = useCallback((dateInfo: any) => {
     setCurrentCalendarDate(dateInfo.view.currentStart);
-  };
+  }, []);
 
-  const goToCurrentMonth = () => {
+  // Ir al mes actual
+  const goToCurrentMonth = useCallback(() => {
     if (calendarRef.current) {
       calendarRef.current.getApi().today();
       setCurrentCalendarDate(new Date());
     }
-  };
+  }, []);
 
-  // Manejar clic en un día
-  const handleDayClick = (dateStr: string, stats: DayStats) => {
+  // Manejar clic en un día - Ahora con estabilidad
+  const handleDayClick = useCallback((dateStr: string, stats: DayStats) => {
     // Verificar si hay trades para este día
     const dayTrades = tradesByDate.get(dateStr);
     if (!dayTrades || dayTrades.length === 0) return;
@@ -300,10 +263,10 @@ const TradingCalendar: React.FC = () => {
 
     // Abrir el modal
     setIsModalOpen(true);
-  };
+  }, [tradesByDate]);
 
   // Renderizar el modal
-  const renderModal = () => {
+  const renderModal = useCallback(() => {
     if (!isModalOpen || !selectedDayDetails) return null;
 
     // Formatear la fecha en español
@@ -478,9 +441,9 @@ const TradingCalendar: React.FC = () => {
         </div>
       </div>
     );
-  };
+  }, [isModalOpen, selectedDayDetails]);
 
-  // Efecto para estilos universales del calendario
+  // Efecto para estilos universales del calendario - Ahora con dependencias vacías para ejecutar solo una vez
   useEffect(() => {
     const styleElement = document.createElement('style');
     styleElement.textContent = `
@@ -569,6 +532,16 @@ const TradingCalendar: React.FC = () => {
     };
   }, []);
 
+  // Evitar re-renderizados excesivos
+  const memoizedEvents = React.useMemo(() => calendarEvents, [calendarEvents]);
+  
+  // Manejar evento onClick estabilizado
+  const handleEventClick = useCallback((info: any) => {
+    const dateStr = format(info.event.start!, 'yyyy-MM-dd');
+    const stats = info.event.extendedProps.stats;
+    handleDayClick(dateStr, stats);
+  }, [handleDayClick]);
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-4">
@@ -590,13 +563,13 @@ const TradingCalendar: React.FC = () => {
 
       <div className="mb-4 text-black text-sm">
         <FullCalendar
-          plugins={[dayGridPlugin]}
+          plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           ref={calendarRef}
           headerToolbar={{
-            left: 'prev,next',
+            left: 'prev,next today',
             center: 'title',
-            right: 'today'
+            right: 'dayGridMonth'
           }}
           locale="es"
           buttonText={{
@@ -605,15 +578,17 @@ const TradingCalendar: React.FC = () => {
             week: 'Semana',
             day: 'Día'
           }}
-          events={calendarEvents}
+          events={memoizedEvents}
           eventContent={renderEventContent}
-          eventClick={(info) => {
-            const dateStr = format(info.event.start!, 'yyyy-MM-dd');
-            const stats = info.event.extendedProps.stats;
-            handleDayClick(dateStr, stats);
-          }}
+          eventClick={handleEventClick}
           height="auto"
           datesSet={handleDatesSet}
+          rerenderDelay={10}
+          eventDurationEditable={false}
+          eventStartEditable={false}
+          eventResizableFromStart={false}
+          stickyHeaderDates={false}
+          progressiveEventRendering={true}
         />
       </div>
 
@@ -622,4 +597,5 @@ const TradingCalendar: React.FC = () => {
   );
 };
 
-export default TradingCalendar;
+// Exportar el componente con React.memo para evitar renders innecesarios
+export default React.memo(TradingCalendar);

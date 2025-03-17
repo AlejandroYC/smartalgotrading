@@ -1,11 +1,11 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { useState } from 'react';
 
 export function Sidebar() {
-  const { user, signOut } = useAuth();
+  const { user, signOut } = useAuthContext();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 

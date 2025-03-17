@@ -1,11 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { LocalStorageServiceNew as LocalStorageService } from '@/services/LocalStorageServiceNew';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 
 export default function NewDashboard() {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const { status } = useAutoUpdate(user?.id);
 
   return (

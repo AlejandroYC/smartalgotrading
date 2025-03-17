@@ -205,7 +205,8 @@ const IntraDayPLChart: React.FC<IntraDayPLChartProps> = ({ trades, totalProfit }
             fillOpacity={1}
             activeDot={{ r: 6, fill: "#4ade80", strokeWidth: 0 }}
             isAnimationActive={true}
-            animationDuration={800}
+            animationDuration={600}
+            animationEasing="ease-out"
             connectNulls={true}
           />
           
@@ -218,7 +219,8 @@ const IntraDayPLChart: React.FC<IntraDayPLChartProps> = ({ trades, totalProfit }
             fillOpacity={1}
             activeDot={{ r: 6, fill: "#f87171", strokeWidth: 0 }}
             isAnimationActive={true}
-            animationDuration={800}
+            animationDuration={600}
+            animationEasing="ease-out"
             connectNulls={true}
           />
         </AreaChart>

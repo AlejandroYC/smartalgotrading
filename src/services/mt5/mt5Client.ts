@@ -196,17 +196,8 @@ export class MT5Client extends EventEmitter {
   private constructor() {
     super();
     
-    // Verificar si hay una URL personalizada en localStorage
-    let customApiUrl = '';
-    if (typeof window !== 'undefined') {
-      customApiUrl = localStorage.getItem('smartalgo_api_url_override') || '';
-      if (customApiUrl) {
-      }
-    }
-    
-    // Usar la URL personalizada si existe, de lo contrario usar la del entorno
-    this.baseUrl = customApiUrl || process.env.NEXT_PUBLIC_MT5_API_URL || 'https://18.225.209.243.nip.io';
-    
+    // Usar la URL del entorno por defecto
+    this.baseUrl = process.env.NEXT_PUBLIC_MT5_API_URL || 'https://18.225.209.243.nip.io';
     
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
@@ -231,9 +222,26 @@ export class MT5Client extends EventEmitter {
     );
   }
 
+  // Método para inicializar la URL personalizada
+  private initializeCustomUrl() {
+    // Solo ejecutar en el cliente
+    if (typeof window !== 'undefined') {
+      const customApiUrl = localStorage.getItem('smartalgo_api_url_override');
+      if (customApiUrl) {
+        this.baseUrl = customApiUrl;
+        this.axiosInstance.defaults.baseURL = customApiUrl;
+      }
+    }
+  }
+
   public static getInstance(): MT5Client {
     if (!MT5Client.instance) {
       MT5Client.instance = new MT5Client();
+      // Inicializar la URL personalizada solo cuando se obtiene la instancia
+      // y solo en el cliente
+      if (typeof window !== 'undefined') {
+        MT5Client.instance.initializeCustomUrl();
+      }
     }
     return MT5Client.instance;
   }
@@ -247,7 +255,11 @@ export class MT5Client extends EventEmitter {
       accountNumber = lastActive.accountNumber;
     }
     
-    const accounts = LocalStorageService.getUserAccounts(userId);
+    if (!accountNumber) {
+      throw new Error("Account number is required");
+    }
+    
+    const accounts = LocalStorageService.getUserAccounts(userId) as { [key: string]: StoredAccountData };
     const cachedData = accounts[accountNumber];
     
     if (cachedData && !LocalStorageService.needsUpdate(cachedData)) {
@@ -265,18 +277,32 @@ export class MT5Client extends EventEmitter {
       });
       
       const newStoredData: StoredAccountData = {
+        accountId: freshData.connection_id,
         connectionId: freshData.connection_id,
-        accountInfo: freshData.data.account,
-        positions: freshData.data.positions,
-        history: freshData.data.history,
-        statistics: freshData.data.statistics,
-        platformType: "mt5",
+        accountInfo: freshData,
+        positions: freshData.positions,
+        history: [freshData.deals],
+        statistics: {
+          total_trades: freshData.statistics?.total_trades || 0,
+          winning_trades: freshData.statistics?.winning_trades || 0,
+          losing_trades: freshData.statistics?.losing_trades || 0,
+          win_rate: freshData.statistics?.win_rate || 0,
+          net_profit: freshData.statistics?.total_profit || 0,
+          profit_factor: 1,
+          avg_win: 0,
+          avg_loss: 0,
+          winning_days: 0,
+          losing_days: 0,
+          break_even_days: 0,
+          day_win_rate: 0,
+          daily_results: freshData.statistics?.daily_results || {}
+        },
         accountNumber,
         server: accountDetails.server,
         lastUpdated: new Date().toISOString()
       };
       
-      LocalStorageService.saveAccountData(userId, accountNumber, newStoredData);
+      LocalStorageService.saveAccountData(userId, newStoredData);
       
       return newStoredData;
     } catch (error) {
@@ -379,9 +405,7 @@ export class MT5Client extends EventEmitter {
         accountNumber: params.accountNumber || '',
         server: params.server,
         positions: responseData.data.positions || [],
-        history: Array.isArray(responseData.data.history?.[0]) 
-            ? responseData.data.history.flat() 
-            : responseData.data.history || [],
+        history: [responseData.data.history || []],
         accountInfo: {
           balance: responseData.data.account.balance || 0,
           equity: responseData.data.account.equity || 0,
@@ -389,7 +413,17 @@ export class MT5Client extends EventEmitter {
           margin_free: responseData.data.account.margin_free || 0,
           floating_pl: responseData.data.account.floating_pl || 0
         },
-        statistics: responseData.data.statistics,
+        statistics: {
+          ...responseData.data.statistics,
+          net_profit: responseData.data.statistics?.total_profit || 0,
+          profit_factor: 1,
+          avg_win: 0,
+          avg_loss: 0,
+          winning_days: 0,
+          losing_days: 0,
+          break_even_days: 0,
+          day_win_rate: 0
+        },
         lastUpdated: new Date().toISOString()
       };
 

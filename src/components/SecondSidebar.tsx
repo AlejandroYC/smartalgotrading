@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 
 const SecondSidebar = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { signOut } = useAuth();
+  const { signOut } = useAuthContext();
 
   const handleLogout = async () => {
     if (isLoggingOut) return;

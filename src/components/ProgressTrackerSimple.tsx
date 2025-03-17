@@ -42,7 +42,7 @@ const ProgressTrackerSimple: React.FC<ProgressTrackerSimpleProps> = ({ dailyResu
   const calendar = generateCalendar();
   
   // Renderizar día
-  const renderDay = (day) => {
+  const renderDay = (day: { date: Date; data: DailyResult }) => {
     const dateStr = format(day.date, 'yyyy-MM-dd');
     const hasData = !!day.data;
     

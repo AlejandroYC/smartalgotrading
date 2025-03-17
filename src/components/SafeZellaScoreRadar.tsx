@@ -1,21 +1,42 @@
-import React from 'react';
-import ZellaScoreRadar from './ZellaScoreRadar';
+'use client';
+import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+
+// Importar ZellaScoreRadar dinámicamente con SSR desactivado
+const ZellaScoreRadar = dynamic(() => import('./ZellaScoreRadar'), { ssr: false });
+
+interface SafeZellaScoreRadarProps {
+  className?: string;
+}
 
 // Wrapper para hacer seguro el componente ZellaScoreRadar
-export const SafeZellaScoreRadar = ({ metrics }: { metrics: any[] }) => {
-  // Asegurarse de que todas las métricas tienen valores válidos
-  const safeMetrics = metrics.map(metric => ({
-    name: metric.name || '',
-    value: typeof metric.value === 'number' ? metric.value : 0,
-    description: metric.description || ''
-  }));
-  
+export const SafeZellaScoreRadar: React.FC<SafeZellaScoreRadarProps> = ({ className }) => {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Solo renderizar en el cliente
+  if (!isMounted) {
+    return (
+      <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold text-gray-800">Zella Score</h3>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        </div>
+      </div>
+    );
+  }
+
   try {
-    return <ZellaScoreRadar metrics={safeMetrics} />;
+    return <ZellaScoreRadar className={className} />;
   } catch (error) {
     console.error("Error renderizando ZellaScoreRadar:", error);
     return (
-      <div className="py-8 text-center text-gray-500">
+      <div className={`bg-white rounded-lg shadow-md p-6 py-8 text-center text-gray-500 ${className}`}>
         <p>Error al mostrar el gráfico de radar</p>
       </div>
     );

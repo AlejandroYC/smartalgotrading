@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { MT5AccountInfo, MT5Position } from '@/types/metatrader';
 import { MT5Client } from '@/services/mt5/mt5Client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { useMTConnections } from '@/hooks/useMTConnections';
 import MT5ConnectionForm from './MT5ConnectionForm';
 
@@ -18,7 +18,7 @@ interface UpdateLog {
 }
 
 export default function MT5Dashboard() {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const { connections } = useMTConnections();
   const activeConnection = connections.find(conn => conn.is_active);
   const [accountInfo, setAccountInfo] = useState<MT5AccountInfo | null>(null);
@@ -40,12 +40,7 @@ export default function MT5Dashboard() {
 
       const accountData = await mt5Client.getAccountData(
         user.id,
-        activeConnection.id,
-        {
-          account_number: activeConnection.account_number,
-          password: activeConnection.password,
-          server: activeConnection.server
-        }
+        activeConnection.account_number
       );
 
       setAccountInfo(accountData);
@@ -86,7 +81,6 @@ export default function MT5Dashboard() {
     }, 5 * 60 * 1000); // 5 minutos
 
     return () => {
-
       clearInterval(interval);
     };
   }, [user?.id, activeConnection?.id, loadMT5Data]);
@@ -94,16 +88,12 @@ export default function MT5Dashboard() {
   const startPolling = useCallback(() => {
     if (!user?.id || !activeConnection?.id) return;
 
-
-
     const pollInterval = setInterval(async () => {
       try {
         const mt5Client = MT5Client.getInstance();
-        const accountData = await mt5Client.getActiveAccountStatus(
+        const accountData = await mt5Client.getAccountData(
           user.id,
-          activeConnection.id,  // Asegúrate de que esto sea el ID de conexión, no una fecha
-          undefined,  // fromDate (opcional)
-          undefined   // toDate (opcional)
+          activeConnection.account_number
         );
 
         setAccountInfo(accountData);
@@ -166,7 +156,7 @@ export default function MT5Dashboard() {
                 </div>
                 <div>
                   <p className="text-gray-600">Profit</p>
-                  <p className="text-xl font-medium">${accountInfo.profit}</p>
+                  <p className="text-xl font-medium">${accountInfo.floating_pl}</p>
                 </div>
               </div>
             </div>

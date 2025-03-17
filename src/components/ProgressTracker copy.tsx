@@ -2,11 +2,31 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { format, parseISO, startOfMonth, endOfMonth, addDays, subMonths, addMonths } from 'date-fns';
 import { DailyResult } from '@/services/TradingDataService';
 
+interface AccountData {
+  statistics?: {
+    daily_results?: Record<string, DailyResult>;
+  };
+}
+
+interface DailyResults {
+  [date: string]: DailyResult;
+}
+
+interface ProgressTrackerProps {
+  accountData?: AccountData;
+  dailyResults?: DailyResults;
+  onDayClick?: (date: string) => void;
+}
+
 // Versión protegida contra errores
-const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayClick }) => {
+const ProgressTracker: React.FC<ProgressTrackerProps> = ({ 
+  accountData, 
+  dailyResults: propDailyResults, 
+  onDayClick 
+}) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
-  const [processedResults, setProcessedResults] = useState({});
+  const [processedResults, setProcessedResults] = useState<DailyResults>({});
   
 
   // Si no hay datos, mostrar mensaje
@@ -52,10 +72,7 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
   
   // Procesar los datos cuando cambien
   useEffect(() => {
-   
-    
-    // Objeto para almacenar resultados
-    const results = {};
+    const results: DailyResults = {};
     
     try {
       // Intentar obtener daily_results de accountData
@@ -86,9 +103,8 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
     const end = endOfMonth(selectedMonth);
     const days: Array<{ date: Date; data?: DailyResult }> = [];
 
-    const resultsByDate = results.reduce((acc, day) => {
+    const resultsByDate = Object.entries(results).reduce((acc: DailyResults, [dateStr, day]) => {
       try {
-        const dateStr = format(day.date, 'yyyy-MM-dd');
         acc[dateStr] = {
           profit: day.profit,
           trades: day.trades,
@@ -187,7 +203,7 @@ const ProgressTracker = ({ accountData, dailyResults: propDailyResults, onDayCli
             >
               {availableMonths.map(month => (
                 <option key={month} value={month}>
-                  {format(new Date(month.split('-')[0], Number(month.split('-')[1]) - 1, 1), 'MMMM yyyy')}
+                  {format(new Date(month + '-01'), 'MMMM yyyy')}
                 </option>
               ))}
             </select>

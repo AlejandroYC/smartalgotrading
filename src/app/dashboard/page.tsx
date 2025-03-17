@@ -1,8 +1,9 @@
-'use client';
+"use client";
+
 import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { useTradingData } from '@/contexts/TradingDataContext';
-import { useAuth } from '@/hooks/useAuth';
-import ZellaScoreRadar from '@/components/ZellaScoreRadar';
+import { SafeZellaScoreRadar } from '@/components/SafeZellaScoreRadar';
+import { useAuthContext } from '@/providers/AuthProvider';  
 import DateRangeSelector from '@/components/DateRangeSelector';
 //import ProgressTracker from '@/components/ProgressTracker';
 import ProgressTrackerNew from '@/components/ProgressTrackerNew';
@@ -18,6 +19,24 @@ import DebugDataView from '@/components/DebugDataView';
 import AccountSelector from '@/components/AccountSelector';
 import { FullScreenLoading, LoadingIndicator, ButtonLoading } from '@/components/LoadingIndicator';
 import Link from 'next/link';
+import ChartErrorBoundary from '@/components/ChartErrorBoundary';
+
+// Componente ClientOnly para asegurar renderizado solo del lado del cliente
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return <div className="w-full h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+    </div>;
+  }
+  
+  return <>{children}</>;
+}
 
 // Agregar una bandera para controlar si se muestra la vista de depuración
 const SHOW_DEBUG_VIEW = process.env.NODE_ENV === 'development';
@@ -45,6 +64,9 @@ function DiagnosticPanel() {
   }, [mt5ApiUrl]);
   
   const runDiagnostics = () => {
+    // Verificar que estamos en el cliente
+    if (typeof window === 'undefined') return;
+    
     // Verificar localStorage
     const storageKeys: Array<{key: string, value: string | null}> = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -80,6 +102,9 @@ function DiagnosticPanel() {
   };
   
   const checkAccountData = () => {
+    // Verificar que estamos en el cliente
+    if (typeof window === 'undefined') return;
+    
     const accountKey = currentAccount ? `smartalgo_${currentAccount}_account_data` : null;
     if (!accountKey) {
       setStorageContents({ error: "No hay cuenta seleccionada" });
@@ -122,6 +147,9 @@ function DiagnosticPanel() {
   };
   
   const updateApiUrl = () => {
+    // Verificar que estamos en el cliente
+    if (typeof window === 'undefined') return;
+    
     try {
       if (!apiUrl) {
         alert('La URL no puede estar vacía');
@@ -141,6 +169,9 @@ function DiagnosticPanel() {
   };
 
   const inspectLocalStorage = () => {
+    // Verificar que estamos en el cliente
+    if (typeof window === 'undefined') return;
+    
     const diagnosticInfo: {
       activeKeys: Array<{key: string, value: string | null}>,
       dataKeys: Array<{
@@ -292,8 +323,10 @@ function DiagnosticPanel() {
         
         <button 
           onClick={() => {
-            localStorage.setItem('smartalgo_current_account', currentAccount || "34061170");
-            runDiagnostics();
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('smartalgo_current_account', currentAccount || "34061170");
+              runDiagnostics();
+            }
           }}
           className="px-3 py-1 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700"
         >
@@ -302,9 +335,11 @@ function DiagnosticPanel() {
         
         <button 
           onClick={() => {
-            localStorage.removeItem('smartalgo_last_refresh_time');
-            localStorage.removeItem('smartalgo_last_update_time');
-            runDiagnostics();
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('smartalgo_last_refresh_time');
+              localStorage.removeItem('smartalgo_last_update_time');
+              runDiagnostics();
+            }
           }}
           className="px-3 py-1 text-sm bg-red-600 text-white rounded-md hover:bg-red-700"
         >
@@ -320,6 +355,9 @@ function DiagnosticPanel() {
         
         <button 
           onClick={() => {
+            // Verificar que estamos en el cliente
+            if (typeof window === 'undefined') return;
+            
             // Normalizar datos entre cuenta activa y datos almacenados
             const currentAccount = localStorage.getItem('smartalgo_current_account');
             if (currentAccount) {
@@ -367,9 +405,11 @@ function DiagnosticPanel() {
         
         <button 
           onClick={() => {
+            // Verificar que estamos en el cliente
+            if (typeof window === 'undefined') return;
+            
             // Preguntar al usuario para confirmar
             if (confirm('⚠️ Esto eliminará TODOS los datos guardados. ¿Estás seguro?')) {
-          
               
               // Guardar la cuenta actual antes de limpiar todo
               const currentAccount = localStorage.getItem('smartalgo_current_account');
@@ -377,7 +417,6 @@ function DiagnosticPanel() {
               // Eliminar todo lo que tenga el prefijo smartalgo_
               Object.keys(localStorage).forEach(key => {
                 if (key.startsWith('smartalgo_')) {
-               
                   localStorage.removeItem(key);
                 }
               });
@@ -509,12 +548,15 @@ const DateRangeChangeIndicator = ({ isChanging, dateRange }: {
   );
 };
 
-export default function Dashboard() {
-  const { user } = useAuth();
+// Componente principal del Dashboard
+function DashboardContent() {
+  // Obtener el usuario del contexto de autenticación
+  const { user } = useAuthContext();
+  
   const { 
     loading, 
-    error, 
-    processedData, 
+    error,
+    processedData,
     refreshData, 
     dateRange, 
     setDateRange,
@@ -562,56 +604,76 @@ export default function Dashboard() {
   };
 
   // Nueva función para manejar el cambio de rango de fechas
-  const handleDateRangeChange = (range: any) => {
+  const handleDateRangeChange = useCallback((range: any) => {
     setIsChangingDateRange(true);
     
-    // No necesitamos llamar a setDateRange aquí ya que eso lo hace
-    // internamente el componente DateRangeSelector
-    
-    // Esperamos a que los datos se procesen antes de ocultar el indicador
     // El tiempo dependerá del volumen de datos y la complejidad del procesamiento
     const processingTimeout = setTimeout(() => {
       setIsChangingDateRange(false);
     }, 1500); // Ajustable según la complejidad del procesamiento
     
-    // Limpiar el timeout si el componente se desmonta
     return () => clearTimeout(processingTimeout);
-  };
+  }, []);
   
   // Efecto para cargar datos iniciales
   useEffect(() => {
     if (!user?.id || initialized.current) return;
     
-    const initializeDashboard = async () => {
-      initialized.current = true;
-      console.log('🚀 Inicializando dashboard para usuario:', user.id);
-      
+    // Marcamos como inicializado inmediatamente para evitar múltiples ejecuciones
+    initialized.current = true;
+    console.log('🚀 Inicializando dashboard para usuario:', user.id);
+    
+    // Definimos una función asíncrona para la carga inicial
+    const loadInitialData = async () => {
       try {
         // Primero cargar las cuentas del usuario
         await loadUserAccounts();
         
-        // IMPORTANTE: Forzar una actualización manual inmediata
-        // Limpiar cualquier cache para asegurar datos frescos
-        localStorage.removeItem('smartalgo_last_refresh_time');
-        localStorage.removeItem('smartalgo_last_update_time');
-        
-        console.log('✅ Dashboard inicializado, solicitando actualización inmediata');
-        
-        // Solicitar actualización inmediata con menor retraso
-        setTimeout(() => {
-          if (currentAccount) {
-            console.log('🔄 Actualizando datos para cuenta:', currentAccount);
-            manualUpdate(); 
+        // Solo refrescamos los datos si tenemos una cuenta activa
+        if (currentAccount) {
+          console.log('🔄 Actualizando datos para cuenta:', currentAccount);
+          
+          // Limpiar cualquier cache para asegurar datos frescos
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('smartalgo_last_refresh_time');
+            localStorage.removeItem('smartalgo_last_update_time');
           }
-        }, 500); // Reducir a 0.5 segundos (antes era 1 segundo)
+          
+          // Llamamos a refreshData pero no a manualUpdate para evitar múltiples actualizaciones
+          refreshData();
+        }
       } catch (error) {
         console.error('❌ Error inicializando dashboard:', error);
-        // No resetear initialized.current en caso de error para evitar múltiples intentos
       }
     };
 
-    initializeDashboard();
-  }, [user?.id, loadUserAccounts, manualUpdate, currentAccount]); // Añadir currentAccount como dependencia
+    // Ejecutamos con un pequeño retraso para permitir que otros efectos se completen
+    const timer = setTimeout(() => {
+      loadInitialData();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [user?.id]);
+  
+  // Manejar actualización de datos manualmente
+  const handleManualUpdate = useCallback(() => {
+    console.log('🔄 Solicitud manual de actualización iniciada por el usuario');
+    
+    // Limpiar indicadores de tiempo para forzar una actualización completa
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('smartalgo_last_refresh_time');
+      localStorage.removeItem('smartalgo_last_update_time');
+    }
+    
+    refreshData();
+    
+    // Evitamos llamar a manualUpdate inmediatamente después de refreshData
+    const updateTimer = setTimeout(() => {
+      manualUpdate();
+    }, 1000);
+    
+    return () => clearTimeout(updateTimer);
+  }, [refreshData, manualUpdate]);
 
   // Log para depuración con más detalles, usando un contador de renderizados
   useEffect(() => {
@@ -619,18 +681,13 @@ export default function Dashboard() {
     if (hasRendered.current) return;
     hasRendered.current = true;
     
-    const storageKey = currentAccount ? `smartalgo_${currentAccount}_account_data` : null;
-    const hasStoredData = storageKey ? !!localStorage.getItem(storageKey) : false;
-    
-
-    
     // Permitir futuros logs en cambios significativos
     const resetRenderFlag = setTimeout(() => {
       hasRendered.current = false;
     }, 1000);
     
     return () => clearTimeout(resetRenderFlag);
-  }, [user?.id, currentAccount, processedData, userAccounts.length]);
+  }, []);
 
   // Mostrar mensaje elegante cuando el usuario no tiene cuentas
   if (hasNoAccounts) {
@@ -761,8 +818,10 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => {
-                localStorage.removeItem('smartalgo_last_refresh_time');
-                window.location.reload();
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('smartalgo_last_refresh_time');
+                  window.location.reload();
+                }
               }}
               className="px-3 py-1 bg-gray-500 text-white rounded text-sm"
             >
@@ -835,29 +894,7 @@ export default function Dashboard() {
           
           {/* Botón de actualización manual */}
           <button 
-            onClick={() => {
-              console.log('🔄 Solicitud manual de actualización iniciada por el usuario');
-              
-              // Limpiar indicadores de tiempo para forzar una actualización completa
-              localStorage.removeItem('smartalgo_last_refresh_time');
-              localStorage.removeItem('smartalgo_last_update_time');
-              
-              // Mostrar indicación visual de actualización en curso
-              const toastId = Math.random().toString(36).substring(7);
-              // Aquí podrías usar toast.info si tienes una librería de toasts
-              
-              // Invocar actualización forzada
-              manualUpdate();
-              
-              // Después de un breve retraso, actualizar UI con refreshData
-              // Esto es para asegurar que incluso si manualUpdate falla, 
-              // al menos intentamos cargar desde localStorage
-              setTimeout(() => {
-                console.log('⚡ Forzando actualización de datos en la UI');
-                refreshData();
-                // toast.success("Datos actualizados", { id: toastId });
-              }, 1000);
-            }}
+            onClick={handleManualUpdate}
             disabled={status.isUpdating}
             className="px-3 py-1 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 transition"
           >
@@ -891,38 +928,57 @@ export default function Dashboard() {
         <StatsOverview />
       </div>
       
-      {/* ZellaScore y otros componentes */}
+      {/* Componentes gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pr-8 pl-8">
-        <ZellaScoreRadar />
-        <div className="">
-          <ProgressTrackerNew 
-            handleDateRangeChange={(fromDate, toDate) => {
-              setDateRange({
-                startDate: fromDate,
-                endDate: toDate,
-                label: 'Personalizado'
-              });
-            }}
-          />
-        </div>
-        <div className="">
-          <DailyNetCumulativePL dailyResults={processedData.daily_results} />
-        </div>
-        <div className="">
-          <NetDailyPL dailyResults={processedData.daily_results} />
-        </div>
-        <div className="">
-          <RecentTradesSection />
-        </div>
-        <div className="">
-          <TradeTimePerformance />
-        </div>
+        <ChartErrorBoundary key="zella-score-radar">
+          <SafeZellaScoreRadar />
+        </ChartErrorBoundary>
+        
+        <ChartErrorBoundary key="progress-tracker">
+          <div className="">
+            <ProgressTrackerNew 
+              handleDateRangeChange={(fromDate, toDate) => {
+                setDateRange({
+                  startDate: fromDate,
+                  endDate: toDate,
+                  label: 'Personalizado'
+                });
+              }}
+            />
+          </div>
+        </ChartErrorBoundary>
+        
+        <ChartErrorBoundary key="daily-net-cumulative">
+          <div className="">
+            <DailyNetCumulativePL dailyResults={processedData.daily_results} />
+          </div>
+        </ChartErrorBoundary>
+        
+        <ChartErrorBoundary key="net-daily-pl">
+          <div className="">
+            <NetDailyPL dailyResults={processedData.daily_results} />
+          </div>
+        </ChartErrorBoundary>
+        
+        <ChartErrorBoundary key="recent-trades">
+          <div className="">
+            <RecentTradesSection />
+          </div>
+        </ChartErrorBoundary>
+        
+        <ChartErrorBoundary key="trade-time-performance">
+          <div className="">
+            <TradeTimePerformance />
+          </div>
+        </ChartErrorBoundary>
       </div>
       
       <div className="flex flex-col gap-4 w-3/4 p-8">
-        <div className="w-full">
-          <TradingCalendar />
-        </div>
+        <ChartErrorBoundary key="trading-calendar">
+          <div className="w-full">
+            <TradingCalendar />
+          </div>
+        </ChartErrorBoundary>
       </div>
 
       <AccountChangeIndicator isChanging={isChangingAccount} account={selectedAccountNumber} />
@@ -931,5 +987,14 @@ export default function Dashboard() {
         dateRange={dateRange} 
       />
     </div>
+  );
+}
+
+// Exportar el componente principal envuelto en ClientOnly
+export default function Dashboard() {
+  return (
+    <ClientOnly>
+      <DashboardContent />
+    </ClientOnly>
   );
 } 

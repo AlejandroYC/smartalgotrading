@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 
 export function SignUpForm() {
@@ -10,7 +10,7 @@ export function SignUpForm() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const { signUp } = useAuth();
+  const { signUp } = useAuthContext();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -166,7 +166,9 @@ const StatCard: React.FC<StatCardProps> = ({
               dataKey="value"
               stroke="none"
               animationBegin={0}
-              animationDuration={500}
+              animationDuration={800}
+              isAnimationActive={true}
+              animationEasing="ease-out"
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}-${chartKey}`} fill={COLORS[index % COLORS.length]} />
@@ -236,7 +238,9 @@ const StatCard: React.FC<StatCardProps> = ({
               dataKey="value"
               stroke="none"
               animationBegin={0}
-              animationDuration={500}
+              animationDuration={800}
+              isAnimationActive={true}
+              animationEasing="ease-out"
             >
               <Cell key="cell-0" fill="#10b981" />
               <Cell key="cell-1" fill="#ef4444" />
@@ -380,7 +384,9 @@ const StatCard: React.FC<StatCardProps> = ({
               dataKey="value"
               stroke="none"
               animationBegin={0}
-              animationDuration={500}
+              animationDuration={800}
+              isAnimationActive={true}
+              animationEasing="ease-out"
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}-${chartKey}`} fill={COLORS[index % COLORS.length]} />

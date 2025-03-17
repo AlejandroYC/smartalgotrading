@@ -48,7 +48,7 @@ const TradeTimePerformance: React.FC = () => {
         console.error('Error procesando trade:', error);
         return null;
       }
-    }).filter(point => point !== null) as TradePoint[];
+    }).filter((point: TradePoint | null) => point !== null) as TradePoint[];
   }, [processedData?.rawTrades]);
 
   const hourDistribution = useMemo(() => {
