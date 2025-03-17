@@ -571,6 +571,9 @@ function DashboardContent() {
   const initialized = useRef(false);
   const hasRendered = useRef(false);
   
+  // Estado para controlar la carga inicial con un tiempo mínimo
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  
   // Llamar al hook directamente en el nivel superior del componente
   // siguiendo las reglas de Hooks de React
   const { status, manualUpdate, toggleAutoUpdate } = useAutoUpdate(user?.id);
@@ -581,6 +584,21 @@ function DashboardContent() {
   
   // Nuevo estado para controlar cuando se está cambiando el rango de fechas
   const [isChangingDateRange, setIsChangingDateRange] = useState(false);
+  
+  // Efecto simple para mostrar la pantalla de carga por un tiempo fijo
+  useEffect(() => {
+    if (isInitialLoading) {
+      console.log('🔄 Mostrando pantalla de carga inicial');
+      
+      // Tiempo fijo de 5 segundos para la pantalla de carga
+      const timer = setTimeout(() => {
+        console.log('⏱️ Tiempo de carga completado, mostrando dashboard');
+        setIsInitialLoading(false);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isInitialLoading]);
   
   // Simplificar la función handleAccountSelect para usar la nueva implementación
   const handleAccountSelect = async (account: string) => {
@@ -615,7 +633,7 @@ function DashboardContent() {
     return () => clearTimeout(processingTimeout);
   }, []);
   
-  // Efecto para cargar datos iniciales
+  // Efecto para cargar datos iniciales - Simplificado para evitar bloqueos
   useEffect(() => {
     if (!user?.id || initialized.current) return;
     
@@ -623,36 +641,33 @@ function DashboardContent() {
     initialized.current = true;
     console.log('🚀 Inicializando dashboard para usuario:', user.id);
     
-    // Definimos una función asíncrona para la carga inicial
-    const loadInitialData = async () => {
+    // Cargar datos en un proceso independiente que no bloquee la UI
+    const loadData = async () => {
       try {
-        // Primero cargar las cuentas del usuario
+        // Cargar cuentas
         await loadUserAccounts();
+        console.log('✅ Cuentas cargadas');
         
-        // Solo refrescamos los datos si tenemos una cuenta activa
+        // Limpiar cache
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('smartalgo_last_refresh_time');
+          localStorage.removeItem('smartalgo_last_update_time');
+        }
+        
+        // Cargar datos si hay una cuenta activa
         if (currentAccount) {
           console.log('🔄 Actualizando datos para cuenta:', currentAccount);
-          
-          // Limpiar cualquier cache para asegurar datos frescos
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('smartalgo_last_refresh_time');
-            localStorage.removeItem('smartalgo_last_update_time');
-          }
-          
-          // Llamamos a refreshData pero no a manualUpdate para evitar múltiples actualizaciones
-          refreshData();
+          await refreshData();
+          console.log('✅ Datos actualizados');
         }
       } catch (error) {
-        console.error('❌ Error inicializando dashboard:', error);
+        console.error('❌ Error cargando datos:', error);
       }
     };
-
-    // Ejecutamos con un pequeño retraso para permitir que otros efectos se completen
-    const timer = setTimeout(() => {
-      loadInitialData();
-    }, 500);
     
-    return () => clearTimeout(timer);
+    // Ejecutar la carga de datos sin bloquear la UI
+    loadData();
+    
   }, [user?.id]);
   
   // Manejar actualización de datos manualmente
@@ -689,12 +704,24 @@ function DashboardContent() {
     return () => clearTimeout(resetRenderFlag);
   }, []);
 
+  // Mostrar la pantalla de carga durante la inicialización
+  if (isInitialLoading) {
+    return (
+      <FullScreenLoading 
+        message="Preparando tu Dashboard" 
+        description="Estamos cargando tus datos financieros y análisis de trading..."
+        color="primary"
+        type="wave"
+      />
+    );
+  }
+
   // Mostrar mensaje elegante cuando el usuario no tiene cuentas
   if (hasNoAccounts) {
     return (
       <div className="w-full min-h-screen bg-gray-50 flex flex-col">
         <div className="flex items-center justify-between p-6 bg-white shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-800">SmartAlgoTradingggg</h1>
+          <h1 className="text-2xl font-bold text-gray-800">SmartAlgoTrading</h1>
         </div>
         
         <div className="flex-1 flex items-center justify-center p-8">
@@ -730,12 +757,12 @@ function DashboardContent() {
     );
   }
 
-  // Mostrar loading solo cuando realmente estamos cargando y tenemos cuentas
-  if (loading && !hasNoAccounts) {
+  // Mostrar loading solo cuando realmente estamos cargando (después de la carga inicial)
+  if (loading && !isInitialLoading) {
     return (
       <FullScreenLoading 
-        message="Preparando tu Dashboard" 
-        description="Estamos cargando tus datos financieros y análisis de trading..."
+        message="Actualizando Dashboard" 
+        description="Estamos procesando tus datos financieros más recientes..."
         color="primary"
         type="wave"
       />
