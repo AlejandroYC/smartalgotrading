@@ -1,8 +1,7 @@
 'use client'
 // src/providers/AuthProvider.tsx
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-
 
 type AuthContextType = ReturnType<typeof useAuth>;
 
@@ -11,6 +10,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   // Este es el ÚNICO lugar donde useAuth debe ser usado
   const auth = useAuth();
+  
+  // Se eliminó el detector de inactividad para mejorar la experiencia del usuario
   
   return (
     <AuthContext.Provider value={auth}>

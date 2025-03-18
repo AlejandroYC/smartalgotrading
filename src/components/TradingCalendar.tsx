@@ -6,6 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { format, parseISO } from 'date-fns';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import IntraDayPLChart from './IntraDayPLChart';
+import { formatTradeType, isBuyOperation, isSellOperation } from '@/utils/tradeUtils';
 
 interface DayStats {
   profit: number;
@@ -408,7 +409,7 @@ const TradingCalendar: React.FC = () => {
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{tradeTime}</td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-black">{trade.symbol || trade.ticket}</td>
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{trade.type || (profit >= 0 ? 'COMPRA' : 'VENTA')}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{formatTradeType(trade.type)}</td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm text-black">{trade.symbol || 'Desconocido'}</td>
                       <td className={`px-3 py-2 whitespace-nowrap text-sm font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         ${profit.toFixed(2)}

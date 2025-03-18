@@ -1,9 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/providers/AuthProvider';
 import Link from 'next/link';
 import { LoadingIndicator } from './LoadingIndicator';
+import { toast } from 'react-toastify';
 
 interface LoginFormProps {
   onLoadingStart?: () => void;
@@ -16,36 +17,136 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const isSubmitting = useRef(false);
+  const formSubmitCount = useRef(0);
+  const loginTimeout = useRef<NodeJS.Timeout | null>(null);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const { signIn } = useAuthContext();
 
+  // Limpiar temporizadores al desmontar
+  useEffect(() => {
+    return () => {
+      if (loginTimeout.current) {
+        clearTimeout(loginTimeout.current);
+      }
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Función para mostrar mensajes de error de forma segura
+  const showError = (message: string) => {
+    console.log('[LoginForm] Mostrando error:', message);
+    
+    // Mostrar error en el componente
+    setError(message);
+    
+    // También mostrar como toast para mayor visibilidad
+    toast.error(message, {
+      position: "top-center",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+    
+    // Desactivar el estado de carga
+    setLoading(false);
+    isSubmitting.current = false;
+    
+    // Notificar al componente padre que ha terminado la carga
+    onLoadingEnd?.();
+    
+    // Auto limpiar el error después de 8 segundos
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+    }
+    
+    errorTimeoutRef.current = setTimeout(() => {
+      setError(null);
+    }, 8000);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Limpiar cualquier mensaje de error previo
     setError(null);
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+    }
+    
+    // Prevenir múltiples envíos simultáneos
+    if (isSubmitting.current || loading) {
+      console.log('[LoginForm] Evitando múltiples envíos del formulario');
+      return;
+    }
+    
+    // Validación básica del formulario
+    if (!email || !password) {
+      showError('Por favor, completa todos los campos');
+      return;
+    }
+    
+    // Verificar envíos rápidos consecutivos
+    formSubmitCount.current += 1;
+    if (formSubmitCount.current > 3) {
+      showError('Demasiados intentos. Por favor, espera un momento antes de intentar nuevamente.');
+      
+      // Reiniciar el contador después de 10 segundos
+      loginTimeout.current = setTimeout(() => {
+        formSubmitCount.current = 0;
+      }, 10000);
+      
+      return;
+    }
+
+    // Iniciar proceso de login
     setLoading(true);
+    isSubmitting.current = true;
     onLoadingStart?.(); // Notificar al componente padre que ha comenzado la carga
 
     try {
+      console.log('[LoginForm] Iniciando proceso de login');
       await signIn(email, password);
-      router.push('/dashboard'); // O donde quieras redirigir después del login
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al ingresar');
-      onLoadingEnd?.(); // Notificar al componente padre que ha terminado la carga en caso de error
-    } finally {
-      setLoading(false);
-      // No llamamos a onLoadingEnd aquí para mantener el indicador de carga
-      // mientras se redirige al dashboard en caso de éxito
+      console.log('[LoginForm] Login exitoso, redirigiendo inmediatamente...');
+      
+      // Marcar que venimos del login para evitar doble loading
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('coming_from_login', 'true');
+      }
+      
+      // Redireccionar inmediatamente al dashboard
+      router.push('/dashboard');
+      
+      // Mostrar mensaje de éxito como toast (aparecerá después de la redirección)
+      toast.success('¡Inicio de sesión exitoso!', {
+        position: "top-center",
+        autoClose: 2000,
+      });
+    } catch (err: any) {
+      console.error('[LoginForm] Error durante login:', err);
+      
+      // Obtener el mensaje de error para mostrar al usuario
+      let errorMessage = 'Error al ingresar. Por favor, verifica tus credenciales.';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      // Mostrar error al usuario de forma segura
+      showError(errorMessage);
     }
   };
 
   return (
     <div className="space-y-6">
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3">
-          {error}
-        </div>
-      )}
-
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-purple-600"></div>
@@ -55,7 +156,7 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
           <input
             type="email"
@@ -63,8 +164,8 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Correo Electronico"
             required
-            className="w-full px-4 py-3 border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-            disabled={loading}
+            className={`w-full px-4 py-3 border ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'} text-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all`}
+            disabled={loading || isSubmitting.current}
           />
         </div>
 
@@ -75,8 +176,8 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Contraseña"
             required
-            className="w-full px-4 py-3 border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-            disabled={loading}
+            className={`w-full px-4 py-3 border ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'} text-gray-500 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all`}
+            disabled={loading || isSubmitting.current}
           />
           <div className="text-right mt-2">
             <Link
@@ -88,15 +189,36 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
           </div>
         </div>
 
+        {/* Mensaje de error más visible y colocado justo antes del botón */}
+        {error && (
+          <div className="my-3 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded shadow-sm animate-bounce-once">
+            <div className="flex items-center">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" 
+                viewBox="0 0 20 20" 
+                fill="currentColor"
+              >
+                <path 
+                  fillRule="evenodd" 
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" 
+                  clipRule="evenodd" 
+                />
+              </svg>
+              <span className="font-medium text-sm">{error}</span>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || isSubmitting.current}
           className={`
             w-full py-3 rounded-lg 
             transition-all duration-300
             flex items-center justify-center relative
-            ${loading 
-              ? 'bg-gradient-to-r from-purple-600 to-purple-700 shadow-inner text-white/90' 
+            ${loading || isSubmitting.current
+              ? 'bg-gradient-to-r from-purple-600 to-purple-700 shadow-inner text-white/90 cursor-not-allowed' 
               : 'bg-gradient-to-r from-purple-500 to-purple-700 shadow-md hover:shadow-lg text-white hover:from-purple-600 hover:to-purple-800'
             }
           `}
@@ -128,6 +250,17 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
         Volver al inicio
         </Link>
       </p>
+
+      {/* Agregar estilo CSS para la animación bounce-once */}
+      <style jsx global>{`
+        @keyframes bounce-once {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .animate-bounce-once {
+          animation: bounce-once 0.5s ease-in-out;
+        }
+      `}</style>
     </div>
   );
 } 

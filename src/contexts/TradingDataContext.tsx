@@ -4,6 +4,7 @@ import { LocalStorageServiceNew as LocalStorageService } from '@/services/LocalS
 import { MT5Client } from '@/services/mt5/mt5Client';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import type { Database } from '@/types/supabase';
+import { formatTradeType } from '@/utils/tradeUtils';
 
 interface DateRange {
   startDate: Date;
@@ -513,7 +514,9 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const processedTrade: ProcessedTrade = {
           ...trade,
           timestamp: timestamp,
-          dateStr: timestamp.toISOString().split('T')[0]
+          dateStr: timestamp.toISOString().split('T')[0],
+          // Asegurarnos de que tipo se preserva como número para procesamiento posterior
+          type: typeof trade.type === 'number' ? trade.type : parseInt(String(trade.type), 10) || 0
         };
         
         return processedTrade;

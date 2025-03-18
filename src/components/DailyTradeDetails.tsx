@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 import { Trade } from '@/types/Trade';  // Asumiendo que existe este tipo o crear una interfaz
+import { formatTradeType, isBuyOperation, isSellOperation } from '@/utils/tradeUtils';
 
 interface DailyTradeDetailsProps {
   selectedDay: string;
@@ -190,12 +191,11 @@ const DailyTradeDetails: React.FC<DailyTradeDetailsProps> = ({
                         <td className="py-2 px-3">{trade.symbol}</td>
                         <td className="py-2 px-3">
                           <span className={`px-2 py-1 rounded-full text-xs 
-                            ${trade.type.toLowerCase() === 'buy' || trade.type.toLowerCase() === 'compra' 
+                            ${isBuyOperation(trade.type) 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-red-100 text-red-800'}`}
                           >
-                            {trade.type.toLowerCase() === 'buy' ? 'COMPRA' : 
-                             trade.type.toLowerCase() === 'sell' ? 'VENTA' : trade.type}
+                            {formatTradeType(trade.type)}
                           </span>
                         </td>
                         <td className="py-2 px-3 text-right">{trade.volume}</td>
