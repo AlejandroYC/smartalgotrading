@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { format, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 import EmptyStateCard from './EmptyStateCard';
 import { useTradingData } from '@/contexts/TradingDataContext';
+import { formatTradeType, isBuyOperation, isSellOperation } from '@/utils/tradeUtils';
 
 interface Trade {
   ticket?: string | number;
@@ -118,7 +119,16 @@ const RecentTradesSection: React.FC = () => {
                 )}
               </div>
               <div>{trade.symbol}</div>
-              <div>{trade.type}</div>
+              <div>
+                <span className={`
+                  px-2 py-1 rounded-full text-xs 
+                  ${isBuyOperation(trade.type) 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'}
+                `}>
+                  {formatTradeType(trade.type)}
+                </span>
+              </div>
               <div className={`text-right ${
                 (trade.profit || 0) >= 0 ? 'text-green-500' : 'text-red-500'
               }`}>

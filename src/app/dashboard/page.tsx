@@ -571,8 +571,8 @@ function DashboardContent() {
   const initialized = useRef(false);
   const hasRendered = useRef(false);
   
-  // Estado para controlar la carga inicial con un tiempo mínimo
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  // Estado para controlar la carga inicial del contenido
+  const [isContentLoading, setIsContentLoading] = useState(false);
   
   // Llamar al hook directamente en el nivel superior del componente
   // siguiendo las reglas de Hooks de React
@@ -585,20 +585,25 @@ function DashboardContent() {
   // Nuevo estado para controlar cuando se está cambiando el rango de fechas
   const [isChangingDateRange, setIsChangingDateRange] = useState(false);
   
-  // Efecto simple para mostrar la pantalla de carga por un tiempo fijo
-  useEffect(() => {
-    if (isInitialLoading) {
-      console.log('🔄 Mostrando pantalla de carga inicial');
-      
-      // Tiempo fijo de 5 segundos para la pantalla de carga
-      const timer = setTimeout(() => {
-        console.log('⏱️ Tiempo de carga completado, mostrando dashboard');
-        setIsInitialLoading(false);
-      }, 5000);
-      
-      return () => clearTimeout(timer);
+  // Manejar actualización de datos manualmente
+  const handleManualUpdate = useCallback(() => {
+    console.log('🔄 Solicitud manual de actualización iniciada por el usuario');
+    
+    // Limpiar indicadores de tiempo para forzar una actualización completa
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('smartalgo_last_refresh_time');
+      localStorage.removeItem('smartalgo_last_update_time');
     }
-  }, [isInitialLoading]);
+    
+    refreshData();
+    
+    // Evitamos llamar a manualUpdate inmediatamente después de refreshData
+    const updateTimer = setTimeout(() => {
+      manualUpdate();
+    }, 1000);
+    
+    return () => clearTimeout(updateTimer);
+  }, [refreshData, manualUpdate]);
   
   // Simplificar la función handleAccountSelect para usar la nueva implementación
   const handleAccountSelect = async (account: string) => {
@@ -639,6 +644,7 @@ function DashboardContent() {
     
     // Marcamos como inicializado inmediatamente para evitar múltiples ejecuciones
     initialized.current = true;
+    setIsContentLoading(true);
     console.log('🚀 Inicializando dashboard para usuario:', user.id);
     
     // Cargar datos en un proceso independiente que no bloquee la UI
@@ -662,6 +668,8 @@ function DashboardContent() {
         }
       } catch (error) {
         console.error('❌ Error cargando datos:', error);
+      } finally {
+        setIsContentLoading(false);
       }
     };
     
@@ -669,47 +677,13 @@ function DashboardContent() {
     loadData();
     
   }, [user?.id]);
-  
-  // Manejar actualización de datos manualmente
-  const handleManualUpdate = useCallback(() => {
-    console.log('🔄 Solicitud manual de actualización iniciada por el usuario');
-    
-    // Limpiar indicadores de tiempo para forzar una actualización completa
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('smartalgo_last_refresh_time');
-      localStorage.removeItem('smartalgo_last_update_time');
-    }
-    
-    refreshData();
-    
-    // Evitamos llamar a manualUpdate inmediatamente después de refreshData
-    const updateTimer = setTimeout(() => {
-      manualUpdate();
-    }, 1000);
-    
-    return () => clearTimeout(updateTimer);
-  }, [refreshData, manualUpdate]);
 
-  // Log para depuración con más detalles, usando un contador de renderizados
-  useEffect(() => {
-    // Solo ejecutar el log una vez por renderizado
-    if (hasRendered.current) return;
-    hasRendered.current = true;
-    
-    // Permitir futuros logs en cambios significativos
-    const resetRenderFlag = setTimeout(() => {
-      hasRendered.current = false;
-    }, 1000);
-    
-    return () => clearTimeout(resetRenderFlag);
-  }, []);
-
-  // Mostrar la pantalla de carga durante la inicialización
-  if (isInitialLoading) {
+  // Mostrar la pantalla de carga durante la carga de contenido
+  if (loading || isContentLoading) {
     return (
       <FullScreenLoading 
-        message="Preparando tu Dashboard" 
-        description="Estamos cargando tus datos financieros y análisis de trading..."
+        message="Actualizando Dashboard" 
+        description="Estamos procesando tus datos financieros"
         color="primary"
         type="wave"
       />
@@ -754,18 +728,6 @@ function DashboardContent() {
           </div>
         </div>
       </div>
-    );
-  }
-
-  // Mostrar loading solo cuando realmente estamos cargando (después de la carga inicial)
-  if (loading && !isInitialLoading) {
-    return (
-      <FullScreenLoading 
-        message="Actualizando Dashboard" 
-        description="Estamos procesando tus datos financieros más recientes..."
-        color="primary"
-        type="wave"
-      />
     );
   }
 
@@ -831,30 +793,12 @@ function DashboardContent() {
     );
   }
 
+  // Volver a la validación original, que solo comprueba si processedData existe
   if (!processedData) {
     return (
-      <div className="p-8 bg-gray-300">
-        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-700">
-          <p>No hay datos disponibles para mostrar.</p>
-          <div className="mt-4">
-            <button
-              onClick={manualUpdate}
-              className="px-3 py-1 mr-2 bg-blue-500 text-white rounded text-sm"
-            >
-              Actualizar datos
-            </button>
-            <button
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  localStorage.removeItem('smartalgo_last_refresh_time');
-                  window.location.reload();
-                }
-              }}
-              className="px-3 py-1 bg-gray-500 text-white rounded text-sm"
-            >
-              Recargar página
-            </button>
-          </div>
+      <div>
+        <div>
+   
         </div>
       </div>
     );
@@ -1019,9 +963,48 @@ function DashboardContent() {
 
 // Exportar el componente principal envuelto en ClientOnly
 export default function Dashboard() {
+  // Usar localStorage en lugar de sessionStorage para manejar el estado entre páginas
+  const [isInitialLoading, setIsInitialLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      // Si venimos del login, no mostrar loading
+      if (sessionStorage.getItem('coming_from_login') === 'true') {
+        // Limpiar la bandera
+        sessionStorage.removeItem('coming_from_login');
+        return false;
+      }
+    }
+    return true;
+  });
+  
+  const { user, session } = useAuthContext();
+
+  // Mostrar dashboard rápidamente
+  useEffect(() => {
+    if (!isInitialLoading) return;
+    
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 600); // Reducir tiempo a 600ms
+    
+    return () => clearTimeout(timer);
+  }, [isInitialLoading]);
+
+  if (isInitialLoading) {
+    return (
+      <FullScreenLoading 
+        message="Preparando tu experiencia"
+        description="Estamos verificando tu información"
+        color="primary"
+        type="pulse"
+      />
+    );
+  }
+
   return (
-    <ClientOnly>
-      <DashboardContent />
-    </ClientOnly>
+    <div className="p-6 pt-4 bg-gray-100 min-h-screen">
+      <ClientOnly>
+        <DashboardContent />
+      </ClientOnly>
+    </div>
   );
 } 
