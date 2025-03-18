@@ -806,9 +806,9 @@ function DashboardContent() {
 
   return (
     <div className=" bg-gray-100 text-black">
-      <div className="flex items-center justify-between mb-6 p-8 bg-white">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <div className="flex items-center space-x-3">
+      <div className="flex items-center justify-between mb-6 p-4 bg-white">
+        <h1 className="text-[24px] font-sb">Dashboard</h1>
+        <div className="flex items-center space-x-2 h-[44px]">
 
 
           {/* Indicador de actualización 
@@ -1005,7 +1005,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 pt-4 bg-gray-100 min-h-screen">
+    <div className="bg-gray-100 min-h-screen">
       <ClientOnly>
         <DashboardContent />
       </ClientOnly>

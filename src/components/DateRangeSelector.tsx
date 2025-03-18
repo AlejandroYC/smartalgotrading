@@ -159,7 +159,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center h-9 space-x-2 px-8 py-8 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="flex items-center h-[44px] space-x-2 px-[1rem] py-[1rem] text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
         <svg
           className="w-4 h-4 text-gray-500"

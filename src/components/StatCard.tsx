@@ -178,7 +178,7 @@ const StatCard: React.FC<StatCardProps> = ({
         </ResponsiveContainer>
         
         {/* Valores en los extremos - más cerca del semicírculo */}
-        <div className="absolute top-0 w-full px-2 flex justify-between">
+        <div className="absolute top-0 w-[96px] h-[48px] px-2 flex justify-between">
           <span className="text-xs font-medium text-green-600 mt-[58px]">{winsValue}</span>
           <span className="text-xs font-medium text-red-600 mt-[58px]">{lossesValue}</span>
         </div>
@@ -186,7 +186,7 @@ const StatCard: React.FC<StatCardProps> = ({
         {/* Círculo morado para draws */}
         {draws > 0 && (
           <div className="absolute left-1/2 transform -translate-x-1/2 top-14">
-            <div className="w-5 h-5 rounded-full bg-white border border-indigo-400 flex items-center justify-center">
+            <div className="w-5 h-5 rounded-full bg-white border border-indigo-400 flex  justify-center">
               <span className="text-xs font-medium text-indigo-500">{draws}</span>
             </div>
           </div>
@@ -223,7 +223,7 @@ const StatCard: React.FC<StatCardProps> = ({
     ];
     
     return (
-      <div className="w-[80px] h-[80px] relative">
+      <div className="w-[80px] h-[80px] relative mb-[10px]">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
           <PieChart>
             <Pie
@@ -255,7 +255,7 @@ const StatCard: React.FC<StatCardProps> = ({
   const renderProfitFactorContent = () => {
     return (
       <div className="flex flex-col h-full">
-        <div className="flex items-center mb-4">
+        <div className="flex  ">
           <h3 className="text-sm font-medium text-slate-700">{title}</h3>
           {info && (
             <div className="relative ml-2">
@@ -277,8 +277,8 @@ const StatCard: React.FC<StatCardProps> = ({
           )}
         </div>
         
-        <div className="flex items-center justify-between">
-          <div className="text-3xl font-bold text-slate-800">
+        <div className="flex  justify-between">
+          <div className="text-[26px] font-bold text-slate-800">
             {formatValue()}
           </div>
           {renderProfitFactorChart()}
@@ -494,8 +494,8 @@ const StatCard: React.FC<StatCardProps> = ({
     if (variant === 'profit' && showPurpleIndicator) {
       return (
         <div className="flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center relative">
+          <div className="flex justify-between ">
+            <div className="flex relative">
               <h3 className="text-sm font-medium text-gray-700">{title}</h3>
               {info && (
                 <div className="relative">
@@ -518,8 +518,8 @@ const StatCard: React.FC<StatCardProps> = ({
             </div>
             <div className="text-xs text-gray-500">{totalTrades}</div>
           </div>
-          <div className="flex items-center justify-between mt-7">
-            <div className={`text-3xl font-bold ${getValueColor()}`}>
+          <div className="flex  justify-between mt-7">
+            <div className={`text-[26px] font-bold ${getValueColor()}`}>
               {prefix}{formatValue()}{suffix}
             </div>
             <div className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
@@ -534,7 +534,7 @@ const StatCard: React.FC<StatCardProps> = ({
     if (variant === 'day-winrate' || variant === 'winrate') {
       return (
         <div className="flex flex-col h-full">
-          <div className="flex items-center mb-4">
+          <div className="flex ">
             <h3 className="text-sm font-medium text-slate-700">{title}</h3>
             {info && (
               <div className="relative ml-2">
@@ -556,8 +556,8 @@ const StatCard: React.FC<StatCardProps> = ({
             )}
           </div>
           
-          <div className="flex items-center justify-between">
-            <div className="text-3xl font-bold text-slate-800">
+          <div className="flex justify-between">
+            <div className="text-[26px] font-bold text-slate-800">
               {/* Usar el valor calculado según el tipo */}
               {prefix}
               {variant === 'day-winrate' ? calculateDayWinRate().toFixed(2) : calculateWinRate().toFixed(2)}
@@ -578,7 +578,7 @@ const StatCard: React.FC<StatCardProps> = ({
     if (variant === 'avg-trade') {
       return (
         <div className="flex flex-col h-full">
-          <div className="flex items-center mb-2">
+          <div className="flex  ">
             <h3 className="text-sm font-medium text-gray-600">{title}</h3>
             {info && (
               <div className="relative ml-2">
@@ -601,7 +601,7 @@ const StatCard: React.FC<StatCardProps> = ({
           </div>
           
           <div className="flex flex-col">
-            <div className="text-3xl font-bold text-slate-800 mb-2">
+            <div className="text-[26px] font-bold text-slate-800 mb-2">
               {formatValue()}
             </div>
             {renderAvgTradeChart()}
@@ -614,7 +614,7 @@ const StatCard: React.FC<StatCardProps> = ({
     return (
       <>
         <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center relative">
+          <div className="flex  relative">
             <h3 className="text-sm font-medium text-gray-700">{title}</h3>
             {info && (
               <div className="relative">
@@ -636,13 +636,13 @@ const StatCard: React.FC<StatCardProps> = ({
             )}
           </div>
           {showPurpleIndicator && (
-            <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-xs">
+            <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex  justify-center text-xs">
               {totalTrades}
             </div>
           )}
         </div>
         
-        <div className="flex items-center justify-between">
+        <div className="flex  justify-between">
           <div className={`text-3xl font-bold ${getValueColor()}`}>
             {prefix}{formatValue()}{suffix}
           </div>
@@ -654,7 +654,8 @@ const StatCard: React.FC<StatCardProps> = ({
 
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 text-black">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 text-black max-h-[120px] wm-full overflow-hidden">
+
       {renderCardContent()}
     </div>
   );
