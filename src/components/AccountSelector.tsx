@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import Link from 'next/link';
 
 interface Account {
   account_number: string;
@@ -48,84 +49,105 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
   
   if (accounts.length === 0) {
     return (
-      <div className={`text-sm text-gray-500 p-2 border border-gray-300 rounded-md ${className}`}>
+      <div className={`text-sm text-gray-500 p-2 border border-gray-300 rounded-lg ${className}`}>
         No hay cuentas disponibles
       </div>
     );
   }
   
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative inline-block ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-left bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+        className="flex items-center h-9 space-x-2 px-8 py-8 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
-        <div className="flex items-center">
-          <div className="mr-2">
-            <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
-          </div>
-          <div>
-            <div className="font-medium">
-              {currentAccountDetails?.account_name || currentAccount || 'Seleccionar cuenta'}
-            </div>
-            {currentAccount && (
-              <div className="text-xs text-gray-500">
-                {currentAccountDetails?.mt5_login || currentAccount}
-              </div>
-            )}
-          </div>
-        </div>
         <svg
-          className={`w-5 h-5 ml-2 -mr-1 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`}
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
+          className="w-4 h-4 text-gray-500"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
         >
-          <path
-            fillRule="evenodd"
-            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-            clipRule="evenodd"
-          />
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+        <span className="text-gray-700">All accounts</span>
+        <svg
+          className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
       
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg max-h-60 overflow-auto">
-          <ul className="py-1">
+        <div className="absolute right-0 z-50 w-64 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden">
+          {/* All accounts section */}
+          <div className="px-3 py-2">
+            <div className="text-xs font-medium text-purple-600 mb-2">All accounts</div>
+            <button
+              onClick={() => {
+                onSelectAccount('all');
+                setIsOpen(false);
+              }}
+              className="w-full flex items-center px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+            >
+              <svg
+                className="w-4 h-4 mr-2 text-gray-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              All accounts
+            </button>
+          </div>
+
+          {/* My accounts section */}
+          <div className="px-3 py-2 border-t border-gray-100">
+            <div className="text-xs font-medium text-gray-500 mb-2">My accounts</div>
             {accounts.map((account) => (
-              <li
+              <button
                 key={account.account_number}
-                className={`px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 ${
-                  account.account_number === currentAccount ? 'bg-primary/10 font-medium' : ''
-                }`}
                 onClick={() => {
                   onSelectAccount(account.account_number);
                   setIsOpen(false);
                 }}
+                className="w-full flex items-center px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
               >
-                <div className="flex items-center">
-                  <div className="mr-2">
-                    <span className={`inline-block w-2 h-2 rounded-full ${account.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                  </div>
-                  <div className="flex-1">
-                    <div>{account.account_name || account.mt5_login || account.account_number}</div>
-                    <div className="text-xs text-gray-500">{account.account_number}</div>
-                  </div>
-                  {(account.balance !== undefined || account.equity !== undefined) && (
-                    <div className="text-right text-xs">
-                      {account.balance !== undefined && (
-                        <div>Balance: ${account.balance.toFixed(2)}</div>
-                      )}
-                      {account.equity !== undefined && (
-                        <div>Equity: ${account.equity.toFixed(2)}</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </li>
+                <span className={`w-1.5 h-1.5 rounded-full mr-2 ${account.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <span>{account.account_name || account.mt5_login || account.account_number}</span>
+              </button>
             ))}
-          </ul>
+          </div>
+
+          {/* Manage accounts link */}
+          <Link
+            href="/settings/accounts"
+            className="flex items-center px-5 py-2 text-sm text-gray-600 hover:bg-gray-50 border-t border-gray-100"
+          >
+            <svg
+              className="w-4 h-4 mr-2 text-gray-400"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            Manage accounts
+          </Link>
         </div>
       )}
     </div>

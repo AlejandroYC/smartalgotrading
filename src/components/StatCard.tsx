@@ -256,7 +256,7 @@ const StatCard: React.FC<StatCardProps> = ({
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center mb-4">
-          <h3 className="text-lg font-medium text-slate-700">{title}</h3>
+          <h3 className="text-sm font-medium text-slate-700">{title}</h3>
           {info && (
             <div className="relative ml-2">
               <button 
@@ -535,7 +535,7 @@ const StatCard: React.FC<StatCardProps> = ({
       return (
         <div className="flex flex-col h-full">
           <div className="flex items-center mb-4">
-            <h3 className="text-lg font-medium text-slate-700">{title}</h3>
+            <h3 className="text-sm font-medium text-slate-700">{title}</h3>
             {info && (
               <div className="relative ml-2">
                 <button 
@@ -579,7 +579,7 @@ const StatCard: React.FC<StatCardProps> = ({
       return (
         <div className="flex flex-col h-full">
           <div className="flex items-center mb-2">
-            <h3 className="text-lg font-medium text-gray-600">{title}</h3>
+            <h3 className="text-sm font-medium text-gray-600">{title}</h3>
             {info && (
               <div className="relative ml-2">
                 <button 
