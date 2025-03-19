@@ -101,7 +101,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
   };
 
   const MonthYearSelector = ({ date, onChange }: { date: Date, onChange: (date: Date) => void }) => {
-    return (
+  return (
       <div className="flex items-center justify-between mb-4 px-1">
         <button
           onClick={() => onChange(navigateMonth(date, 'prev'))}
@@ -312,8 +312,8 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
                 className="w-full text-left px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
               >
                 {option.label}
-              </button>
-            ))}
+        </button>
+      ))}
           </div>
         </div>
       )}

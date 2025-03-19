@@ -265,19 +265,6 @@ const AddTradeModal: React.FC<AddTradeModalProps> = ({ isOpen, onClose, onAccoun
                 </div>
               )}
 
-              {/* Depuración - Solo visible en desarrollo */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="bg-gray-100 p-3 rounded-lg mb-4 text-xs">
-                  <h4 className="font-bold mb-1">Valores actuales:</h4>
-                  <pre className="whitespace-pre-wrap break-words">
-                    {JSON.stringify({
-                      server: formData.server,
-                      account_number: formData.account_number,
-                      password: formData.password ? '******' : '',
-                    }, null, 2)}
-                  </pre>
-                </div>
-              )}
 
               <div>
                 <label className="block text-sm font-medium mb-2">

@@ -20,6 +20,7 @@ import AccountSelector from '@/components/AccountSelector';
 import { FullScreenLoading, LoadingIndicator, ButtonLoading } from '@/components/LoadingIndicator';
 import Link from 'next/link';
 import ChartErrorBoundary from '@/components/ChartErrorBoundary';
+import { HangTightLoading } from '@/components/HangTightLoading';
 
 // Componente ClientOnly para asegurar renderizado solo del lado del cliente
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -480,26 +481,12 @@ const AccountChangeIndicator = ({ isChanging, account }: { isChanging: boolean, 
   if (!isChanging) return null;
 
   return (
-    <div className="fixed top-0 inset-x-0 z-50">
-      <div className="bg-gradient-to-r from-indigo-600/90 to-purple-600/90 backdrop-blur-md shadow-lg text-white py-3 px-4 flex justify-center items-center">
-        <div className="flex items-center max-w-4xl mx-auto">
-          <div className="mr-4">
-            <LoadingIndicator
-              type="pulse"
-              size="sm"
-              color="secondary"
-            />
-          </div>
-          <div>
-            <p className="font-medium text-white">
-              Cargando cuenta <span className="font-bold">{account}</span>
-            </p>
-            <p className="text-xs text-white/80 mt-0.5">
-              Estamos preparando tus datos financieros y estadísticas
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="w-full h-full">
+      <HangTightLoading
+        message="Cambiando cuenta"
+        description={`Preparando datos para la cuenta ${account}`}
+        fullScreen={false}
+      />
     </div>
   );
 };
@@ -511,7 +498,6 @@ const DateRangeChangeIndicator = ({ isChanging, dateRange }: {
 }) => {
   if (!isChanging || !dateRange || !dateRange.startDate || !dateRange.endDate) return null;
 
-  // Formatear las fechas para mostrarlas
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('es-ES', {
       day: '2-digit',
@@ -520,30 +506,13 @@ const DateRangeChangeIndicator = ({ isChanging, dateRange }: {
     });
   };
 
-  const formattedStartDate = formatDate(dateRange.startDate);
-  const formattedEndDate = formatDate(dateRange.endDate);
-
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 mb-4">
-      <div className="max-w-md mx-auto bg-gradient-to-r from-cyan-600/90 to-blue-600/90 backdrop-blur-md rounded-xl shadow-lg text-white py-3 px-4">
-        <div className="flex items-center">
-          <div className="mr-3">
-            <LoadingIndicator
-              type="dots"
-              size="sm"
-              color="secondary"
-            />
-          </div>
-          <div>
-            <p className="font-medium text-white text-sm">
-              Actualizando periodo de análisis
-            </p>
-            <p className="text-xs text-white/80 mt-0.5">
-              <span className="font-semibold">{formattedStartDate}</span> - <span className="font-semibold">{formattedEndDate}</span>
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="w-full h-full">
+      <HangTightLoading
+        message="Actualizando datos"
+        description={`${formatDate(dateRange.startDate)} - ${formatDate(dateRange.endDate)}`}
+        fullScreen={false}
+      />
     </div>
   );
 };
@@ -567,11 +536,12 @@ function DashboardContent() {
     hasNoAccounts
   } = useTradingData();
 
-  // Refs para controlar inicialización y renderizado
+  // Referencias para controlar el estado de la carga de datos
+  const skipDataLoading = useRef(false);
   const initialized = useRef(false);
-  const hasRendered = useRef(false);
+  const isInternalNavRef = useRef(false);
 
-  // Estado para controlar la carga inicial del contenido
+  // Estados para UI - Inicialmente no mostrar loading hasta evaluar si es necesario
   const [isContentLoading, setIsContentLoading] = useState(false);
 
   // Llamar al hook directamente en el nivel superior del componente
@@ -584,6 +554,55 @@ function DashboardContent() {
 
   // Nuevo estado para controlar cuando se está cambiando el rango de fechas
   const [isChangingDateRange, setIsChangingDateRange] = useState(false);
+  
+  // Efecto para limpiar cualquier flag de loading que pudiera haber quedado
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Si hay un flag de loading presente por más de 30 segundos, es probablemente un error
+      const loadingFlag = sessionStorage.getItem('dashboard_loading_in_progress');
+      if (loadingFlag) {
+        const timestamp = parseInt(loadingFlag);
+        const now = Date.now();
+        
+        if (isNaN(timestamp) || now - timestamp > 30000) {
+          console.log('🧹 Limpiando flag de loading antiguo');
+          sessionStorage.removeItem('dashboard_loading_in_progress');
+        }
+      }
+    }
+  }, []);
+
+  // Efecto para verificar si debemos saltar la carga de datos (se ejecuta solo una vez al montar)
+  useEffect(() => {
+    console.log('🔍 Verificando flags de navegación y caché...');
+    
+    // Verificar si ya se cargaron los datos después del login
+    const dataAlreadyLoaded = sessionStorage.getItem('dashboard_data_loaded');
+    
+    // Verificar si estamos navegando internamente desde otra página
+    const isInternalNavigation = sessionStorage.getItem('dashboard_internal_navigation');
+    
+    if (isInternalNavigation && dataAlreadyLoaded) {
+      console.log('🚶‍♂️ Navegación interna detectada y datos ya cargados');
+      // Marcar que debemos saltar la carga de datos
+      skipDataLoading.current = true;
+      // Marcar que venimos de navegación interna (para controlar el auto-update)
+      isInternalNavRef.current = true;
+      // Limpiar el flag de navegación interna
+      sessionStorage.removeItem('dashboard_internal_navigation');
+    } else if (dataAlreadyLoaded) {
+      console.log('💾 Datos ya cargados previamente');
+      // Si ya hay datos cargados pero no es navegación interna, decidiremos en el siguiente efecto
+    } else {
+      console.log('🔄 Primera carga o datos no encontrados, se realizará carga completa');
+      skipDataLoading.current = false;
+    }
+    
+    return () => {
+      // Limpiar referencia al desmontar
+      console.log('🧹 Limpiando referencias al desmontar componente');
+    };
+  }, []);
 
   // Manejar actualización de datos manualmente
   const handleManualUpdate = useCallback(() => {
@@ -593,6 +612,7 @@ function DashboardContent() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('smartalgo_last_refresh_time');
       localStorage.removeItem('smartalgo_last_update_time');
+      localStorage.removeItem('dashboard_last_load_timestamp'); // Limpiar el timestamp para permitir recarga manual
     }
 
     refreshData();
@@ -629,6 +649,9 @@ function DashboardContent() {
   // Nueva función para manejar el cambio de rango de fechas
   const handleDateRangeChange = useCallback((range: any) => {
     setIsChangingDateRange(true);
+    
+    // Actualizar el rango de fechas
+    setDateRange(range);
 
     // El tiempo dependerá del volumen de datos y la complejidad del procesamiento
     const processingTimeout = setTimeout(() => {
@@ -636,57 +659,151 @@ function DashboardContent() {
     }, 1500); // Ajustable según la complejidad del procesamiento
 
     return () => clearTimeout(processingTimeout);
-  }, []);
+  }, [setDateRange]);
 
-  // Efecto para cargar datos iniciales - Simplificado para evitar bloqueos
+  // Efecto para cargar datos iniciales - Completamente revisado
   useEffect(() => {
-    if (!user?.id || initialized.current) return;
-
-    // Marcamos como inicializado inmediatamente para evitar múltiples ejecuciones
+    // Si no hay usuario autenticado, no cargar nada
+    if (!user?.id) {
+      console.log('⚠️ No hay usuario autenticado, no se cargarán datos');
+      setIsContentLoading(false); // Asegurar que el loading se apaga
+      return;
+    }
+    
+    // Si se debe saltar la carga (navegación interna con datos ya cargados)
+    if (skipDataLoading.current) {
+      console.log('⏭️ Saltando carga de datos (navegación interna con datos ya cargados)');
+      setIsContentLoading(false); // Asegurar que el loading se apaga
+      return;
+    }
+    
+    // Si el componente ya fue inicializado previamente
+    if (initialized.current) {
+      console.log('🔁 Dashboard ya inicializado, no se cargarán datos nuevamente');
+      setIsContentLoading(false); // Asegurar que el loading se apaga
+      return;
+    }
+    
+    // Marcar como inicializado para evitar cargas duplicadas
     initialized.current = true;
+    
+    // Establecer indicador de carga
     setIsContentLoading(true);
     console.log('🚀 Inicializando dashboard para usuario:', user.id);
-
-    // Cargar datos en un proceso independiente que no bloquee la UI
+    
+    // Limpiar cualquier indicador previo que pudiera haber quedado
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('dashboard_loading_in_progress');
+    }
+    
+    // Validar si hay una carga en progreso para evitar duplicados
+    if (sessionStorage.getItem('dashboard_loading_in_progress') === 'true') {
+      console.log('⚠️ Ya hay una carga en progreso, evitando duplicación');
+      return;
+    }
+    
+    // Establecer flag de carga en progreso
+    sessionStorage.setItem('dashboard_loading_in_progress', Date.now().toString());
+    
+    // Establecer timeout de seguridad para evitar loading infinito
+    const safetyTimeout = setTimeout(() => {
+      console.log('⚠️ Timeout de seguridad activado para evitar loading infinito');
+      setIsContentLoading(false);
+      sessionStorage.removeItem('dashboard_loading_in_progress');
+    }, 15000); // 15 segundos máximo de loading
+    
+    // Función asíncrona para cargar datos sin bloquear la UI
     const loadData = async () => {
       try {
-        // Cargar cuentas
+        // Cargar cuentas del usuario
+        console.log('📊 Cargando cuentas de usuario...');
         await loadUserAccounts();
-        console.log('✅ Cuentas cargadas');
-
-        // Limpiar cache
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('smartalgo_last_refresh_time');
-          localStorage.removeItem('smartalgo_last_update_time');
-        }
-
-        // Cargar datos si hay una cuenta activa
+        
+        // Si hay una cuenta seleccionada, cargar datos específicos
         if (currentAccount) {
-          console.log('🔄 Actualizando datos para cuenta:', currentAccount);
+          console.log('💼 Cargando datos para cuenta:', currentAccount);
           await refreshData();
-          console.log('✅ Datos actualizados');
+          
+          // Establecer indicador de datos cargados para futuras navegaciones
+          sessionStorage.setItem('dashboard_data_loaded', 'true');
+          
+          // Registrar timestamp de última carga para control de frecuencia
+          localStorage.setItem('dashboard_last_load_timestamp', Date.now().toString());
+          
+          console.log('✅ Datos del dashboard cargados exitosamente');
+        } else {
+          console.log('⚠️ No hay cuenta seleccionada, no se cargarán datos específicos');
         }
       } catch (error) {
-        console.error('❌ Error cargando datos:', error);
+        console.error('❌ Error cargando datos del dashboard:', error);
       } finally {
+        // Cancelar el timeout de seguridad
+        clearTimeout(safetyTimeout);
+        
+        // Limpiar estado de carga y flags
         setIsContentLoading(false);
+        sessionStorage.removeItem('dashboard_loading_in_progress');
       }
     };
-
-    // Ejecutar la carga de datos sin bloquear la UI
+    
+    // Ejecutar carga de datos
     loadData();
+    
+    // Cleanup function
+    return () => {
+      console.log('🧹 Limpiando efectos al desmontar dashboard');
+      // Asegurar que se limpian los indicadores al desmontar
+      clearTimeout(safetyTimeout);
+      setIsContentLoading(false);
+      sessionStorage.removeItem('dashboard_loading_in_progress');
+    };
+    
+  }, [user?.id, currentAccount]); // Solo re-ejecutar cuando el usuario o la cuenta cambie
 
-  }, [user?.id]);
+  // Efecto para controlar las actualizaciones
+  useEffect(() => {
+    // Si hay actualizaciones automáticas activas, no permitiremos actualizaciones por un tiempo
+    if (status.autoUpdateEnabled && !status.isUpdating) {
+      // Crear una marca de tiempo para rastrear cuándo fue la última actualización manual
+      const lastManualUpdateTime = localStorage.getItem('dashboard_last_manual_update');
+      const currentTime = Date.now();
+      
+      // Si no hay actualización manual reciente o han pasado más de 30 segundos
+      if (!lastManualUpdateTime || (currentTime - parseInt(lastManualUpdateTime)) > 30000) {
+        // Detectar si venimos de navegación interna y evitar actualizaciones
+        if (isInternalNavRef.current) {
+          console.log('🔍 Detección de navegación interna: evitando actualizaciones inmediatas');
+          
+          // Programar una comprobación después de un retraso
+          const updateCheckTimer = setTimeout(() => {
+            console.log('🔍 Comprobando si podemos continuar con actualizaciones automáticas');
+            isInternalNavRef.current = false;
+          }, 10000); // 10 segundos
+          
+          return () => clearTimeout(updateCheckTimer);
+        }
+      }
+    }
+  }, [status.autoUpdateEnabled, status.isUpdating]);
+
+  // Función para actualizar manualmente con marcas de tiempo
+  const triggerManualUpdate = useCallback(() => {
+    // Establecer marca de tiempo de actualización manual
+    localStorage.setItem('dashboard_last_manual_update', Date.now().toString());
+    // Ejecutar actualización manual
+    handleManualUpdate();
+  }, [handleManualUpdate]);
 
   // Mostrar la pantalla de carga durante la carga de contenido
   if (loading || isContentLoading) {
     return (
-      <FullScreenLoading
-        message="Actualizando Dashboard"
-        description="Estamos procesando tus datos financieros"
-        color="primary"
-        type="wave"
-      />
+      <div className="w-full h-full">
+        <HangTightLoading
+          message="Actualizando Dashboard"
+          description="Estamos procesando tus datos financieros"
+          fullScreen={false}
+        />
+      </div>
     );
   }
 
@@ -805,37 +922,10 @@ function DashboardContent() {
   }
 
   return (
-    <div className=" bg-gray-100 text-black">
+    <div className="bg-gray-100 text-black">
       <div className="flex items-center justify-between mb-6 p-8 bg-white">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="flex items-center space-x-3">
-
-
-          {/* Indicador de actualización 
-          {status.isUpdating && (
-            <div className="text-sm text-gray-600 flex items-center">
-              <ButtonLoading color="primary" className="mr-2" />
-              <span>Actualizando...</span>
-            </div>
-          )}
-          */}
-          {/* Contador de actualizaciones y última actualización 
-          <div className="text-sm text-gray-600 flex items-center space-x-2">
-            <span className="font-medium text-indigo-600">
-              {status.updateCount} actualizaciones
-            </span>
-            {status.lastUpdate && (
-              <span className="text-gray-500">
-                (última: {status.lastUpdate.toLocaleTimeString()})
-              </span>
-            )}
-            {status.autoUpdateEnabled && status.nextUpdateTime && (
-              <span className="text-gray-500">
-                | próxima: {status.nextUpdateTime.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-*/}
           {/* Toggle para actualización automática */}
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Auto:</span>
@@ -855,7 +945,7 @@ function DashboardContent() {
 
           {/* Botón de actualización manual */}
           <button
-            onClick={handleManualUpdate}
+            onClick={triggerManualUpdate}
             disabled={status.isUpdating}
             className="px-3 py-1 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-400 transition"
           >
@@ -959,8 +1049,6 @@ function DashboardContent() {
         isChanging={isChangingDateRange}
         dateRange={dateRange}
       />
-
-
     </div>
   );
 }
@@ -995,11 +1083,10 @@ export default function Dashboard() {
 
   if (isInitialLoading) {
     return (
-      <FullScreenLoading
+      <HangTightLoading
         message="Preparando tu experiencia"
         description="Estamos verificando tu información"
-        color="primary"
-        type="pulse"
+        fullScreen={true}
       />
     );
   }

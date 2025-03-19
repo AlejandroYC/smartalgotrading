@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import MiniPLChart from './MiniPLChart';
+import { useTradingData } from '@/contexts/TradingDataContext';
 // Alternate implementation using Chart.js
 // import { Doughnut } from 'react-chartjs-2';
 // import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -22,6 +24,12 @@ interface StatCardProps {
   // resto de propiedades...
 }
 
+interface DailyResult {
+  profit: number | string;
+  trades: number;
+  status: 'win' | 'loss' | 'break_even';
+}
+
 const StatCard: React.FC<StatCardProps> = ({ 
   title, 
   value, 
@@ -39,6 +47,26 @@ const StatCard: React.FC<StatCardProps> = ({
 }) => {
   // Estado para controlar la visibilidad del tooltip
   const [showTooltip, setShowTooltip] = useState(false);
+  const { processedData } = useTradingData();
+
+  // Preparar datos para el mini gráfico de P&L
+  const miniChartData = useMemo(() => {
+    if (variant !== 'profit' || !processedData?.daily_results) return [];
+    
+    return Object.entries(processedData.daily_results as Record<string, DailyResult>)
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .reduce((acc: Array<{ time: string; value: number }>, [date, data]) => {
+        const profit = typeof data.profit === 'string' ? parseFloat(data.profit) : data.profit;
+        const prevValue = acc.length > 0 ? acc[acc.length - 1].value : 0;
+        
+        acc.push({
+          time: date,
+          value: prevValue + profit
+        });
+        
+        return acc;
+      }, []);
+  }, [variant, processedData?.daily_results]);
   
   // Calcular el porcentaje real de días ganadores
   const calculateDayWinRate = () => {
@@ -490,11 +518,11 @@ const StatCard: React.FC<StatCardProps> = ({
 
   // Renderizar el contenido principal basado en el tipo de tarjeta
   const renderCardContent = () => {
-    // Para Net P&L con indicador morado
-    if (variant === 'profit' && showPurpleIndicator) {
+    // Para la tarjeta de P&L
+    if (variant === 'profit') {
       return (
-        <div className="flex flex-col">
-          <div className="flex items-center justify-between mb-3">
+        <>
+          <div className="flex justify-between items-start mb-3">
             <div className="flex items-center relative">
               <h3 className="text-sm font-medium text-gray-700">{title}</h3>
               {info && (
@@ -516,17 +544,24 @@ const StatCard: React.FC<StatCardProps> = ({
                 </div>
               )}
             </div>
-            <div className="text-xs text-gray-500">{totalTrades}</div>
+            {showPurpleIndicator && (
+              <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-xs">
+                {totalTrades}
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-between mt-7">
+          
+          <div className="flex flex-col">
             <div className={`text-3xl font-bold ${getValueColor()}`}>
               {prefix}{formatValue()}{suffix}
             </div>
-            <div className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
-              <span className="text-xs">ⓘ</span>
-            </div>
+            {miniChartData.length > 0 && (
+              <div className="mt-2">
+                <MiniPLChart data={miniChartData} />
+              </div>
+            )}
           </div>
-        </div>
+        </>
       );
     }
     

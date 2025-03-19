@@ -5,6 +5,7 @@ import './globals.css';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { LoadingStyles } from "@/components/LoadingIndicator";
 import type { Metadata } from "next";
+import { AccountProvider } from '@/contexts/AccountContext';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,11 +23,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es">
-      <body className={inter.className}>
+    <html lang="es" className="h-full">
+      <body className={`${inter.className} min-h-full bg-gray-300`}>
         <LoadingStyles />
         <AuthProvider>
-          {children}
+          <AccountProvider>
+            {children}
+          </AccountProvider>
           <ToastContainer 
             position="top-center"
             autoClose={5000}
