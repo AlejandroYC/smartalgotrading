@@ -6,7 +6,7 @@ import { AuthProvider } from '@/providers/AuthProvider';
 import { LoadingStyles } from "@/components/LoadingIndicator";
 import type { Metadata } from "next";
 import { AccountProvider } from '@/contexts/AccountContext';
-
+import { Suspense } from 'react';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -28,7 +28,9 @@ export default function RootLayout({
         <LoadingStyles />
         <AuthProvider>
           <AccountProvider>
-            {children}
+            <Suspense fallback={<div>Loading...</div>}>
+              {children}
+            </Suspense>
           </AccountProvider>
           <ToastContainer 
             position="top-center"

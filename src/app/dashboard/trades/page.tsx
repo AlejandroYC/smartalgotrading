@@ -1,6 +1,7 @@
 "use client";
+export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useTradingData } from '@/contexts/TradingDataContext';
 import StatsOverview from "@/components/StatsOverview";
 import RecentTradesSection from "@/components/RecentTradesSection";
@@ -75,7 +76,9 @@ export default function TradesPage() {
             Filters
           </button>
           <div onClick={(e) => e.stopPropagation()}>
-            <DateRangeSelector />
+            <Suspense fallback={<div className="px-4 py-2 text-sm bg-gray-100 rounded-lg">Loading...</div>}>
+              <DateRangeSelector />
+            </Suspense>
           </div>
           {accounts && accounts.length > 0 && (
             <AccountSelector

@@ -1,4 +1,6 @@
 'use client';
+export const dynamic = 'force-dynamic';
+
 import SecondSidebar from '@/components/SecondSidebar';
 import ActionButton from "@/components/ActionButton";  
 import Calendar from "@/components/Calendar";

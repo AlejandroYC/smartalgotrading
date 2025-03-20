@@ -963,7 +963,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       const { data: connections, error: connectionsError } = await supabase
         .from('mt_connections')
-        .select('account_number')
+        .select('account_number, is_active')
         .eq('user_id', user.id);
 
       if (connectionsError) {
@@ -982,14 +982,54 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const isStoredAccountValid = storedAccount && 
           connections.some(conn => conn.account_number === storedAccount);
         
+        // Verificar si hay alguna cuenta activa en Supabase
+        const activeAccountInDB = connections.find(conn => conn.is_active === true);
+        
         if (isStoredAccountValid) {
+          // Si la cuenta almacenada es válida pero no coincide con la activa en DB, actualizar en DB
+          if (!activeAccountInDB || activeAccountInDB.account_number !== storedAccount) {
+            console.log('Activando cuenta desde localStorage en Supabase:', storedAccount);
+            
+            // Desactivar todas las cuentas
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            // Activar la cuenta almacenada
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', storedAccount);
+          }
+          
           setCurrentAccount(storedAccount);
           localStorage.setItem(lastActiveKey, storedAccount);
+        } else if (activeAccountInDB) {
+          // Si no hay cuenta válida en localStorage pero hay una activa en DB, usarla
+          console.log('Usando cuenta activa desde Supabase:', activeAccountInDB.account_number);
+          setCurrentAccount(activeAccountInDB.account_number);
+          localStorage.setItem('smartalgo_current_account', activeAccountInDB.account_number);
+          localStorage.setItem(lastActiveKey, activeAccountInDB.account_number);
         } else {
-          // Si no hay cuenta válida almacenada, usar la primera
+          // Si no hay cuenta válida almacenada ni activa en DB, usar la primera y activarla
+          console.log('No hay cuenta activa. Activando primera cuenta:', connections[0].account_number);
           setCurrentAccount(connections[0].account_number);
           localStorage.setItem('smartalgo_current_account', connections[0].account_number);
           localStorage.setItem(lastActiveKey, connections[0].account_number);
+          
+          // Actualizar en Supabase
+          await supabase
+            .from('mt_connections')
+            .update({ is_active: false })
+            .eq('user_id', user.id);
+            
+          await supabase
+            .from('mt_connections')
+            .update({ is_active: true, last_connection: new Date().toISOString() })
+            .eq('user_id', user.id)
+            .eq('account_number', connections[0].account_number);
           
           // Limpiar indicadores de tiempo para forzar una nueva carga
           localStorage.removeItem('smartalgo_last_refresh_time');
@@ -1022,18 +1062,51 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Verificar que la cuenta existe en Supabase
         const { data: connection } = await supabase
           .from('mt_connections')
-          .select('account_number')
+          .select('account_number, is_active')
           .eq('user_id', user.id)
           .eq('account_number', cachedAccountNumber)
           .single();
         
         if (connection) {
+          // Si la cuenta existe pero no está activa, activarla
+          if (!connection.is_active) {
+            console.log('Activando cuenta desde getAccountNumber:', cachedAccountNumber);
+            
+            // Desactivar todas las cuentas
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            // Activar la cuenta seleccionada
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', cachedAccountNumber);
+          }
+          
           setCurrentAccount(cachedAccountNumber);
-        return cachedAccountNumber;
+          return cachedAccountNumber;
         }
       }
 
-      // Si no hay cuenta en cache, obtener la primera cuenta disponible
+      // Si no hay cuenta en cache, verificar si ya hay una cuenta activa en Supabase
+      const { data: activeAccount } = await supabase
+        .from('mt_connections')
+        .select('account_number')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+        
+      if (activeAccount) {
+        console.log('Encontrada cuenta activa en Supabase:', activeAccount.account_number);
+        setCurrentAccount(activeAccount.account_number);
+        localStorage.setItem(lastActiveKey, activeAccount.account_number);
+        return activeAccount.account_number;
+      }
+
+      // Si no hay cuenta activa, obtener la primera cuenta disponible
       const { data: connections } = await supabase
         .from('mt_connections')
         .select('account_number')
@@ -1046,6 +1119,20 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       const accountNumber = connections.account_number;
+      
+      // Activar esta cuenta en Supabase
+      console.log('Activando primera cuenta disponible:', accountNumber);
+      await supabase
+        .from('mt_connections')
+        .update({ is_active: false })
+        .eq('user_id', user.id);
+        
+      await supabase
+        .from('mt_connections')
+        .update({ is_active: true, last_connection: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('account_number', accountNumber);
+      
       setCurrentAccount(accountNumber);
       localStorage.setItem(lastActiveKey, accountNumber);
       return accountNumber;
@@ -1054,7 +1141,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.error("Error obteniendo account_number:", err);
       throw err;
     }
-  }, [supabase]);
+  }, [supabase, currentAccount]);
 
   // Corregir la función getDataFromLocalStorage para que no sea async
   const getDataFromLocalStorage = useCallback((accountNumber: string): any | null => {
@@ -1422,11 +1509,91 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       try {
         // Obtener la cuenta activa del localStorage
         const activeAccount = safeLocalStorage.getItem(CURRENT_ACCOUNT_KEY);
-        if (activeAccount) {
-          setCurrentAccount(activeAccount);
+        
+        // Cargar lista de cuentas primero
+        await loadUserAccounts();
+        
+        // MODIFICACIÓN: Asegurar que la cuenta esté activa en Supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && activeAccount) {
+          console.log('Verificando y activando cuenta en initializeData:', activeAccount);
           
-          // Cargar datos de la cuenta activa
-          const accountData = getDataFromLocalStorage(activeAccount);
+          // Verificar si la cuenta existe para este usuario
+          const { data: accountExists } = await supabase
+            .from('mt_connections')
+            .select('id, account_number, is_active')
+            .eq('user_id', user.id)
+            .eq('account_number', activeAccount)
+            .single();
+            
+          if (accountExists) {
+            // Si la cuenta existe pero no está activa, activarla
+            if (!accountExists.is_active) {
+              console.log('La cuenta existe pero no está activa. Activándola...');
+              
+              // Primero desactivar todas las cuentas del usuario
+              await supabase
+                .from('mt_connections')
+                .update({ is_active: false })
+                .eq('user_id', user.id);
+              
+              // Luego activar la cuenta seleccionada
+              await supabase
+                .from('mt_connections')
+                .update({ is_active: true, last_connection: new Date().toISOString() })
+                .eq('user_id', user.id)
+                .eq('account_number', activeAccount);
+                
+              console.log('Cuenta activada correctamente en initializeData');
+            } else {
+              console.log('La cuenta ya está activa en Supabase');
+            }
+            
+            setCurrentAccount(activeAccount);
+          } else if (userAccounts.length > 0) {
+            // Si la cuenta no existe pero hay otras cuentas disponibles, usar la primera
+            console.log('Cuenta no encontrada. Usando la primera cuenta disponible.');
+            const firstAccount = userAccounts[0].account_number;
+            
+            // Activar la primera cuenta disponible
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', firstAccount);
+              
+            setCurrentAccount(firstAccount);
+            localStorage.setItem(CURRENT_ACCOUNT_KEY, firstAccount);
+          }
+        } else if (userAccounts.length > 0) {
+          // No hay cuenta activa, pero sí hay cuentas disponibles
+          const firstAccount = userAccounts[0].account_number;
+          setCurrentAccount(firstAccount);
+          localStorage.setItem(CURRENT_ACCOUNT_KEY, firstAccount);
+          
+          if (user) {
+            // Activar la primera cuenta en Supabase
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', firstAccount);
+          }
+        }
+        
+        // Cargar datos de la cuenta activa
+        if (currentAccount) {
+          const accountData = getDataFromLocalStorage(currentAccount);
           if (accountData) {
             setRawData({...accountData});
             const processed = processData(accountData, dateRange);
@@ -1438,9 +1605,6 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
             }
           }
         }
-        
-        // Cargar lista de cuentas
-        await loadUserAccounts();
         
         setLoading(false);
       } catch (error) {
