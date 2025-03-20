@@ -30,20 +30,20 @@ interface DailyResult {
   status: 'win' | 'loss' | 'break_even';
 }
 
-const StatCard: React.FC<StatCardProps> = ({ 
-  title, 
-  value, 
-  info, 
-  prefix = "", 
-  suffix = "", 
-  wins = 0, 
-  losses = 0, 
-  draws = 0, 
-  winAmount = 0, 
-  lossAmount = 0, 
+const StatCard: React.FC<StatCardProps> = ({
+  title,
+  value,
+  info,
+  prefix = "",
+  suffix = "",
+  wins = 0,
+  losses = 0,
+  draws = 0,
+  winAmount = 0,
+  lossAmount = 0,
   totalTrades = 0,
   showPurpleIndicator = false,
-  variant = 'profit' 
+  variant = 'profit'
 }) => {
   // Estado para controlar la visibilidad del tooltip
   const [showTooltip, setShowTooltip] = useState(false);
@@ -52,36 +52,36 @@ const StatCard: React.FC<StatCardProps> = ({
   // Preparar datos para el mini gráfico de P&L
   const miniChartData = useMemo(() => {
     if (variant !== 'profit' || !processedData?.daily_results) return [];
-    
+
     return Object.entries(processedData.daily_results as Record<string, DailyResult>)
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
       .reduce((acc: Array<{ time: string; value: number }>, [date, data]) => {
         const profit = typeof data.profit === 'string' ? parseFloat(data.profit) : data.profit;
         const prevValue = acc.length > 0 ? acc[acc.length - 1].value : 0;
-        
+
         acc.push({
           time: date,
           value: prevValue + profit
         });
-        
+
         return acc;
       }, []);
   }, [variant, processedData?.daily_results]);
-  
+
   // Calcular el porcentaje real de días ganadores (sin incluir breakeven en el denominador)
   const calculateDayWinRate = () => {
     const totalWithoutDraws = wins + losses;
     if (totalWithoutDraws === 0) return 0;
     return (wins / totalWithoutDraws) * 100;
   };
-  
+
   // Calcular el porcentaje de winrate
   const calculateWinRate = () => {
     const total = wins + losses + draws;
     if (total === 0) return 0;
     return (wins / total) * 100;
   };
-  
+
   // Obtener el valor correcto según la variante
   const getCorrectValue = () => {
     if (variant === 'day-winrate') {
@@ -92,7 +92,7 @@ const StatCard: React.FC<StatCardProps> = ({
     }
     return typeof value === 'number' ? value : parseFloat(String(value));
   };
-  
+
   // Obtener el texto de información según el tipo de tarjeta
   const getTooltipText = () => {
     switch (variant) {
@@ -115,7 +115,7 @@ const StatCard: React.FC<StatCardProps> = ({
   const formatValue = () => {
     // Si es day-winrate, usamos el valor calculado correctamente
     const valueToUse = getCorrectValue();
-    
+
     if (variant === 'profit') {
       // Formato para moneda: $3,874.96
       return new Intl.NumberFormat('en-US', {
@@ -148,13 +148,13 @@ const StatCard: React.FC<StatCardProps> = ({
   const renderSemicircleChart = (isDay = false) => {
     const total = wins + losses;
     if (total === 0) return null;
-    
+
     // Calcular los valores y porcentajes
     const winsValue = Math.max(0, wins);
     const lossesValue = Math.max(0, losses);
     const drawsValue = Math.max(0, draws);
     const totalWithoutDraws = winsValue + lossesValue;
-    
+
     // Crear los datos con valores proporcionales para el gráfico
     const data = totalWithoutDraws > 0 ? [
       { name: 'Wins', value: winsValue },
@@ -162,10 +162,10 @@ const StatCard: React.FC<StatCardProps> = ({
     ] : [
       { name: 'Empty', value: 1 }
     ];
-    
+
     // Colores para cada sección
     const COLORS = totalWithoutDraws > 0 ? ['#10b981', '#ef4444'] : ['#e5e7eb'];
-    
+
     // Crear una clave única para forzar la actualización
     const chartKey = `day-chart-${winsValue}-${lossesValue}-${drawsValue}-${Date.now()}`;
 
@@ -180,7 +180,7 @@ const StatCard: React.FC<StatCardProps> = ({
     const breakevenWidth = drawsValue > 0 ? 10 : 0; // Ancho fijo para sección breakeven
     const breakevenStartAngle = winEndAngle;
     const breakevenEndAngle = winEndAngle - breakevenWidth;
-    
+
     return (
       <div className="w-[180px] h-[90px] relative flex flex-col items-center">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
@@ -198,7 +198,7 @@ const StatCard: React.FC<StatCardProps> = ({
               stroke="none"
               dataKey="value"
             />
-            
+
             {/* Sectores coloreados */}
             <Pie
               data={data}
@@ -238,16 +238,16 @@ const StatCard: React.FC<StatCardProps> = ({
             )}
           </PieChart>
         </ResponsiveContainer>
-        
+
         {/* Números debajo del gráfico */}
         <div className="w-full flex justify-between px-4 mt-1">
           <div className="bg-green-50 w-8 h-6 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-green-600">{winsValue}</span>
-        </div>
-        
+          </div>
+
           <div className="bg-indigo-50 w-8 h-6 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-indigo-600">{drawsValue}</span>
-            </div>
+          </div>
 
           <div className="bg-red-50 w-8 h-6 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-red-600">{lossesValue}</span>
@@ -260,7 +260,7 @@ const StatCard: React.FC<StatCardProps> = ({
   // Renderizar gráfico para profit factor usando Recharts
   const renderProfitFactorChart = () => {
     const numValue = getCorrectValue();
-    
+
     // Calcular el porcentaje para el círculo
     // Si el profit factor es 1, es 50% verde y 50% rojo
     // Si es mayor a 1, aumenta el verde; si es menor, aumenta el rojo
@@ -272,18 +272,18 @@ const StatCard: React.FC<StatCardProps> = ({
       // Mínimo 5% verde para profit factors muy bajos
       greenPercentage = Math.max(50 - (1 - numValue) * 30, 5);
     }
-    
+
     const redPercentage = 100 - greenPercentage;
-    
+
     // Crear una clave única para forzar la actualización
     const chartKey = `profit-factor-${numValue}-${Date.now()}`;
-    
+
     // Datos para el gráfico (distribución verde/rojo)
     const data = [
       { name: 'Green', value: greenPercentage },
       { name: 'Red', value: redPercentage }
     ];
-    
+
     return (
       <div className="w-[100px] h-[100px] relative flex justify-center items-center">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
@@ -331,26 +331,26 @@ const StatCard: React.FC<StatCardProps> = ({
 
           <div className="flex items-center justify-center">
             <h3 className="text-sm font-normal text-slate-700">{title}</h3>
-          {info && (
-            <div className="relative ml-2">
-              <button 
-                className="text-gray-400 hover:text-gray-600"
-                onMouseEnter={() => setShowTooltip(true)}
-                onMouseLeave={() => setShowTooltip(false)}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-              {showTooltip && (
-                  <div className="absolute right-10 top-6 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
-                  {getTooltipText()}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        
+            {info && (
+              <div className="relative ml-2">
+                <button
+                  className="text-gray-400 hover:text-gray-600"
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+                {showTooltip && (
+                  <div className="absolute -right-36 top-10 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                    {getTooltipText()}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-center text-[30px] font-roboto font-bold text-slate-800">
             {formatValue()}
           </div>
@@ -373,34 +373,34 @@ const StatCard: React.FC<StatCardProps> = ({
     const winAbs = Math.abs(winAmount);
     const lossAbs = Math.abs(lossAmount);
     const total = winAbs + lossAbs;
-    
+
     // Calcular la proporción para el gráfico (con valor mínimo para evitar divisiones por cero)
     const winProportion = total > 0 ? (winAbs / total) * 100 : 50;
-    
+
     // Formato de los valores monetarios
     const winFormatted = `$${winAbs.toFixed(2)}`;
     const lossFormatted = `-$${lossAbs.toFixed(2)}`;
-    
+
     return (
       <div className="flex flex-col w-full mt-2">
         {/* Barra horizontal con proporción real */}
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full flex mb-2">
-          <div 
+          <div
             className="h-full rounded-l-full"
-            style={{ 
-              width: `${winProportion}%`, 
+            style={{
+              width: `${winProportion}%`,
               backgroundColor: '#2fac7e' // Color verde específico
             }}
           ></div>
-          <div 
+          <div
             className="h-full rounded-r-full"
-            style={{ 
+            style={{
               width: `${100 - winProportion}%`,
               backgroundColor: '#ef5350' // Color rojo específico
             }}
           ></div>
         </div>
-        
+
         {/* Valores monetarios debajo de la barra */}
         <div className="flex justify-between w-full px-1">
           <span className="text-base font-semibold text-green-600">{winFormatted}</span>
@@ -409,17 +409,17 @@ const StatCard: React.FC<StatCardProps> = ({
       </div>
     );
   };
-  
+
   // Renderizar gráfico específico para Trade Win
   const renderTradeWinChart = () => {
     if (wins + losses === 0) return null;
-    
+
     // Asegurar que tenemos valores positivos para el cálculo
     const winsValue = Math.max(0, wins);
     const lossesValue = Math.max(0, losses);
     const drawsValue = Math.max(0, draws);
     const total = winsValue + lossesValue + drawsValue;
-    
+
     // Crear los datos con valores proporcionales para asegurar la representación correcta
     const data = total > 0 ? [
       { name: 'Wins', value: winsValue },
@@ -427,10 +427,10 @@ const StatCard: React.FC<StatCardProps> = ({
     ] : [
       { name: 'Empty', value: 1 }
     ];
-    
+
     // Colores para cada sección - verde para wins, rojo para losses, gris si no hay datos
     const COLORS = total > 0 ? ['#10b981', '#ef4444'] : ['#e5e7eb'];
-    
+
     // Crear una clave única para forzar la actualización del componente
     const chartKey = `chart-${winsValue}-${lossesValue}-${drawsValue}-${Date.now()}`;
 
@@ -446,7 +446,7 @@ const StatCard: React.FC<StatCardProps> = ({
     const breakevenWidth = drawsValue > 0 ? 10 : 0; // Ancho fijo para sección breakeven
     const breakevenStartAngle = winEndAngle;
     const breakevenEndAngle = winEndAngle - breakevenWidth;
-    
+
     return (
       <div className="w-[140px] h-[80px] relative flex flex-col items-center">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
@@ -464,7 +464,7 @@ const StatCard: React.FC<StatCardProps> = ({
               stroke="none"
               dataKey="value"
             />
-            
+
             {/* Sectores coloreados con valores reales */}
             <Pie
               data={data}
@@ -504,20 +504,20 @@ const StatCard: React.FC<StatCardProps> = ({
             )}
           </PieChart>
         </ResponsiveContainer>
-        
+
         {/* Números debajo del gráfico */}
         <div className="w-full flex justify-between px-2 mt-1">
           <div className="bg-green-50 w-8 h-5 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-green-600">{winsValue}</span>
-        </div>
-        
+          </div>
+
           <div className="bg-indigo-50 w-8 h-5 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-indigo-600">{drawsValue}</span>
           </div>
 
           <div className="bg-red-50 w-8 h-5 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-red-600">{lossesValue}</span>
-        </div>
+          </div>
         </div>
       </div>
     );
@@ -546,15 +546,15 @@ const StatCard: React.FC<StatCardProps> = ({
       return (
         <div className="flex flex-row justify-between w-full h-full ">
 
-          <div className="flex justify-start items-start flex-col w-full p-8">
+          <div className="flex justify-start items-start flex-col w-full p-8 ">
 
-            <div className="flex items-start justify-start gap-2 w-full">
+            <div className="flex items-start justify-start gap-2 w-full mt-2">
 
 
               <h3 className="text-sm font-medium text-gray-700">{title}</h3>
               {info && (
                 <div className="relative ml-1">
-                  <button 
+                  <button
                     className="text-gray-400 hover:text-gray-600"
                     onMouseEnter={() => setShowTooltip(true)}
                     onMouseLeave={() => setShowTooltip(false)}
@@ -564,34 +564,28 @@ const StatCard: React.FC<StatCardProps> = ({
                     </svg>
                   </button>
                   {showTooltip && (
-                    <div className="absolute left-0 top-6 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                    <div className="absolute -left-16 top-8 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
                       {getTooltipText()}
                     </div>
                   )}
                 </div>
               )}
-            {showPurpleIndicator && (
+              {showPurpleIndicator && (
                 <div className="w-5 h-5 rounded-md bg-indigo-300 pl-4 pr-4 pt-[2px] text-white flex items-center justify-center text-xs">
-                {totalTrades}
-              </div>
-            )}
+                  {totalTrades}
+                </div>
+              )}
 
-          </div>
-
-            <div className="flex flex-col items-center justify-between w-full">
-
-              <div className="w-full font-roboto font-bold text-slate-800 text-[30px] h-full flex items-start justify-start flex-col">
-              {prefix}{formatValue()}{suffix}
             </div>
 
-              <div className="w-full h-full -mt-4">
-            {miniChartData.length > 0 && (
-                  <div>
-                <MiniPLChart data={miniChartData} />
-                  </div>
-                )}
+            <div className="flex flex-col items-center justify-between w-full ">
+
+              <div className={`w-full font-roboto font-bold ${getValueColor()} text-[30px] h-full flex items-start justify-start flex-col`}>
+                {prefix}{formatValue()}{suffix}
               </div>
 
+
+             
             </div>
 
           </div>
@@ -613,7 +607,7 @@ const StatCard: React.FC<StatCardProps> = ({
         </div>
       );
     }
-    
+
     // Diseño especial para Trade Win % (como en la imagen)
     if (variant === 'winrate') {
       return (
@@ -624,26 +618,26 @@ const StatCard: React.FC<StatCardProps> = ({
             <div className="flex items-center justify-center">
               <h3 className="text-sm font-normal text-slate-700">{title}</h3>
 
-            {info && (
-              <div className="relative ml-2">
-                <button 
-                  className="text-gray-400 hover:text-gray-600"
-                  onMouseEnter={() => setShowTooltip(true)}
-                  onMouseLeave={() => setShowTooltip(false)}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-                {showTooltip && (
-                  <div className="absolute left-0 top-6 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
-                    {getTooltipText()}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          
+              {info && (
+                <div className="relative ml-2">
+                  <button
+                    className="text-gray-400 hover:text-gray-600"
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                  {showTooltip && (
+                    <div className="absolute -left-16 top-8  z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                      {getTooltipText()}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="text-[30px] font-bold font-roboto text-slate-800">
               {prefix}
               {formatValue()}
@@ -669,7 +663,7 @@ const StatCard: React.FC<StatCardProps> = ({
 
           <div className="flex items-start flex-col justify-start  mt-6 gap-2">
 
-            <div className="flex items-center justify-center gap-4 mb-2">
+            <div className="flex items-center justify-center gap-4 relative ">
               <h3 className="text-sm font-medium text-slate-700">{title}</h3>
               <button
                 className="text-gray-400 hover:text-gray-600"
@@ -681,7 +675,7 @@ const StatCard: React.FC<StatCardProps> = ({
                 </svg>
               </button>
               {showTooltip && (
-                <div className="absolute left-0 top-6 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                <div className="absolute -right-36 top-10  z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
                   {getTooltipText()}
                 </div>
               )}
@@ -706,23 +700,23 @@ const StatCard: React.FC<StatCardProps> = ({
       );
     }
 
-    
+
     // Diseño especial para Profit Factor
     if (variant === 'profit-factor') {
       return renderProfitFactorContent();
     }
-    
+
     // Diseño especial para Avg Trade (como en la imagen)
     if (variant === 'avg-trade') {
       return (
 
-        <div className="flex flex-col items-center justify-center w-full h-full p-4">
+        <div className="flex flex-col items-center justify-between w-full h-full p-8">
 
-          <div className="flex items-start justify-start ml-8 -mb-3 mt-6 w-full">
+          <div className="flex justify-start items-start w-full">
             <h3 className="text-sm font-medium text-gray-600">{title}</h3>
             {info && (
               <div className="relative ml-2">
-                <button 
+                <button
                   className="text-gray-400 hover:text-gray-600"
                   onMouseEnter={() => setShowTooltip(true)}
                   onMouseLeave={() => setShowTooltip(false)}
@@ -732,23 +726,22 @@ const StatCard: React.FC<StatCardProps> = ({
                   </svg>
                 </button>
                 {showTooltip && (
-                  <div className="absolute right-0 top-6 z-40 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                  <div className="absolute -left-28 top-8  z-40 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
                     {getTooltipText()}
                   </div>
                 )}
               </div>
             )}
           </div>
-          
-          <div className="flex items-center flex-row justify-around w-full h-full gap-2">
+
+          <div className="flex items-center flex-row justify-between w-full h-full gap-2 -mt-3">
 
             <div className="text-[30px] font-roboto font-bold text-slate-800">
               {formatValue()}
             </div>
 
-            <div className="flex flex-col mr-2 mt-7 w-[60%]">
+            <div className="flex flex-col  w-[60%] mt-8">
               {renderAvgTradeChart()},
-
             </div>
 
           </div>
@@ -757,7 +750,7 @@ const StatCard: React.FC<StatCardProps> = ({
         </div>
       );
     }
-    
+
     // Para las otras tarjetas
     return (
       <>
@@ -766,7 +759,7 @@ const StatCard: React.FC<StatCardProps> = ({
             <h3 className="text-sm font-medium text-gray-700">{title}</h3>
             {info && (
               <div className="relative ml-1">
-                <button 
+                <button
                   className="text-gray-400 hover:text-gray-600"
                   onMouseEnter={() => setShowTooltip(true)}
                   onMouseLeave={() => setShowTooltip(false)}
@@ -789,7 +782,7 @@ const StatCard: React.FC<StatCardProps> = ({
             </div>
           )}
         </div>
-        
+
         <div className="flex justify-between items-center">
           <div className={`text-3xl font-bold ${getValueColor()}`}>
             {prefix}{formatValue()}{suffix}
