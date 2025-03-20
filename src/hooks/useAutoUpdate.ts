@@ -204,11 +204,29 @@ class UpdateManager {
 
       this.updateStatus({ isUpdating: true, error: null });
       
+      // IMPORTANTE: Guardar el rango de fechas actual antes de la actualización
+      let currentDateRange = null;
+      if (typeof window !== 'undefined') {
+        try {
+          // Intentar recuperar el rango de fechas desde localStorage si existe
+          const savedRange = localStorage.getItem('smartalgo_current_date_range');
+          if (savedRange) {
+            currentDateRange = JSON.parse(savedRange);
+          }
+        } catch (error) {
+          console.error('Error al recuperar rango de fechas:', error);
+        }
+      }
 
       const mt5Client = MT5Client.getInstance();
       const response = await mt5Client.updateAccountData(currentAccount);
 
       if (response.success && response.data) {
+        // IMPORTANTE: Restaurar el rango de fechas después de la actualización
+        if (currentDateRange && typeof window !== 'undefined') {
+          localStorage.setItem('smartalgo_current_date_range', JSON.stringify(currentDateRange));
+        }
+        
         refreshData();
         
         // Actualizar la referencia de tiempo de la última actualización
