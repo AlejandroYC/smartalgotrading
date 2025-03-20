@@ -922,37 +922,10 @@ function DashboardContent() {
   }
   
   return (
-    <div className=" bg-gray-100 text-black">
+    <div className="bg-gray-100 text-black">
       <div className="flex items-center justify-between mb-6 p-4 bg-white">
         <h1 className="text-[24px] font-sb">Dashboard</h1>
         <div className="flex items-center space-x-2 h-[44px]">
-
-
-          {/* Indicador de actualización 
-          {status.isUpdating && (
-            <div className="text-sm text-gray-600 flex items-center">
-              <ButtonLoading color="primary" className="mr-2" />
-              <span>Actualizando...</span>
-            </div>
-          )}
-          */}
-          {/* Contador de actualizaciones y última actualización 
-          <div className="text-sm text-gray-600 flex items-center space-x-2">
-            <span className="font-medium text-indigo-600">
-              {status.updateCount} actualizaciones
-            </span>
-            {status.lastUpdate && (
-              <span className="text-gray-500">
-                (última: {status.lastUpdate.toLocaleTimeString()})
-              </span>
-            )}
-            {status.autoUpdateEnabled && status.nextUpdateTime && (
-              <span className="text-gray-500">
-                | próxima: {status.nextUpdateTime.toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-*/}
           {/* Toggle para actualización automática */}
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Auto:</span>
@@ -1080,7 +1053,6 @@ function DashboardContent() {
   );
 }
 
-// Exportar el componente principal envuelto en ClientOnly
 export default function Dashboard() {
   // Usar localStorage en lugar de sessionStorage para manejar el estado entre páginas
   const [isInitialLoading, setIsInitialLoading] = useState(() => {
@@ -1125,4 +1097,4 @@ export default function Dashboard() {
     </ClientOnly>
     </div>
   );
-} 
+}

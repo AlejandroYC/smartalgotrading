@@ -784,7 +784,7 @@ const StatCard: React.FC<StatCardProps> = ({
             )}
           </div>
           {showPurpleIndicator && (
-            <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center text-xs">
+            <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex  justify-center text-xs">
               {totalTrades}
             </div>
           )}
