@@ -105,6 +105,26 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
     return ticks;
   }, [chartData]);
 
+  // Determinar si hay inconsistencia (cambios entre positivo y negativo)
+  const isInconsistent = useMemo(() => {
+    if (chartData.length < 2) return false;
+    
+    let hasPositive = false;
+    let hasNegative = false;
+    
+    for (const item of chartData) {
+      if (item.value > 0) hasPositive = true;
+      if (item.value < 0) hasNegative = true;
+      if (hasPositive && hasNegative) return true;
+    }
+    
+    return false;
+  }, [chartData]);
+  
+  // Determinar el color final basado en el último valor
+  const finalValue = chartData.length > 0 ? chartData[chartData.length - 1].value : 0;
+  const chartMainColor = finalValue >= 0 ? "#22c55e" : "#ef4444";
+
   if (chartData.length === 0) {
     return (
       <div className="bg-white p-6 rounded-lg shadow h-full">
@@ -129,7 +149,7 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
   return (
     <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
        <div className="flex items-start justify-start mb-4">
-         <h1 className="text-3xl text-black font-bold text-left">Daily Net Cumulative P&L</h1>
+         <h1 className="text-lg font-bold text-black font-roboto text-left">Daily Net Cumulative P&L</h1>
       </div>
       <hr className="w-full border-t border-gray-200 mb-4 mt-6" />
     
@@ -146,10 +166,25 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
               stroke="#E2E8F0" 
             />
             <defs>
-              <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+              {/* Gradiente para valores positivos (verde) */}
+              <linearGradient id="positiveGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
                 <stop offset="100%" stopColor="#22c55e" stopOpacity={0.1} />
               </linearGradient>
+              
+              {/* Gradiente para valores negativos (rojo) */}
+              <linearGradient id="negativeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
+                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.1} />
+              </linearGradient>
+              
+              {/* Gradiente para valores inconsistentes (amarillo-naranja) */}
+              {isInconsistent && (
+                <linearGradient id="inconsistentGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.8} />
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.1} />
+                </linearGradient>
+              )}
             </defs>
             <XAxis
               dataKey="date"
@@ -189,15 +224,25 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
             <Area
               type="monotone"
               dataKey="value"
-              stroke="#6366F1"
-              fill="url(#colorValue)"
+              stroke={isInconsistent ? "#f59e0b" : chartMainColor}
+              fill={isInconsistent ? "url(#inconsistentGradient)" : finalValue >= 0 ? "url(#positiveGradient)" : "url(#negativeGradient)"}
               fillOpacity={0.6}
               strokeWidth={2}
-              dot={{
-                r: 4,
-                stroke: '#6366F1',
-                strokeWidth: 2,
-                fill: '#ffffff'
+              dot={(props) => {
+                const { cx, cy, payload } = props;
+                const isPositive = payload.value >= 0;
+                const dotColor = isPositive ? "#22c55e" : "#ef4444";
+                
+                return (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={4}
+                    stroke={dotColor}
+                    strokeWidth={2}
+                    fill="#ffffff"
+                  />
+                );
               }}
               isAnimationActive={true}
               animationDuration={600}
