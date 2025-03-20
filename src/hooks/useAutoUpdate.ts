@@ -171,13 +171,22 @@ class UpdateManager {
   }
 
   public async performUpdate(force: boolean = false, refreshData: () => void): Promise<void> {
-    // Evitar actualizaciones si ya hay una en curso
-    if (this.status.isUpdating && !force) {
+    // Verificar si hay una actualización forzada post-login
+    const forcePostLogin = typeof window !== 'undefined' && sessionStorage.getItem('force_dashboard_update');
+    
+    // Verificar si hay navegación interna (solo bloqueamos si no es post-login y no es forzada)
+    if (!forcePostLogin && !force && typeof window !== 'undefined' && sessionStorage.getItem('dashboard_internal_navigation')) {
+      console.log('🛑 Actualización bloqueada: navegación interna detectada');
       return;
     }
     
-    // Verificar si puede actualizar (tiempo transcurrido)
-    if (!force && !this.canUpdate()) {
+    // Evitar actualizaciones si ya hay una en curso (a menos que sea forzada)
+    if (this.status.isUpdating && !force && !forcePostLogin) {
+      return;
+    }
+    
+    // Verificar si puede actualizar (tiempo transcurrido) - omitir si es forzada o post-login
+    if (!force && !forcePostLogin && !this.canUpdate()) {
       return;
     }
     
@@ -195,11 +204,29 @@ class UpdateManager {
 
       this.updateStatus({ isUpdating: true, error: null });
       
+      // IMPORTANTE: Guardar el rango de fechas actual antes de la actualización
+      let currentDateRange = null;
+      if (typeof window !== 'undefined') {
+        try {
+          // Intentar recuperar el rango de fechas desde localStorage si existe
+          const savedRange = localStorage.getItem('smartalgo_current_date_range');
+          if (savedRange) {
+            currentDateRange = JSON.parse(savedRange);
+          }
+        } catch (error) {
+          console.error('Error al recuperar rango de fechas:', error);
+        }
+      }
 
       const mt5Client = MT5Client.getInstance();
       const response = await mt5Client.updateAccountData(currentAccount);
 
       if (response.success && response.data) {
+        // IMPORTANTE: Restaurar el rango de fechas después de la actualización
+        if (currentDateRange && typeof window !== 'undefined') {
+          localStorage.setItem('smartalgo_current_date_range', JSON.stringify(currentDateRange));
+        }
+        
         refreshData();
         
         // Actualizar la referencia de tiempo de la última actualización
@@ -290,6 +317,15 @@ class UpdateManager {
   }
 
   public startAutoUpdate(refreshData: () => void): void {
+    // Verificar si hay una actualización forzada post-login
+    const forcePostLogin = typeof window !== 'undefined' && sessionStorage.getItem('force_dashboard_update');
+    
+    // Verificar si estamos en una navegación interna (solo bloqueamos si no es post-login)
+    if (!forcePostLogin && typeof window !== 'undefined' && sessionStorage.getItem('dashboard_internal_navigation')) {
+      console.log('🛑 Iniciación de auto-actualización bloqueada: navegación interna detectada');
+      return;
+    }
+    
     // Verificar si ya hay una instancia activa
     const activeInstanceId = localStorage.getItem(ACTIVE_INSTANCE_KEY);
     
@@ -331,6 +367,12 @@ class UpdateManager {
     }
     
     this.updateIntervalRef = setInterval(() => {
+      // Verificar si hay navegación interna
+      if (typeof window !== 'undefined' && sessionStorage.getItem('dashboard_internal_navigation')) {
+        console.log('🛑 Actualización periódica bloqueada: navegación interna detectada');
+        return;
+      }
+      
       // Verificar si esta instancia sigue siendo la activa antes de realizar la actualización
       const currentActiveInstance = localStorage.getItem(ACTIVE_INSTANCE_KEY);
       if (currentActiveInstance !== this.instanceId) {
@@ -353,6 +395,15 @@ class UpdateManager {
   private setupInitialUpdate(refreshData: () => void): void {
     // Configurar la actualización inicial con un tiempo reducido
     this.initialUpdateTimeoutRef = setTimeout(() => {
+      // Verificar si hay una actualización forzada post-login
+      const forcePostLogin = typeof window !== 'undefined' && sessionStorage.getItem('force_dashboard_update');
+      
+      // Verificar si hay navegación interna antes de la actualización inicial (solo si no es post-login)
+      if (!forcePostLogin && typeof window !== 'undefined' && sessionStorage.getItem('dashboard_internal_navigation')) {
+        console.log('🛑 Actualización inicial bloqueada: navegación interna detectada');
+        return;
+      }
+      
       console.log('🔄 Ejecutando actualización inicial desde setupInitialUpdate...');
       this.performUpdate(true, refreshData);
     }, INITIAL_UPDATE_DELAY);
@@ -407,29 +458,76 @@ export function useAutoUpdate(userId: string | undefined) {
     if (userId && !setupComplete.current) {
       setupComplete.current = true;
       
-      // CAMBIO: Forzar una actualización inmediata al cargar la página
-      console.log('🚀 Iniciando actualización inmediata al cargar el dashboard...');
+      // Verificar si venimos de un login (tiene prioridad sobre navegación interna)
+      const forceUpdate = typeof window !== 'undefined' && sessionStorage.getItem('force_dashboard_update');
       
-      // Limpiar banderas para asegurar actualización fresca
-      localStorage.removeItem('smartalgo_last_refresh_time');
+      // Verificar si estamos en una navegación interna
+      const isInternalNavigation = typeof window !== 'undefined' && sessionStorage.getItem('dashboard_internal_navigation');
       
-      // Primero iniciar el sistema de actualización automática
-      try {
-        // Iniciar inmediatamente sin esperar
-        updateManager.current.startAutoUpdate(refreshData);
+      // Si venimos de un login, forzar actualización (incluso con navegación interna)
+      if (forceUpdate) {
+        console.log('🚀 Forzando actualización después del login...');
         
-        // Ejecutar una actualización forzada después de un breve momento
-        // para dar tiempo a que la UI se cargue completamente
-        setTimeout(() => {
-          console.log('🔄 Ejecutando actualización inicial forzada...');
-          updateManager.current.performUpdate(true, refreshData);
-        }, 1000); // Reducir a 1 segundo
-      } catch (error) {
-        console.error(`❌ Error al iniciar actualización automática:`, error);
-        setStatus(prev => ({
-          ...prev,
-          error: error instanceof Error ? error.message : String(error)
-        }));
+        // Limpiar el flag para evitar actualizaciones duplicadas
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('force_dashboard_update');
+        }
+        
+        // Limpiar banderas para asegurar actualización fresca
+        localStorage.removeItem('smartalgo_last_refresh_time');
+        localStorage.removeItem('smartalgo_last_update_time');
+        
+        // Primero iniciar el sistema de actualización automática
+        try {
+          // Iniciar inmediatamente sin esperar
+          updateManager.current.startAutoUpdate(refreshData);
+          
+          // Ejecutar una actualización forzada después de un breve momento
+          setTimeout(() => {
+            console.log('🔄 Ejecutando actualización post-login...');
+            updateManager.current.performUpdate(true, refreshData);
+          }, 1000);
+        } catch (error) {
+          console.error(`❌ Error al iniciar actualización post-login:`, error);
+          setStatus(prev => ({
+            ...prev,
+            error: error instanceof Error ? error.message : String(error)
+          }));
+        }
+      }
+      // Solo proceder con la actualización automática si no es navegación interna
+      else if (!isInternalNavigation) {
+        console.log('🚀 Iniciando actualización automática al cargar el dashboard...');
+        
+        // Limpiar banderas para asegurar actualización fresca
+        localStorage.removeItem('smartalgo_last_refresh_time');
+        
+        // Primero iniciar el sistema de actualización automática
+        try {
+          // Iniciar inmediatamente sin esperar
+          updateManager.current.startAutoUpdate(refreshData);
+          
+          // Ejecutar una actualización forzada después de un breve momento
+          // para dar tiempo a que la UI se cargue completamente
+          setTimeout(() => {
+            // Verificar de nuevo si se estableció un flag de navegación interna
+            if (sessionStorage.getItem('dashboard_internal_navigation')) {
+              console.log('🔍 Navegación interna detectada durante la inicialización, evitando actualización forzada');
+              return;
+            }
+            
+            console.log('🔄 Ejecutando actualización inicial...');
+            updateManager.current.performUpdate(true, refreshData);
+          }, 2000); // Incrementar a 2 segundos para dar tiempo a que se detecte la navegación
+        } catch (error) {
+          console.error(`❌ Error al iniciar actualización automática:`, error);
+          setStatus(prev => ({
+            ...prev,
+            error: error instanceof Error ? error.message : String(error)
+          }));
+        }
+      } else {
+        console.log('🔍 Detectada navegación interna, omitiendo actualización automática inicial');
       }
     }
     
@@ -440,14 +538,23 @@ export function useAutoUpdate(userId: string | undefined) {
   
   // Función para realizar actualización manual
   const manualUpdate = useCallback(() => {
+    // Verificar si hay demasiados intentos consecutivos
     if (attemptCount.current > 5) {
-      
       // Reiniciar después de 30 segundos
       setTimeout(() => {
         attemptCount.current = 0;
       }, 30000);
       
       return;
+    }
+    
+    // Verificar si estamos en una navegación interna reciente
+    if (typeof window !== 'undefined') {
+      const isNavInternal = sessionStorage.getItem('dashboard_internal_navigation');
+      if (isNavInternal) {
+        console.log('🛑 Actualización manual bloqueada: navegación interna en progreso');
+        return;
+      }
     }
     
     attemptCount.current++;

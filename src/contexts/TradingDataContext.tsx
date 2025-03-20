@@ -312,36 +312,68 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [processedData]);
 
   // Función para verificar si una fecha string está dentro de un rango
-  const isDateInRange = (dateStr: string, range: DateRange): boolean => {
+  const isDateInRange = useCallback((dateStr: string, range: DateRange): boolean => {
     try {
       // Convertir string a objeto Date
-      const date = new Date(dateStr);
+      // Forzar interpretar la fecha en UTC para evitar problemas de zona horaria
+      const dateParts = dateStr.split('-').map(part => parseInt(part, 10));
+      if (dateParts.length !== 3) {
+        console.warn("❌ Formato de fecha inválido:", dateStr);
+        return false;
+      }
+      
+      // Crear fecha UTC exacta (año, mes [0-11], día)
+      const date = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2]));
+      
       if (isNaN(date.getTime())) {
         console.warn("❌ Fecha inválida en daily_results:", dateStr);
         return false;
       }
       
-      // Crear fechas límite sin hora/minutos/segundos para comparar solo fechas
-      const startDate = new Date(range.startDate);
-      startDate.setHours(0, 0, 0, 0);
+      // Crear fechas límite en UTC
+      const startDate = new Date(Date.UTC(
+        range.startDate.getFullYear(),
+        range.startDate.getMonth(),
+        range.startDate.getDate()
+      ));
       
-      const endDate = new Date(range.endDate);
-      endDate.setHours(23, 59, 59, 999);
+      const endDate = new Date(Date.UTC(
+        range.endDate.getFullYear(),
+        range.endDate.getMonth(),
+        range.endDate.getDate(),
+        23, 59, 59, 999
+      ));
       
-      // Eliminar la hora de la fecha a comparar
-      date.setHours(0, 0, 0, 0);
-      
-      // Verificar si está dentro del rango
+      // Verificar si está dentro del rango (inclusive)
       const isInRange = date >= startDate && date <= endDate;
       
-      if (!isInRange) {
-      }
+      // AJUSTE ESPECIAL: Si estamos muy cerca del día de inicio (diferencia < 24 horas),
+      // consideramos que está en rango para corregir problemas de zonas horarias
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const timeDiff = Math.abs(date.getTime() - startDate.getTime());
+      const isVeryCloseToStart = timeDiff < msPerDay && date < startDate;
       
-      return isInRange;
+      // Resultado final considerando tanto el rango normal como el ajuste especial
+      const finalResult = isInRange || isVeryCloseToStart;
+      
+      // Log detallado para debugging
+      console.log(`EVALUANDO FECHA ${dateStr}:`, {
+        fecha: date.toISOString(),
+        fechaUTC: date.toUTCString(),
+        inicioRango: startDate.toISOString(),
+        finRango: endDate.toISOString(),
+        dentroDelRango: isInRange,
+        ajusteEspecial: isVeryCloseToStart,
+        resultadoFinal: finalResult,
+        diferenciaDias: timeDiff / msPerDay
+      });
+      
+      return finalResult;
     } catch (e) {
+      console.error(`Error al verificar fecha ${dateStr} en rango:`, e);
       return false;
     }
-  };
+  }, []);
 
   // Función para mostrar información detallada de depuración
   const debugCalculations = (filteredTrades: Trade[], dailyResults: any, range: DateRange) => {
@@ -568,20 +600,38 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const winning_trades = stats.winning_trades || 0;
     const losing_trades = stats.losing_trades || 0;
     
-    const avgWin = winning_trades > 0 ? 
-      filteredTrades.filter(t => t.profit > 0).reduce((sum, t) => sum + t.profit, 0) / winning_trades : 
+    // Filtrar solo operaciones cerradas para los cálculos de promedio
+    const filteredWinningTrades = filteredTrades.filter(t => t.profit > 0 && t.entry === 1);
+    const filteredLosingTrades = filteredTrades.filter(t => t.profit < 0 && t.entry === 1);
+
+    const avgWin = filteredWinningTrades.length > 0 ? 
+      filteredWinningTrades.reduce((sum, t) => sum + t.profit, 0) / filteredWinningTrades.length : 
       0;
 
-    const avgLoss = losing_trades > 0 ? 
-      Math.abs(filteredTrades.filter(t => t.profit < 0).reduce((sum, t) => sum + t.profit, 0)) / losing_trades : 
+    const avgLoss = filteredLosingTrades.length > 0 ? 
+      Math.abs(filteredLosingTrades.reduce((sum, t) => sum + t.profit, 0)) / filteredLosingTrades.length : 
       0;
 
     // Procesar resultados diarios para filtrar solo los del rango seleccionado
     const dailyResults = stats.daily_results || {};
     const filteredDailyResults: {[key: string]: any} = {};
     
+    console.log("FILTRADO DE DÍAS: Rango", {
+      startDate: range.startDate.toISOString(),
+      endDate: range.endDate.toISOString(),
+      label: range.label
+    });
+    
     // Filtrar los resultados diarios según el rango de fechas
+    let diasFiltrados = 0;
+    let diasTotales = Object.keys(dailyResults).length;
+
     Object.entries(dailyResults).forEach(([dateStr, dayData]) => {
+      console.log(`Evaluando día ${dateStr}:`, {
+        inRange: isDateInRange(dateStr, range),
+        dateObj: new Date(dateStr)
+      });
+      
       if (isDateInRange(dateStr, range)) {
         // Ajustar el número de trades por día (dividir entre 2)
         // Crear un nuevo objeto con las propiedades originales (tipo seguro)
@@ -591,38 +641,262 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
           trades: Math.ceil((dayDataObj.trades || 0) / 2), // Ajustar número de trades
           status: dayDataObj.status || 'neutral'
         };
+        diasFiltrados++;
       }
     });
-    
-
-
 
     // Calcular estadísticas de días
     let winning_days = 0;
     let losing_days = 0;
     let break_even_days = 0;
 
-    Object.values(filteredDailyResults).forEach((day: any) => {
-      if (day.profit > 0) winning_days++;
-      else if (day.profit < 0) losing_days++;
-      else break_even_days++;
+    // Debugging para días
+    const daysByType: {
+      winning: string[];
+      losing: string[];
+      breakeven: string[];
+    } = {
+      winning: [],
+      losing: [],
+      breakeven: []
+    };
+
+    Object.entries(filteredDailyResults).forEach(([dateStr, day]: [string, any]) => {
+      if (day.profit > 0) {
+        winning_days++;
+        daysByType.winning.push(dateStr);
+      }
+      else if (day.profit < 0) {
+        losing_days++;
+        daysByType.losing.push(dateStr);
+      }
+      else {
+        break_even_days++;
+        daysByType.breakeven.push(dateStr);
+      }
+    });
+
+    // Log detallado para debuggear conteo de días
+    console.log('ANÁLISIS DE DÍAS DE TRADING:', {
+      totalDías: winning_days + losing_days + break_even_days,
+      díasGanadores: winning_days,
+      díasGanadores_fechas: daysByType.winning.map(d => ({
+        fecha: d,
+        fechaObj: new Date(d).toDateString()
+      })),
+      díasPerdedores: losing_days,
+      díasPerdedores_fechas: daysByType.losing.map(d => ({
+        fecha: d,
+        fechaObj: new Date(d).toDateString()
+      })),
+      díasBreakeven: break_even_days,
+      díasBreakeven_fechas: daysByType.breakeven.map(d => ({
+        fecha: d,
+        fechaObj: new Date(d).toDateString()
+      })),
+      rangoFechas: `${range.startDate.toDateString()} a ${range.endDate.toDateString()}`,
+      fechaInicio: range.startDate.toISOString(),
+      fechaFin: range.endDate.toISOString(),
     });
 
     // Construir resultado final - siempre un objeto completamente nuevo
     const result = {
       net_profit: filteredTrades.reduce((sum, trade) => sum + trade.profit, 0),
-      win_rate: filteredTrades.length > 0 ? filteredTrades.filter(t => t.profit > 0).length / filteredTrades.length : 0,
-      profit_factor: avgLoss ? Math.abs(avgWin / avgLoss) : 1,
+      win_rate: (() => {
+        const winners = filteredTrades.filter(t => t.profit > 0).length;
+        const losers = filteredTrades.filter(t => t.profit < 0).length;
+        const totalWithoutBreakeven = winners + losers;
+        return totalWithoutBreakeven > 0 ? winners / totalWithoutBreakeven : 0;
+      })(),
+      profit_factor: (() => {
+        // Calcular ganancias brutas totales (suma de todas las operaciones ganadoras)
+        const grossWins = filteredTrades
+          .filter(trade => Number(trade.profit) > 0)
+          .reduce((sum, trade) => sum + Number(trade.profit), 0);
+          
+        // Calcular pérdidas brutas totales (suma del valor absoluto de todas las operaciones perdedoras)
+        const grossLosses = Math.abs(filteredTrades
+          .filter(trade => Number(trade.profit) < 0)
+          .reduce((sum, trade) => sum + Number(trade.profit), 0));
+          
+        // Mostrar log para debug
+        console.log('CÁLCULO DE PROFIT FACTOR:', {
+          grossWins,
+          grossLosses,
+          profitFactor: grossLosses > 0 ? (grossWins / grossLosses).toFixed(2) : '1.00'
+        });
+        
+        // Calcular profit factor (evitar división por cero)
+        return grossLosses > 0 ? grossWins / grossLosses : 1;
+      })(),
+      
+      // NUEVO: Calcular máximo drawdown basado en el equity curve
+      max_drawdown: (() => {
+        try {
+          // Si no hay trades suficientes, retornar un valor por defecto
+          if (filteredTrades.length < 2) return 0;
+          
+          // Ordenar trades por fecha para crear curva de equity
+          const sortedTrades = [...filteredTrades].sort((a, b) => {
+            const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
+            const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
+            return timeA - timeB;
+          });
+          
+          // Construir equity curve
+          let equityCurve = [0]; // Empezar con 0
+          let cumulativeProfit = 0;
+          
+          sortedTrades.forEach(trade => {
+            cumulativeProfit += Number(trade.profit);
+            equityCurve.push(cumulativeProfit);
+          });
+          
+          // Calcular drawdown
+          let maxEquity = equityCurve[0];
+          let maxDrawdown = 0;
+          
+          for (let i = 1; i < equityCurve.length; i++) {
+            const currentEquity = equityCurve[i];
+            // Actualizar máximo equity
+            maxEquity = Math.max(maxEquity, currentEquity);
+            // Calcular drawdown actual
+            const currentDrawdown = maxEquity - currentEquity;
+            // Actualizar máximo drawdown
+            maxDrawdown = Math.max(maxDrawdown, currentDrawdown);
+          }
+          
+          console.log('CÁLCULO DE MAX DRAWDOWN:', {
+            equityCurvePoints: equityCurve.length,
+            maxEquity,
+            maxDrawdown,
+            netProfit: cumulativeProfit
+          });
+          
+          return maxDrawdown;
+        } catch (error) {
+          console.error('Error calculando max_drawdown:', error);
+          return 0;
+        }
+      })(),
+      
+      // NUEVO: Calcular drawdown como porcentaje del máximo equity
+      max_drawdown_percent: (() => {
+        try {
+          // Si no hay trades suficientes, retornar un valor por defecto
+          if (filteredTrades.length < 2) return 0;
+          
+          // Ordenar trades por fecha para crear curva de equity
+          const sortedTrades = [...filteredTrades].sort((a, b) => {
+            const timeA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime();
+            const timeB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime();
+            return timeA - timeB;
+          });
+          
+          // Construir equity curve con saldo inicial (opcional, si se conoce)
+          const initialBalance = stats.initial_balance || 10000; // Usar 10,000 como valor por defecto
+          let equityCurve = [initialBalance];
+          let balance = initialBalance;
+          
+          sortedTrades.forEach(trade => {
+            balance += Number(trade.profit);
+            equityCurve.push(balance);
+          });
+          
+          // Calcular drawdown
+          let maxEquity = equityCurve[0];
+          let maxDrawdown = 0;
+          let maxDrawdownPercent = 0;
+          
+          for (let i = 1; i < equityCurve.length; i++) {
+            const currentEquity = equityCurve[i];
+            
+            // Si encontramos un nuevo máximo, actualizar
+            if (currentEquity > maxEquity) {
+              maxEquity = currentEquity;
+            } 
+            // Si estamos en drawdown, calcular y actualizar si es necesario
+            else if (maxEquity > 0) {
+              const currentDrawdown = maxEquity - currentEquity;
+              const currentDrawdownPercent = (currentDrawdown / maxEquity) * 100;
+              
+              if (currentDrawdown > maxDrawdown) {
+                maxDrawdown = currentDrawdown;
+                maxDrawdownPercent = currentDrawdownPercent;
+              }
+            }
+          }
+          
+          console.log('CÁLCULO DE MAX DRAWDOWN PERCENT:', {
+            initialBalance,
+            finalBalance: balance,
+            maxEquity,
+            maxDrawdown,
+            maxDrawdownPercent: maxDrawdownPercent.toFixed(2) + '%'
+          });
+          
+          return maxDrawdownPercent;
+        } catch (error) {
+          console.error('Error calculando max_drawdown_percent:', error);
+          return 0;
+        }
+      })(),
       
       // Ajustar el total de trades a la realidad (cada operación genera 2 registros: apertura y cierre)
       total_trades: Math.ceil(filteredTrades.length / 2),
       real_trades_count: filteredTrades.length, // Mantener el conteo original para referencia
       
-      // Ajustar también el conteo de trades ganadores y perdedores
-      winning_trades: Math.ceil(filteredTrades.filter(t => t.profit > 0).length / 2),
-      losing_trades: Math.ceil(filteredTrades.filter(t => t.profit < 0).length / 2),
+      // Contar breakeven trades correctamente, filtrando mejor
+      raw_breakeven_trades: (() => {
+        // Una operación breakeven real debe cumplir AMBAS condiciones:
+        // 1. Tener profit exactamente 0
+        // 2. Ser un CIERRE de posición (entry=1), no una apertura (entry=0)
+        const breakeven_trades = filteredTrades.filter(t => {
+          return Number(t.profit) === 0 && t.entry === 1;
+        }).length;
+        
+        // Log detallado para diagnóstico
+        console.log('ANÁLISIS DETALLADO DE BREAKEVEN TRADES:', {
+          total_trades: filteredTrades.length,
+          operaciones_con_profit_0: filteredTrades.filter(t => Number(t.profit) === 0).length,
+          operaciones_apertura: filteredTrades.filter(t => t.entry === 0).length,
+          operaciones_cierre: filteredTrades.filter(t => t.entry === 1).length,
+          breakeven_reales: breakeven_trades
+        });
+        
+        return breakeven_trades;
+      })(),
       
-      day_win_rate: (winning_days / (winning_days + losing_days + break_even_days)) * 100 || 0,
+      // Ajustar también el conteo de trades ganadores y perdedores
+      // Usar filtro entry=1 para contar solo operaciones cerradas y eliminar división por 2
+      winning_trades: filteredTrades.filter(t => t.profit > 0 && t.entry === 1).length,
+      losing_trades: filteredTrades.filter(t => t.profit < 0 && t.entry === 1).length,
+      // Corregir el cálculo de breakeven para solo considerar operaciones cerradas (entry=1)
+      breakeven_trades: Math.ceil(filteredTrades.filter(t => Number(t.profit) === 0 && t.entry === 1).length),
+      
+      // Mantener conteo sin ajuste para debug
+      raw_winning_trades: filteredTrades.filter(t => t.profit > 0).length,
+      raw_losing_trades: filteredTrades.filter(t => t.profit < 0).length,
+      day_win_rate: (() => {
+        const totalDaysWithoutBreakeven = winning_days + losing_days;
+        // Si no hay días de trading, retornar 0
+        if (totalDaysWithoutBreakeven === 0) return 0;
+        // Calcular el porcentaje de días ganadores
+        const dayWinRate = (winning_days / totalDaysWithoutBreakeven) * 100;
+        
+        // Mostrar información detallada para debug
+        console.log('CÁLCULO CORRECTO DE DAY WIN RATE:', {
+          winning_days,
+          losing_days,
+          break_even_days,
+          totalDaysWithoutBreakeven,
+          dayWinRate,
+          expected_with_4_15: (4 / (4 + 15)) * 100  // Valor esperado con 4W y 15L
+        });
+        
+        return dayWinRate;
+      })(),
+      
       avg_win: avgWin,
       avg_loss: avgLoss,
       winning_days,
@@ -689,7 +963,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       const { data: connections, error: connectionsError } = await supabase
         .from('mt_connections')
-        .select('account_number')
+        .select('account_number, is_active')
         .eq('user_id', user.id);
 
       if (connectionsError) {
@@ -708,14 +982,54 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const isStoredAccountValid = storedAccount && 
           connections.some(conn => conn.account_number === storedAccount);
         
+        // Verificar si hay alguna cuenta activa en Supabase
+        const activeAccountInDB = connections.find(conn => conn.is_active === true);
+        
         if (isStoredAccountValid) {
+          // Si la cuenta almacenada es válida pero no coincide con la activa en DB, actualizar en DB
+          if (!activeAccountInDB || activeAccountInDB.account_number !== storedAccount) {
+            console.log('Activando cuenta desde localStorage en Supabase:', storedAccount);
+            
+            // Desactivar todas las cuentas
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            // Activar la cuenta almacenada
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', storedAccount);
+          }
+          
           setCurrentAccount(storedAccount);
           localStorage.setItem(lastActiveKey, storedAccount);
+        } else if (activeAccountInDB) {
+          // Si no hay cuenta válida en localStorage pero hay una activa en DB, usarla
+          console.log('Usando cuenta activa desde Supabase:', activeAccountInDB.account_number);
+          setCurrentAccount(activeAccountInDB.account_number);
+          localStorage.setItem('smartalgo_current_account', activeAccountInDB.account_number);
+          localStorage.setItem(lastActiveKey, activeAccountInDB.account_number);
         } else {
-          // Si no hay cuenta válida almacenada, usar la primera
+          // Si no hay cuenta válida almacenada ni activa en DB, usar la primera y activarla
+          console.log('No hay cuenta activa. Activando primera cuenta:', connections[0].account_number);
           setCurrentAccount(connections[0].account_number);
           localStorage.setItem('smartalgo_current_account', connections[0].account_number);
           localStorage.setItem(lastActiveKey, connections[0].account_number);
+          
+          // Actualizar en Supabase
+          await supabase
+            .from('mt_connections')
+            .update({ is_active: false })
+            .eq('user_id', user.id);
+            
+          await supabase
+            .from('mt_connections')
+            .update({ is_active: true, last_connection: new Date().toISOString() })
+            .eq('user_id', user.id)
+            .eq('account_number', connections[0].account_number);
           
           // Limpiar indicadores de tiempo para forzar una nueva carga
           localStorage.removeItem('smartalgo_last_refresh_time');
@@ -748,18 +1062,51 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Verificar que la cuenta existe en Supabase
         const { data: connection } = await supabase
           .from('mt_connections')
-          .select('account_number')
+          .select('account_number, is_active')
           .eq('user_id', user.id)
           .eq('account_number', cachedAccountNumber)
           .single();
         
         if (connection) {
+          // Si la cuenta existe pero no está activa, activarla
+          if (!connection.is_active) {
+            console.log('Activando cuenta desde getAccountNumber:', cachedAccountNumber);
+            
+            // Desactivar todas las cuentas
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            // Activar la cuenta seleccionada
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', cachedAccountNumber);
+          }
+          
           setCurrentAccount(cachedAccountNumber);
-        return cachedAccountNumber;
+          return cachedAccountNumber;
         }
       }
 
-      // Si no hay cuenta en cache, obtener la primera cuenta disponible
+      // Si no hay cuenta en cache, verificar si ya hay una cuenta activa en Supabase
+      const { data: activeAccount } = await supabase
+        .from('mt_connections')
+        .select('account_number')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+        
+      if (activeAccount) {
+        console.log('Encontrada cuenta activa en Supabase:', activeAccount.account_number);
+        setCurrentAccount(activeAccount.account_number);
+        localStorage.setItem(lastActiveKey, activeAccount.account_number);
+        return activeAccount.account_number;
+      }
+
+      // Si no hay cuenta activa, obtener la primera cuenta disponible
       const { data: connections } = await supabase
         .from('mt_connections')
         .select('account_number')
@@ -772,6 +1119,20 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       const accountNumber = connections.account_number;
+      
+      // Activar esta cuenta en Supabase
+      console.log('Activando primera cuenta disponible:', accountNumber);
+      await supabase
+        .from('mt_connections')
+        .update({ is_active: false })
+        .eq('user_id', user.id);
+        
+      await supabase
+        .from('mt_connections')
+        .update({ is_active: true, last_connection: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('account_number', accountNumber);
+      
       setCurrentAccount(accountNumber);
       localStorage.setItem(lastActiveKey, accountNumber);
       return accountNumber;
@@ -780,7 +1141,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.error("Error obteniendo account_number:", err);
       throw err;
     }
-  }, [supabase]);
+  }, [supabase, currentAccount]);
 
   // Corregir la función getDataFromLocalStorage para que no sea async
   const getDataFromLocalStorage = useCallback((accountNumber: string): any | null => {
@@ -1148,11 +1509,91 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       try {
         // Obtener la cuenta activa del localStorage
         const activeAccount = safeLocalStorage.getItem(CURRENT_ACCOUNT_KEY);
-        if (activeAccount) {
-          setCurrentAccount(activeAccount);
+        
+        // Cargar lista de cuentas primero
+        await loadUserAccounts();
+        
+        // MODIFICACIÓN: Asegurar que la cuenta esté activa en Supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && activeAccount) {
+          console.log('Verificando y activando cuenta en initializeData:', activeAccount);
           
-          // Cargar datos de la cuenta activa
-          const accountData = getDataFromLocalStorage(activeAccount);
+          // Verificar si la cuenta existe para este usuario
+          const { data: accountExists } = await supabase
+            .from('mt_connections')
+            .select('id, account_number, is_active')
+            .eq('user_id', user.id)
+            .eq('account_number', activeAccount)
+            .single();
+            
+          if (accountExists) {
+            // Si la cuenta existe pero no está activa, activarla
+            if (!accountExists.is_active) {
+              console.log('La cuenta existe pero no está activa. Activándola...');
+              
+              // Primero desactivar todas las cuentas del usuario
+              await supabase
+                .from('mt_connections')
+                .update({ is_active: false })
+                .eq('user_id', user.id);
+              
+              // Luego activar la cuenta seleccionada
+              await supabase
+                .from('mt_connections')
+                .update({ is_active: true, last_connection: new Date().toISOString() })
+                .eq('user_id', user.id)
+                .eq('account_number', activeAccount);
+                
+              console.log('Cuenta activada correctamente en initializeData');
+            } else {
+              console.log('La cuenta ya está activa en Supabase');
+            }
+            
+            setCurrentAccount(activeAccount);
+          } else if (userAccounts.length > 0) {
+            // Si la cuenta no existe pero hay otras cuentas disponibles, usar la primera
+            console.log('Cuenta no encontrada. Usando la primera cuenta disponible.');
+            const firstAccount = userAccounts[0].account_number;
+            
+            // Activar la primera cuenta disponible
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', firstAccount);
+              
+            setCurrentAccount(firstAccount);
+            localStorage.setItem(CURRENT_ACCOUNT_KEY, firstAccount);
+          }
+        } else if (userAccounts.length > 0) {
+          // No hay cuenta activa, pero sí hay cuentas disponibles
+          const firstAccount = userAccounts[0].account_number;
+          setCurrentAccount(firstAccount);
+          localStorage.setItem(CURRENT_ACCOUNT_KEY, firstAccount);
+          
+          if (user) {
+            // Activar la primera cuenta en Supabase
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: false })
+              .eq('user_id', user.id);
+              
+            await supabase
+              .from('mt_connections')
+              .update({ is_active: true, last_connection: new Date().toISOString() })
+              .eq('user_id', user.id)
+              .eq('account_number', firstAccount);
+          }
+        }
+        
+        // Cargar datos de la cuenta activa
+        if (currentAccount) {
+          const accountData = getDataFromLocalStorage(currentAccount);
           if (accountData) {
             setRawData({...accountData});
             const processed = processData(accountData, dateRange);
@@ -1164,9 +1605,6 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
             }
           }
         }
-        
-        // Cargar lista de cuentas
-        await loadUserAccounts();
         
         setLoading(false);
       } catch (error) {
@@ -1248,6 +1686,32 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Modificar la función refreshData para utilizar detectAndLoadNewData si es posible
   const refreshData = useCallback(async () => {
+    // IMPORTANTE: Verificar si hay un rango de fechas guardado en localStorage
+    let storedDateRange = null;
+    try {
+      const savedRange = localStorage.getItem('smartalgo_current_date_range');
+      if (savedRange) {
+        const parsedRange = JSON.parse(savedRange);
+        storedDateRange = {
+          startDate: new Date(parsedRange.startDate),
+          endDate: new Date(parsedRange.endDate),
+          label: parsedRange.label
+        };
+        
+        // Actualizar el estado con el rango guardado si existe y es diferente
+        if (storedDateRange && 
+            (storedDateRange.startDate.getTime() !== dateRange.startDate.getTime() ||
+             storedDateRange.endDate.getTime() !== dateRange.endDate.getTime())) {
+          setDateRange(storedDateRange);
+        }
+      }
+    } catch (error) {
+      console.error('Error al recuperar rango de fechas guardado:', error);
+    }
+    
+    // Usar el rango de fechas recuperado o el actual
+    const rangeToUse = storedDateRange || dateRange;
+    
     // Marcar que estamos cargando
     setLoading(true);
     setError(null);
@@ -1261,7 +1725,6 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return;
       }
       
-      
       // Intentar inicializar el cliente MT5 por si es necesario
       initializeMT5Client();
       
@@ -1269,7 +1732,6 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       let successFromBackend = false;
       
       try {
-        
         // Obtener la URL base del API como string
         const apiBaseUrl: string = localStorage.getItem('smartalgo_api_url_override') || 
                           (process.env.NEXT_PUBLIC_MT5_API_URL as string) || 
@@ -1333,7 +1795,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
           setRawData({...normalizedData}); // Crear copia para asegurar nueva referencia
           
           // Procesar los datos
-          const processed = processData(normalizedData, dateRange);
+          const processed = processData(normalizedData, rangeToUse);
           if (processed) {
             
             // IMPORTANTE: Actualizar estado con nuevos objetos para forzar re-render
@@ -1407,7 +1869,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
           setRawData({...localData});
           
           // Procesar los datos
-          const processed = processData(localData, dateRange);
+          const processed = processData(localData, rangeToUse);
           if (processed) {
             
             // IMPORTANTE: Actualizar estado con nuevos objetos para forzar re-render
@@ -1506,15 +1968,26 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
   }, [refreshIfStale]);
   
-  // Modificar también handleDateRangeChange para usar refreshIfStale
+  // Función para manejar cambios en el rango de fechas
   const handleDateRangeChange = (newRange: DateRange) => {
-    
     // Detectar si es un cambio real de fechas o si es el mismo rango
     const isSameRange = 
       newRange.startDate.getTime() === dateRange.startDate.getTime() && 
       newRange.endDate.getTime() === dateRange.endDate.getTime();
       
     if (isSameRange) {
+      return;
+    }
+    
+    // IMPORTANTE: Guardar el rango de fechas actual en localStorage para persistencia
+    try {
+      localStorage.setItem('smartalgo_current_date_range', JSON.stringify({
+        startDate: newRange.startDate.toISOString(),
+        endDate: newRange.endDate.toISOString(),
+        label: newRange.label
+      }));
+    } catch (error) {
+      console.error('Error al guardar rango de fechas:', error);
     }
     
     // Verificar si los datos están obsoletos antes de procesar

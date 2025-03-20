@@ -118,3 +118,16 @@ body {
 .gradient-text {
   @apply bg-gradient-to-r from-[#7C3AED] to-[#DB2777] text-transparent bg-clip-text;
 }
+
+@keyframes pulse-loading {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse {
+  animation: pulse-loading 0.9s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

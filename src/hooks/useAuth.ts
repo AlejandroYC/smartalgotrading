@@ -188,17 +188,28 @@ export const useAuth = () => {
   const signIn = async (email: string, password: string) => {
     // Si la app no está activa, rechazar la operación
     if (!isAppActive || !isComponentMounted.current) {
-      console.warn('[Auth] Intento de login cuando la app está inactiva o componente desmontado');
+      console.warn('[Auth] Intento de inicio de sesión cuando la app está inactiva o componente desmontado');
       throw new Error('La aplicación está en segundo plano. Por favor, recarga la página');
     }
     
     // Si hay otra operación de autenticación en curso, bloquear
     if (isAuthOperationInProgress) {
       console.warn('[Auth] Operación de autenticación ya en curso');
-      throw new Error('Operación en curso. Por favor, espera un momento antes de intentar nuevamente');
+      throw new Error('Operación en curso. Por favor, espera un momento');
     }
     
     try {
+      console.log('[Auth] Iniciando proceso de autenticación');
+      isAuthOperationInProgress = true;
+      
+      // Limpiar indicador de datos cargados del dashboard para forzar carga inicial
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('dashboard_data_loaded');
+        // Agregar flag para forzar actualización de datos post-login
+        sessionStorage.setItem('force_dashboard_update', 'true');
+        console.log('[Auth] Indicador de datos cargados limpiado. Se forzará carga inicial en el dashboard.');
+      }
+      
       // Verificar si hay un intento reciente de login
       const now = Date.now();
       if (now - lastLoginAttempt < LOGIN_THROTTLE_MS) {
@@ -208,7 +219,6 @@ export const useAuth = () => {
       
       // Marcar este intento y bloquear otras operaciones
       lastLoginAttempt = now;
-      isAuthOperationInProgress = true;
       
       // Configurar timeout para evitar bloqueos permanentes
       authOperationTimeout = setTimeout(() => {
@@ -355,6 +365,12 @@ export const useAuth = () => {
     try {
       console.log('[Auth] Iniciando proceso de cierre de sesión');
       isAuthOperationInProgress = true;
+      
+      // Limpiar indicador de datos cargados del dashboard
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('dashboard_data_loaded');
+        console.log('[Auth] Limpiada caché de datos del dashboard');
+      }
       
       // Configurar timeout para evitar bloqueos permanentes
       authOperationTimeout = setTimeout(() => {

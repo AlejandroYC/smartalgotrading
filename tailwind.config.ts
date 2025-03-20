@@ -14,6 +14,10 @@ export default {
       colors: {
         'nav-dark': '#0A0A0A',
       },
+      fontFamily: {
+        'sans': ['Inter', 'sans-serif'],
+        'roboto': ['Roboto', 'sans-serif'],
+      }
     },
   },
   plugins: [],
