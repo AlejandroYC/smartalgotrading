@@ -105,6 +105,53 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
     return ticks;
   }, [chartData]);
 
+  // Generar ticks para el eje Y en incrementos regulares
+  const yAxisTicks = useMemo(() => {
+    if (chartData.length === 0) return [0];
+    
+    const maxValue = Math.max(...chartData.map(d => d.value), 0);
+    const minValue = Math.min(...chartData.map(d => d.value), 0);
+    
+    // Determinar el rango total
+    const absoluteMax = Math.max(Math.abs(minValue), Math.abs(maxValue));
+    
+    // Calcular el valor del incremento (usando $20 como en la imagen)
+    const increment = 20;
+    
+    // Crear un array de ticks desde 0 hacia abajo/arriba
+    const ticks = [0];
+    
+    // Si tenemos valores negativos, agregar ticks negativos
+    if (minValue < 0) {
+      let currentTick = -increment;
+      while (currentTick >= minValue && ticks.length < 12) { // Limitar a 12 ticks para evitar sobrecarga
+        ticks.push(currentTick);
+        currentTick -= increment;
+      }
+      
+      // Asegurar que el valor mínimo esté incluido
+      if (!ticks.includes(minValue) && ticks.length < 12) {
+        ticks.push(Math.floor(minValue / increment) * increment);
+      }
+    }
+    
+    // Si tenemos valores positivos, agregar ticks positivos
+    if (maxValue > 0) {
+      let currentTick = increment;
+      while (currentTick <= maxValue && ticks.length < 12) {
+        ticks.push(currentTick);
+        currentTick += increment;
+      }
+      
+      // Asegurar que el valor máximo esté incluido
+      if (!ticks.includes(maxValue) && ticks.length < 12) {
+        ticks.push(Math.ceil(maxValue / increment) * increment);
+      }
+    }
+    
+    return ticks.sort((a, b) => a - b);
+  }, [chartData]);
+
   // Determinar si hay inconsistencia (cambios entre positivo y negativo)
   const isInconsistent = useMemo(() => {
     if (chartData.length < 2) return false;
@@ -123,6 +170,7 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
   
   // Determinar el color final basado en el último valor
   const finalValue = chartData.length > 0 ? chartData[chartData.length - 1].value : 0;
+  const lineColor = "#8778dd"; // Color púrpura para la línea como en la imagen
   const chartMainColor = finalValue >= 0 ? "#22c55e" : "#ef4444";
 
   if (chartData.length === 0) {
@@ -172,19 +220,11 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
                 <stop offset="100%" stopColor="#22c55e" stopOpacity={0.1} />
               </linearGradient>
               
-              {/* Gradiente para valores negativos (rojo) */}
+              {/* Gradiente para valores negativos (rojo/rosa como en la imagen) */}
               <linearGradient id="negativeGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.1} />
+                <stop offset="5%" stopColor="#f87171" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="#fecaca" stopOpacity={0.3} />
               </linearGradient>
-              
-              {/* Gradiente para valores inconsistentes (amarillo-naranja) */}
-              {isInconsistent && (
-                <linearGradient id="inconsistentGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.8} />
-                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.1} />
-                </linearGradient>
-              )}
             </defs>
             <XAxis
               dataKey="date"
@@ -193,15 +233,22 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
                 if (!date) return '';
                 const parts = date.split('-');
                 if (parts.length !== 3) return date;
-                return `${parts[2]}/${parts[1]}`;
+                // Formato MM/DD estilo imagen
+                return `${parts[1]}/${parts[2]}`;
               }}
               stroke="#94A3B8"
               fontSize={12}
             />
             <YAxis 
-              tickFormatter={(value) => `$${value.toFixed(0)}`}
+              ticks={yAxisTicks}
+              tickFormatter={(value) => `$${value.toFixed(2)}`}
               stroke="#94A3B8"
               fontSize={12}
+              width={70}
+              domain={[
+                minValue < 0 ? Math.floor(minValue / 20) * 20 : 0, 
+                maxValue > 0 ? Math.ceil(maxValue / 20) * 20 : 0
+              ]}
             />
             <Tooltip
               formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, undefined]}
@@ -224,26 +271,11 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
             <Area
               type="monotone"
               dataKey="value"
-              stroke={isInconsistent ? "#f59e0b" : chartMainColor}
-              fill={isInconsistent ? "url(#inconsistentGradient)" : finalValue >= 0 ? "url(#positiveGradient)" : "url(#negativeGradient)"}
-              fillOpacity={0.6}
+              stroke={lineColor}
+              fill={finalValue >= 0 ? "url(#positiveGradient)" : "url(#negativeGradient)"}
+              fillOpacity={0.8}
               strokeWidth={2}
-              dot={(props) => {
-                const { cx, cy, payload } = props;
-                const isPositive = payload.value >= 0;
-                const dotColor = isPositive ? "#22c55e" : "#ef4444";
-                
-                return (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={4}
-                    stroke={dotColor}
-                    strokeWidth={2}
-                    fill="#ffffff"
-                  />
-                );
-              }}
+              dot={false}
               isAnimationActive={true}
               animationDuration={600}
               animationEasing="ease-out"

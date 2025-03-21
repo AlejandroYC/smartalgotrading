@@ -20,9 +20,13 @@ interface DailyResult {
 
 interface NetDailyPLProps {
   dailyResults: Record<string, DailyResult>;
+  height?: number;
 }
 
-const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
+const NetDailyPL: React.FC<NetDailyPLProps> = ({ 
+  dailyResults,
+  height = 300 
+}) => {
   // Calcular el total del P&L para verificación
   const totalPL = useMemo(() => {
     // Usar el método centralizado que accede directamente a la misma fuente que el calendario
@@ -92,6 +96,53 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
     return ticks;
   }, [data]);
 
+  // Generar ticks para el eje Y en incrementos regulares
+  const yAxisTicks = useMemo(() => {
+    if (data.length === 0) return [0];
+    
+    const maxProfit = Math.max(...data.map(d => d.profit), 0);
+    const minProfit = Math.min(...data.map(d => d.profit), 0);
+    
+    // Determinar el rango total
+    const absMax = Math.max(Math.abs(maxProfit), Math.abs(minProfit));
+    
+    // Calcular el valor del incremento (usando $10 como en la imagen)
+    const increment = 10;
+    
+    // Crear un array de ticks desde 0 hacia abajo/arriba
+    const ticks = [0];
+    
+    // Si tenemos valores negativos, agregar ticks negativos
+    if (minProfit < 0) {
+      let currentTick = -increment;
+      while (currentTick >= minProfit && ticks.length < 15) { // Limitar a 15 ticks para evitar sobrecarga
+        ticks.push(currentTick);
+        currentTick -= increment;
+      }
+      
+      // Asegurar que el valor mínimo esté incluido
+      if (!ticks.includes(minProfit) && ticks.length < 15) {
+        ticks.push(Math.floor(minProfit / increment) * increment);
+      }
+    }
+    
+    // Si tenemos valores positivos, agregar ticks positivos
+    if (maxProfit > 0) {
+      let currentTick = increment;
+      while (currentTick <= maxProfit && ticks.length < 15) {
+        ticks.push(currentTick);
+        currentTick += increment;
+      }
+      
+      // Asegurar que el valor máximo esté incluido
+      if (!ticks.includes(maxProfit) && ticks.length < 15) {
+        ticks.push(Math.ceil(maxProfit / increment) * increment);
+      }
+    }
+    
+    return ticks.sort((a, b) => a - b);
+  }, [data]);
+
   // Si no hay datos, mostrar un mensaje
   if (!data.length) {
     return (
@@ -108,104 +159,72 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({ dailyResults }) => {
   const minProfit = Math.min(...data.map(d => d.profit));
   const absMax = Math.max(Math.abs(maxProfit), Math.abs(minProfit));
 
-  // Función para formatear valores del eje Y
-  const formatYAxis = (value: number) => {
-    if (Math.abs(value) >= 1000) {
-      return `$${(value / 1000).toFixed(1)}k`;
-    }
-    return `$${value.toFixed(0)}`;
-  };
-
-  // Personalizar el tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const profit = payload[0].value;
-      return (
-        <div className="bg-white p-3 shadow-lg rounded-lg border border-gray-200">
-          <p className="text-sm font-medium text-gray-900">
-            {format(parseISO(label), 'MMM d, yyyy')}
-          </p>
-          <p className="text-sm text-gray-600">
-            Net P&L: <span className={profit >= 0 ? 'text-green-500' : 'text-red-500'}>
-              ${profit.toFixed(2)}
-            </span>
-          </p>
-          {dailyResults[label] && (
-            <p className="text-xs text-gray-500">
-              {dailyResults[label].trades} trades
-            </p>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
-    <div className="bg-white p-6 rounded-lg shadow h-full">
-      <div className="flex items-start justify-between mb-4">
-        <h1 className="text-3xl text-black font-bold text-left">Net Daily P&L
-          <button className="text-gray-400 hover:text-gray-600">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-            </svg>
-          </button>
-        </h1>
-        <div className="text-sm text-gray-500">
-          Total: <span className={totalPL >= 0 ? 'text-green-500' : 'text-red-500'}>
-            ${totalPL.toFixed(2)}
-          </span>
-        </div>
+    <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
+      <div className="flex items-start justify-start mb-4">
+        <h1 className="text-lg font-bold text-black font-roboto text-left">Net Daily P&L</h1>
       </div>
       <hr className="w-full border-t border-gray-200 mb-4 mt-6" />
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-        </div>
-      </div>
 
-      <div className="h-[300px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="flex-1 w-full min-h-0">
+        <ResponsiveContainer width="100%" height={height}>
           <BarChart
             data={data}
-            margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
+            margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
             barGap={2}
-            barCategoryGap={30}
+            barCategoryGap={8}
           >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#E5E7EB"
-              vertical={false}
+            <CartesianGrid 
+              strokeDasharray="3 3" 
+              vertical={false} 
+              stroke="#E2E8F0" 
             />
             <XAxis
               dataKey="date"
               ticks={xAxisTicks}
-              tickFormatter={(value) => {
-                // Formatear fecha: 2023-01-01 -> 01/01
-                const parts = value.split('-');
-                if (parts.length !== 3) return value;
-                return `${parts[2]}/${parts[1]}`;
+              tickFormatter={(date) => {
+                if (!date) return '';
+                const parts = date.split('-');
+                if (parts.length !== 3) return date;
+                // Formato MM/DD estilo imagen
+                return `${parts[1]}/${parts[2]}`;
               }}
-              stroke="#6B7280"
+              stroke="#94A3B8"
               fontSize={12}
-              tickMargin={10}
-              axisLine={{ stroke: '#E5E7EB' }}
             />
-            <YAxis
-              tickFormatter={formatYAxis}
-              stroke="#6B7280"
+            <YAxis 
+              ticks={yAxisTicks}
+              tickFormatter={(value) => `$${value.toFixed(2)}`}
+              stroke="#94A3B8"
               fontSize={12}
-              domain={[-(absMax * 1.1), (absMax * 1.1)]}
-              axisLine={{ stroke: '#E5E7EB' }}
-              tickLine={false}
+              width={70}
+              domain={[
+                minProfit < 0 ? Math.floor(minProfit / 10) * 10 : -10, 
+                maxProfit > 0 ? Math.ceil(maxProfit / 10) * 10 : 10
+              ]}
             />
-            <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine
-              y={0}
-              stroke="#E5E7EB"
+            <Tooltip
+              formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, undefined]}
+              labelFormatter={(date) => format(parseISO(date as string), 'MMM dd, yyyy')}
+              contentStyle={{
+                backgroundColor: '#1E293B',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+              }}
+              itemStyle={{
+                color: '#E2E8F0'
+              }}
+              labelStyle={{
+                color: '#F8FAFC',
+                fontWeight: 'bold',
+                marginBottom: '5px'
+              }}
             />
-            <Bar 
+            <ReferenceLine y={0} stroke="#000" strokeDasharray="3 3" />
+            <Bar
               dataKey="profit"
-              fill="#6366F1"
+              radius={[4, 4, 0, 0]}
               isAnimationActive={true}
               animationDuration={600}
               animationEasing="ease-out"
