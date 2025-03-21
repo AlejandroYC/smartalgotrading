@@ -571,7 +571,7 @@ const StatCard: React.FC<StatCardProps> = ({
                 </div>
               )}
               {showPurpleIndicator && (
-                <div className="w-5 h-5 rounded-md bg-indigo-300 pl-4 pr-4 pt-[2px] text-white flex items-center justify-center text-xs">
+                <div className="w-5 h-5 rounded-xl bg-gray-200 pl-4 pr-4  text-black flex items-center justify-center text-[10px]">
                   {totalTrades}
                 </div>
               )}
@@ -658,10 +658,10 @@ const StatCard: React.FC<StatCardProps> = ({
       return (
 
 
-        <div className="flex items-center justify-center w-full h-full -mt-2">
+        <div className="flex items-center justify-center w-full h-full -mt-2 p-8">
 
 
-          <div className="flex items-start flex-col justify-start  mt-6 gap-2">
+          <div className="flex items-start flex-col justify-start  mt-6 gap-2 w-[50%]">
 
             <div className="flex items-center justify-center gap-4 relative ">
               <h3 className="text-sm font-medium text-slate-700">{title}</h3>
@@ -691,7 +691,7 @@ const StatCard: React.FC<StatCardProps> = ({
           </div>
 
 
-          <div className="flex items-center text-3xl">
+          <div className='w-[60%] pr-8'>
             {renderSemicircleChart(true)}
           </div>
 
