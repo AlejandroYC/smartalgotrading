@@ -155,7 +155,7 @@ const StatsOverview: React.FC = () => {
   });
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
       <StatCard 
         title={`Net P&L`} 
         value={net_profit}
