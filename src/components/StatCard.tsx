@@ -182,7 +182,7 @@ const StatCard: React.FC<StatCardProps> = ({
     const breakevenEndAngle = winEndAngle - breakevenWidth;
 
     return (
-      <div className="w-[180px] h-[90px] relative flex flex-col items-center">
+      <div className="w-[140px] h-[80px] relative flex flex-col items-center">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
           <PieChart>
             {/* Arco base gris */}
@@ -613,7 +613,7 @@ const StatCard: React.FC<StatCardProps> = ({
       return (
         <div className="flex flex-row justify-between items-center w-full h-full p-8">
 
-          <div className="flex items-start justify-start flex-col">
+          <div className="flex items-start justify-start flex-col w-[50%]">
 
             <div className="flex items-center justify-center">
               <h3 className="text-sm font-normal text-slate-700">{title}</h3>
@@ -645,7 +645,7 @@ const StatCard: React.FC<StatCardProps> = ({
             </div>
           </div>
 
-          <div>
+          <div className='w-[50%]'>
             {renderTradeWinChart()}
           </div>
 
@@ -658,12 +658,12 @@ const StatCard: React.FC<StatCardProps> = ({
       return (
 
 
-        <div className="flex items-center justify-center w-full h-full -mt-2 p-8">
+        <div className="flex flex-row justify-between  items-center  p-8">
 
 
-          <div className="flex items-start flex-col justify-start  mt-6 gap-2 w-[50%]">
+          <div className="flex items-start justify-start flex-col w-[50%] -pl-8">
 
-            <div className="flex items-center justify-center gap-4 relative ">
+            <div className="flex items-center justify-center relative">
               <h3 className="text-sm font-medium text-slate-700">{title}</h3>
               <button
                 className="text-gray-400 hover:text-gray-600"
@@ -682,7 +682,7 @@ const StatCard: React.FC<StatCardProps> = ({
 
             </div>
 
-            <div className="flex items-center justify-center text-[30px] font-roboto font-bold text-slate-800">
+            <div className="text-[30px] font-bold font-roboto text-slate-800">
               {prefix}
               {formatValue()}
               {suffix}
@@ -691,7 +691,7 @@ const StatCard: React.FC<StatCardProps> = ({
           </div>
 
 
-          <div className='w-[60%] pr-8'>
+          <div className='w-[50%]'>
             {renderSemicircleChart(true)}
           </div>
 
