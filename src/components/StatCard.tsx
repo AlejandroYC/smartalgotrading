@@ -182,7 +182,7 @@ const StatCard: React.FC<StatCardProps> = ({
     const breakevenEndAngle = winEndAngle - breakevenWidth;
 
     return (
-      <div className="w-[140px] h-[80px] relative flex flex-col items-center">
+      <div className="w-[100px] h-[80px] relative flex flex-col items-center">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
           <PieChart>
             {/* Arco base gris */}
@@ -240,7 +240,7 @@ const StatCard: React.FC<StatCardProps> = ({
         </ResponsiveContainer>
 
         {/* Números debajo del gráfico */}
-        <div className="w-full flex justify-between px-4 mt-1">
+        <div className="w-full flex justify-between  mt-1">
           <div className="bg-green-50 w-8 h-6 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-green-600">{winsValue}</span>
           </div>
@@ -285,7 +285,7 @@ const StatCard: React.FC<StatCardProps> = ({
     ];
 
     return (
-      <div className="w-[100px] h-[100px] relative flex justify-center items-center">
+      <div className="w-[72px] h-[72px] relative flex justify-center items-center">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
           <PieChart>
             <Pie
@@ -294,8 +294,8 @@ const StatCard: React.FC<StatCardProps> = ({
               cy="50%"
               startAngle={0}
               endAngle={360}
-              innerRadius={37}
-              outerRadius={44}
+              innerRadius={30}
+              outerRadius={35}
               paddingAngle={0}
               dataKey="value"
               stroke="none"
@@ -312,7 +312,7 @@ const StatCard: React.FC<StatCardProps> = ({
 
         {/* Valor en el centro del círculo */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-semibold text-slate-800">{numValue.toFixed(1)}</span>
+          <span className="text-xs font-medium text-slate-800">{numValue.toFixed(1)}</span>
         </div>
       </div>
     );
@@ -323,16 +323,16 @@ const StatCard: React.FC<StatCardProps> = ({
     return (
 
 
-      <div className="flex items-center justify-between w-full h-full p-8">
+      <div className="flex items-center justify-center w-full h-full gap-4">
 
 
 
-        <div className="flex items-start flex-col justify-start ">
+        <div className="flex flex-col items-start justify-start">
 
-          <div className="flex items-center justify-center">
+          <div className="flex justify-center items-center gap-2">
             <h3 className="text-sm font-normal text-slate-700">{title}</h3>
             {info && (
-              <div className="relative ml-2">
+              <div className="relative">
                 <button
                   className="text-gray-400 hover:text-gray-600"
                   onMouseEnter={() => setShowTooltip(true)}
@@ -343,7 +343,7 @@ const StatCard: React.FC<StatCardProps> = ({
                   </svg>
                 </button>
                 {showTooltip && (
-                  <div className="absolute -right-36 top-10 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                  <div className="absolute -left-16 top-5 z-10 w-48 p-[5px] bg-gray-800 text-white text-[10px] rounded shadow-lg">
                     {getTooltipText()}
                   </div>
                 )}
@@ -351,7 +351,7 @@ const StatCard: React.FC<StatCardProps> = ({
             )}
           </div>
 
-          <div className="flex items-center justify-center text-[30px] font-roboto font-bold text-slate-800">
+          <div className="text-[30px] font-roboto font-bold text-slate-800">
             {formatValue()}
           </div>
 
@@ -382,9 +382,9 @@ const StatCard: React.FC<StatCardProps> = ({
     const lossFormatted = `-$${lossAbs.toFixed(2)}`;
 
     return (
-      <div className="flex flex-col w-full mt-2">
+      <div className="flex flex-col w-full">
         {/* Barra horizontal con proporción real */}
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full flex mb-2">
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full flex ">
           <div
             className="h-full rounded-l-full"
             style={{
@@ -448,7 +448,7 @@ const StatCard: React.FC<StatCardProps> = ({
     const breakevenEndAngle = winEndAngle - breakevenWidth;
 
     return (
-      <div className="w-[140px] h-[80px] relative flex flex-col items-center">
+      <div className="w-[100px] h-[80px] relative flex flex-col items-center">
         <ResponsiveContainer width="100%" height="100%" key={chartKey}>
           <PieChart>
             {/* Arco base gris (visible solo cuando hay datos) */}
@@ -506,7 +506,7 @@ const StatCard: React.FC<StatCardProps> = ({
         </ResponsiveContainer>
 
         {/* Números debajo del gráfico */}
-        <div className="w-full flex justify-between px-2 mt-1">
+        <div className="w-full flex justify-between mt-1">
           <div className="bg-green-50 w-8 h-5 flex items-center justify-center rounded-full">
             <span className="text-xs font-medium text-green-600">{winsValue}</span>
           </div>
@@ -544,14 +544,12 @@ const StatCard: React.FC<StatCardProps> = ({
     // Para la tarjeta de P&L
     if (variant === 'profit') {
       return (
-        <div className="flex flex-row justify-between w-full h-full ">
+        <div className="flex flex-row justify-around items-center h-full">
 
-          <div className="flex justify-start items-start flex-col w-full p-8 ">
+          <div className="flex flex-col items-center">
 
-            <div className="flex items-start justify-start gap-2 w-full mt-2">
-
-
-              <h3 className="text-sm font-medium text-gray-700">{title}</h3>
+            <div className=" flex items-center gap-2">
+              <h3 className="text-sm font-medium text-gray-700 w-full">{title}</h3>
               {info && (
                 <div className="relative ml-1">
                   <button
@@ -564,7 +562,7 @@ const StatCard: React.FC<StatCardProps> = ({
                     </svg>
                   </button>
                   {showTooltip && (
-                    <div className="absolute -left-16 top-8 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                    <div className="absolute -left-16 top-5 z-10 w-48 p-[5px] bg-gray-800 text-white text-[10px] rounded shadow-lg">
                       {getTooltipText()}
                     </div>
                   )}
@@ -578,20 +576,20 @@ const StatCard: React.FC<StatCardProps> = ({
 
             </div>
 
-            <div className="flex flex-col items-center justify-between w-full ">
+            <div className="">
 
               <div className={`w-full font-roboto font-bold ${getValueColor()} text-[30px] h-full flex items-start justify-start flex-col`}>
                 {prefix}{formatValue()}{suffix}
               </div>
 
 
-             
+
             </div>
 
           </div>
 
 
-          <div className="flex items-center justify-between p-8">
+          <div className="flex items-center justify-between">
             <div className="bg-indigo-50 p-2 rounded-md flex items-center justify-center">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="2" y="10" width="10" height="4" rx="2" fill="#EBE9FE" />
@@ -602,8 +600,6 @@ const StatCard: React.FC<StatCardProps> = ({
             </div>
           </div>
 
-
-
         </div>
       );
     }
@@ -611,13 +607,15 @@ const StatCard: React.FC<StatCardProps> = ({
     // Diseño especial para Trade Win % (como en la imagen)
     if (variant === 'winrate') {
       return (
-        <div className="flex flex-row justify-between items-center w-full h-full p-8">
+        <div className="flex flex-row justify-center items-center w-full h-full">
 
-          <div className="flex items-start justify-start flex-col w-[50%]">
+          <div className="flex flex-col">
 
-            <div className="flex items-center justify-center">
-              <h3 className="text-sm font-normal text-slate-700">{title}</h3>
+            <div className="flex items-center">
 
+              <div className="flex items-start justify-start">
+                <h3 className="text-sm font-normal text-slate-700 lg:text-xs">{title}</h3>
+              </div>
               {info && (
                 <div className="relative ml-2">
                   <button
@@ -630,12 +628,14 @@ const StatCard: React.FC<StatCardProps> = ({
                     </svg>
                   </button>
                   {showTooltip && (
-                    <div className="absolute -left-16 top-8  z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                    <div className="absolute -left-16 top-5 z-10 w-48 p-[5px] bg-gray-800 text-white text-[10px] rounded shadow-lg">
                       {getTooltipText()}
                     </div>
                   )}
                 </div>
               )}
+
+
             </div>
 
             <div className="text-[30px] font-bold font-roboto text-slate-800">
@@ -643,9 +643,10 @@ const StatCard: React.FC<StatCardProps> = ({
               {formatValue()}
               {suffix}
             </div>
+
           </div>
 
-          <div className='w-[50%]'>
+          <div>
             {renderTradeWinChart()}
           </div>
 
@@ -658,12 +659,12 @@ const StatCard: React.FC<StatCardProps> = ({
       return (
 
 
-        <div className="flex flex-row justify-between  items-center  p-8">
+        <div className="flex flex-row justify-center items-center h-full w-full">
 
 
-          <div className="flex items-start justify-start flex-col w-[50%] -pl-8">
+          <div className="">
 
-            <div className="flex items-center justify-center relative">
+            <div className=" flex items-center gap-2 relative">
               <h3 className="text-sm font-medium text-slate-700">{title}</h3>
               <button
                 className="text-gray-400 hover:text-gray-600"
@@ -675,7 +676,7 @@ const StatCard: React.FC<StatCardProps> = ({
                 </svg>
               </button>
               {showTooltip && (
-                <div className="absolute -right-36 top-10  z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                <div className="absolute -left-0 top-5 z-10 w-48 p-[5px] bg-gray-800 text-white text-[10px] rounded shadow-lg">
                   {getTooltipText()}
                 </div>
               )}
@@ -691,7 +692,7 @@ const StatCard: React.FC<StatCardProps> = ({
           </div>
 
 
-          <div className='w-[50%]'>
+          <div>
             {renderSemicircleChart(true)}
           </div>
 
@@ -709,13 +710,12 @@ const StatCard: React.FC<StatCardProps> = ({
     // Diseño especial para Avg Trade (como en la imagen)
     if (variant === 'avg-trade') {
       return (
+        <div className="flex flex-col justify-center items-start w-full h-full p-5">
 
-        <div className="flex flex-col items-center justify-between w-full h-full p-8">
-
-          <div className="flex justify-start items-start w-full">
-            <h3 className="text-sm font-medium text-gray-600">{title}</h3>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-[15px] font-normal text-[#334155]">{title}</h3>
             {info && (
-              <div className="relative ml-2">
+              <div className="relative">
                 <button
                   className="text-gray-400 hover:text-gray-600"
                   onMouseEnter={() => setShowTooltip(true)}
@@ -726,7 +726,7 @@ const StatCard: React.FC<StatCardProps> = ({
                   </svg>
                 </button>
                 {showTooltip && (
-                  <div className="absolute -left-28 top-8  z-40 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                  <div className="fixed right-20 top-30 z-10 w-48 p-[5px] bg-gray-800 text-white text-[10px] rounded shadow-lg">
                     {getTooltipText()}
                   </div>
                 )}
@@ -734,19 +734,32 @@ const StatCard: React.FC<StatCardProps> = ({
             )}
           </div>
 
-          <div className="flex items-center flex-row justify-between w-full h-full gap-2 -mt-3">
-
-            <div className="text-[30px] font-roboto font-bold text-slate-800">
+          <div className="flex justify-between gap-6 items-center">
+            <div className="text-[30px] font-roboto font-bold text-[#0f172a]">
               {formatValue()}
             </div>
 
-            <div className="flex flex-col  w-[60%] mt-8">
-              {renderAvgTradeChart()},
+            <div className="flex flex-col gap-1 mt-2">
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-[110px] flex">
+                <div
+                  className="h-full rounded-l-full bg-[#2fac7e]"
+                  style={{
+                    width: `${(Math.abs(winAmount) / (Math.abs(winAmount) + Math.abs(lossAmount))) * 100}%`
+                  }}
+                ></div>
+                <div
+                  className="h-full rounded-r-full bg-[#ef5350]"
+                  style={{
+                    width: `${(Math.abs(lossAmount) / (Math.abs(winAmount) + Math.abs(lossAmount))) * 100}%`
+                  }}
+                ></div>
+              </div>
+              <div className="flex justify-between w-full">
+                <span className="text-[15px] font-medium text-[#2fac7e]">${Math.abs(winAmount).toFixed(2)}</span>
+                <span className="text-[15px] font-medium text-[#ef5350]">-${Math.abs(lossAmount).toFixed(2)}</span>
+              </div>
             </div>
-
           </div>
-
-
         </div>
       );
     }
@@ -769,7 +782,7 @@ const StatCard: React.FC<StatCardProps> = ({
                   </svg>
                 </button>
                 {showTooltip && (
-                  <div className="absolute left-0 top-6 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
+                  <div className="fixed left-0 top-6 z-10 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg">
                     {getTooltipText()}
                   </div>
                 )}
@@ -794,7 +807,7 @@ const StatCard: React.FC<StatCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100  text-black max-h-[150px] w-full overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100   text-black max-h-[130px] overflow-hidden">
       {renderCardContent()}
     </div>
   );

@@ -345,106 +345,103 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   
   return (
     <div className="bg-white w-full">
-      {/* Header with border bottom */}
-      <div className="flex justify-between items-center p-6 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <h2 className="text-[#2D3748] text-2xl font-medium">Progress tracker</h2>
+      {/* Header with border bottom - más compacto */}
+      <div className="flex justify-between items-center p-3 border-b border-gray-200">
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-[#2D3748] text-base font-medium">Progress tracker</h2>
           <InfoIcon />
-          <span className="ml-1 bg-[#FFEAA0] text-[#92400E] text-sm px-4 py-1 rounded-full font-medium">
+          <span className="ml-0.5 bg-[#FFEAA0] text-[#92400E] text-xs px-2 py-0.5 rounded-full font-medium">
             BETA
           </span>
         </div>
-        <div className="text-[#6366F1] text-lg font-medium">
+        <div className="text-[#6366F1] text-sm font-medium">
           View more
         </div>
       </div>
 
-      {/* Calendar section */}
-      <div className="p-6">
-        {/* Month headers */}
-        <div className="grid grid-cols-[100px_repeat(24,1fr)] mb-4">
-          <div></div>
-          {['ene', 'feb', 'mar'].map(month => (
-            <div key={month} className="col-span-8 text-center text-[#6366F1] font-medium text-lg">
-              {month}
+      {/* Calendar section - más compacto */}
+      <div className="p-3 overflow-x-auto">
+        <div className="min-w-[500px]">
+          {/* Month headers - más compactos */}
+          <div className="flex mb-2">
+            <div className="w-[40px]"></div>
+            <div className="flex-1 flex">
+              <div className="text-[#6366F1] text-sm font-medium w-[120px]">feb</div>
+              <div className="text-[#6366F1] text-sm font-medium ml-[120px]">mar</div>
             </div>
-          ))}
-        </div>
+          </div>
 
-        {/* Calendar grid */}
-        {calendarData.map((row, rowIndex) => {
-          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          return (
-            <div key={rowIndex} className="grid grid-cols-[100px_repeat(24,1fr)] mb-2">
-              <div className="text-[#4A5568] font-medium text-lg">{dayNames[rowIndex]}</div>
-              {row.map((day, dayIndex) => {
-                const bgColor = day.active
-                  ? day.trades > 0
-                    ? ACTIVITY_COLORS[getActivityLevel(day.trades)]
-                    : ACTIVITY_COLORS[1]
-                  : 'white';
-                const borderClass = !day.active ? 'border border-[#E2E8F0]' : '';
-                
-                return (
-                  <div
-                    key={`${rowIndex}-${dayIndex}`}
-                    className={`aspect-square ${borderClass} rounded-sm cursor-pointer 
-                      hover:ring-1 hover:ring-[#6366F1] transition-all relative`}
-                    style={{ backgroundColor: bgColor }}
-                    onClick={() => handleDayClick(day)}
-                  >
-                    {/* Opcionalmente, mostrar número del día para debug */}
-                    {process.env.NODE_ENV === 'development' && day.trades > 0 && (
-                      <span className="absolute inset-0 flex items-center justify-center text-[8px] text-gray-400 pointer-events-none">
-                        {day.date.getDate()}
-                      </span>
-                    )}
-                    {tooltipInfo && isSameDay(day.date, tooltipInfo.date) && (
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
-                        bg-[#1A202C] text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
-                        {tooltipInfo.info}
+          {/* Calendar grid - más compacto */}
+          {calendarData.map((row, rowIndex) => {
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            return (
+              <div key={rowIndex} className="flex mb-1">
+                <div className="w-[40px] text-[#4A5568] font-medium text-xs">{dayNames[rowIndex]}</div>
+                <div className="flex-1 grid grid-cols-[repeat(14,1fr)] gap-[2px]">
+                  {row.map((day, dayIndex) => {
+                    const bgColor = day.active
+                      ? day.trades > 0
+                        ? ACTIVITY_COLORS[getActivityLevel(day.trades)]
+                        : ACTIVITY_COLORS[1]
+                      : 'white';
+                    const borderClass = !day.active ? 'border border-[#E2E8F0]' : '';
+                    
+                    return (
+                      <div
+                        key={`${rowIndex}-${dayIndex}`}
+                        className={`aspect-square ${borderClass} rounded-[2px] cursor-pointer 
+                          hover:ring-1 hover:ring-[#6366F1] transition-all relative`}
+                        style={{ backgroundColor: bgColor }}
+                        onClick={() => handleDayClick(day)}
+                      >
+                        {tooltipInfo && isSameDay(day.date, tooltipInfo.date) && (
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
+                            bg-[#1A202C] text-white text-[10px] py-0.5 px-1.5 rounded whitespace-nowrap z-10">
+                            {tooltipInfo.info}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
 
-        {/* Color legend */}
-        <div className="flex items-center justify-end mt-6 gap-2">
-          <span className="text-[#4A5568] text-sm">Less</span>
-          {ACTIVITY_COLORS.slice(1).map((color, index) => (
-            <div
-              key={index}
-              className="w-5 h-5 rounded-sm"
-              style={{ backgroundColor: color }}
-            />
-          ))}
-          <span className="text-[#4A5568] text-sm">More</span>
+          {/* Color legend - más compacto */}
+          <div className="flex items-center justify-end mt-2 gap-1">
+            <span className="text-[#4A5568] text-xs">Less</span>
+            {ACTIVITY_COLORS.slice(1).map((color, index) => (
+              <div
+                key={index}
+                className="w-3 h-3 rounded-[2px]"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+            <span className="text-[#4A5568] text-xs">More</span>
+          </div>
         </div>
       </div>
 
-      {/* TODAY'S SCORE section */}
-      <div className="border-t border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-[#2D3748] font-bold uppercase text-sm">TODAY'S SCORE</h3>
+      {/* TODAY'S SCORE section - más compacto */}
+      <div className="border-t border-gray-200 p-3">
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-[#2D3748] font-bold uppercase text-xs">TODAY'S SCORE</h3>
             <InfoIcon />
           </div>
-          <button className="bg-white border border-gray-300 rounded-full px-6 py-2 text-[#2D3748] font-medium hover:bg-gray-50 transition-colors">
-            Daily Checklist
+          <button className="bg-white border border-gray-300 rounded-full px-3 py-1 text-[#2D3748] text-xs font-medium hover:bg-gray-50 transition-colors">
+            Daily checklist
           </button>
         </div>
         
-        <div className="flex items-center">
-          <div className="text-[#2D3748] text-3xl font-bold mr-4">
+        <div className="flex items-center gap-2">
+          <div className="text-[#2D3748] text-xl font-bold">
             {todayScore.current}/{todayScore.total}
           </div>
-          <div className="flex-1 bg-[#EDF2F7] rounded-full h-3">
+          <div className="flex-1 bg-[#EDF2F7] rounded-full h-2">
             <div 
-              className="bg-[#6366F1] h-3 rounded-full" 
+              className="bg-[#6366F1] h-full rounded-full transition-all duration-300" 
               style={{ width: `${todayScore.percentage}%` }}
             ></div>
           </div>

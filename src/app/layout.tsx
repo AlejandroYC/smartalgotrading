@@ -15,6 +15,12 @@ export const metadata: Metadata = {
   icons: {
     icon: "favicon_is.webp",  // Ruta al archivo de favicon
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false
+  }
 };
 
 export default function RootLayout({
