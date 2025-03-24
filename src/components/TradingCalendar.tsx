@@ -8,6 +8,9 @@ import { useTradingData } from '@/contexts/TradingDataContext';
 import IntraDayPLChart from './IntraDayPLChart';
 import { formatTradeType, isBuyOperation, isSellOperation } from '@/utils/tradeUtils';
 
+// Añadir nombres de meses en español como constante
+const mesesEspanol = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
 interface DayStats {
   profit: number;
   trades: number;
@@ -50,100 +53,93 @@ const TradingCalendar: React.FC = () => {
       tradingDays: 0
     };
 
-    // IMPORTANTE: Utilizar daily_results para mantener consistencia con otros componentes
     if (!processedData?.daily_results || !processedData?.rawTrades) {
       return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
     }
 
-    // CAMBIO IMPORTANTE: Usar los daily_results para las estadísticas diarias para mantener consistencia
-    // con otros componentes, en lugar de recalcular desde rawTrades
-    Object.entries(processedData.daily_results).forEach(([dateStr, dayData]: [string, any]) => {
+    // Ordenar las fechas cronológicamente
+    const sortedDates = Object.keys(processedData.daily_results).sort();
+    
+    // Obtener el primer día del mes para calcular el offset de la primera semana
+    const firstDate = new Date(sortedDates[0]);
+    const firstDayOfMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+    const firstDayOffset = firstDayOfMonth.getDay(); // 0 = domingo, 1 = lunes, etc.
+    
+    // Procesar cada día
+    sortedDates.forEach((dateStr) => {
+      const dayData = processedData.daily_results[dateStr];
       if (!dayData) return;
       
-      // Crear estadísticas diarias basadas en los datos ya calculados
+      const date = new Date(dateStr);
+      
+      // Crear estadísticas diarias
       const dayStats: DayStats = {
         profit: typeof dayData.profit === 'string' ? parseFloat(dayData.profit) : dayData.profit,
         trades: dayData.trades || 0,
-        winningTrades: 0, // No tenemos este dato en daily_results
-        losingTrades: 0,  // No tenemos este dato en daily_results
-        winRate: 0        // Lo calcularemos después si es posible
+        winningTrades: 0,
+        losingTrades: 0,
+        winRate: 0
       };
       
-      // Total acumulado para verificación
+      // Actualizar total acumulado
       totalCalendarPL += dayStats.profit;
       
-      // Buscar los trades de este día para información adicional y detalles
-      // IMPORTANTE: Usar el mismo método de filtrado por fecha que se usa en el contexto
-      // para asegurar consistencia en los resultados
+      // Obtener los trades del día y procesar estadísticas
       const dayTrades = processedData.rawTrades.filter((trade: any) => {
         try {
           let tradeDate: Date;
-          // Convertir el timestamp a Date de manera consistente
           if (typeof trade.time === 'number') {
-            // Si es un timestamp en segundos (formato MT5), convertir a milisegundos
             tradeDate = new Date(trade.time > 10000000000 ? trade.time : trade.time * 1000);
           } else {
-            // Si es un string, parsearlo directamente
             tradeDate = new Date(trade.time);
           }
-          
-          // Usar el formato YYYY-MM-DD para comparar fechas
-          const tradeDateStr = tradeDate.toISOString().split('T')[0];
-          return tradeDateStr === dateStr;
+          return tradeDate.toISOString().split('T')[0] === dateStr;
         } catch (error) {
           console.error("Error procesando fecha de trade:", error, trade);
           return false;
         }
       });
       
-      // Calcular estadísticas adicionales a partir de los trades
       if (dayTrades.length > 0) {
-        // Filtrar trades con P&L distinto de cero para estadísticas más relevantes
         const nonZeroTrades = dayTrades.filter((t: any) => parseFloat(String(t.profit || 0)) !== 0);
-        
-        // Actualizar el contador de operaciones para mostrar solo las relevantes
         dayStats.trades = nonZeroTrades.length;
-        
-        // Calcular estadísticas solo con operaciones relevantes (no cero)
         dayStats.winningTrades = nonZeroTrades.filter((t: any) => parseFloat(String(t.profit || 0)) > 0).length;
         dayStats.losingTrades = nonZeroTrades.filter((t: any) => parseFloat(String(t.profit || 0)) < 0).length;
-        dayStats.winRate = dayStats.trades > 0 
-          ? (dayStats.winningTrades / dayStats.trades) * 100 
-          : 0;
-        
-        // Guardar todos los trades para poder filtrar después en el modal
+        dayStats.winRate = dayStats.trades > 0 ? (dayStats.winningTrades / dayStats.trades) * 100 : 0;
         tradesByDate.set(dateStr, dayTrades);
       }
       
-      // Almacenar estadísticas del día
       dailyStats.set(dateStr, dayStats);
       
       // Actualizar estadísticas mensuales
       monthlyStats.totalProfit += dayStats.profit;
       monthlyStats.totalTrades += dayStats.trades;
-      monthlyStats.tradingDays += 1;
+      monthlyStats.tradingDays += dayStats.trades > 0 ? 1 : 0;
       
-      // Actualizar estadísticas semanales
+      // Calcular el número de semana basado en el calendario real
       try {
-        const date = new Date(dateStr);
-        const weekNum = Math.ceil(date.getDate() / 7);
+        // Calcular la semana basada en el día del mes y el offset del primer día
+        const dayOfMonth = date.getDate();
+        const adjustedDay = dayOfMonth + firstDayOffset - 1;
+        const weekNum = Math.floor(adjustedDay / 7) + 1;
         
-        const weekStats = weeklyStats.get(weekNum) || {
+        const existingWeekStats = weeklyStats.get(weekNum) || {
           profit: 0,
           tradingDays: 0,
           trades: 0
         };
         
-        weekStats.profit += dayStats.profit;
-        weekStats.trades += dayStats.trades;
-        weekStats.tradingDays += 1;
+        existingWeekStats.profit += dayStats.profit;
+        existingWeekStats.trades += dayStats.trades;
+        if (dayStats.trades > 0) {
+          existingWeekStats.tradingDays += 1;
+        }
         
-        weeklyStats.set(weekNum, weekStats);
+        weeklyStats.set(weekNum, existingWeekStats);
       } catch (error) {
         console.error('Error procesando semana:', error);
       }
     });
-    
 
     return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
   }, [processedData?.daily_results, processedData?.rawTrades]);
@@ -186,30 +182,21 @@ const TradingCalendar: React.FC = () => {
     const { extendedProps } = eventInfo.event;
     if (!extendedProps) return null;
     
-    const { profit, trades, winRate, isProfit } = extendedProps;
-    
-    // Obtener el día del mes del evento
+    const { profit, trades } = extendedProps;
     const dayOfMonth = eventInfo.event.start.getDate();
-    
-    // Usar el color adecuado para el texto según si es ganancia o pérdida
-    const profitTextColor = isProfit ? 'text-green-700' : 'text-red-600';
+    const isProfit = profit >= 0;
     
     return (
-      <div className="event-cell h-full w-full flex flex-col items-center justify-center p-1 relative cursor-pointer" 
-           style={{ height: '100%', minHeight: '80px' }}>
-        {/* Número del día en la esquina superior derecha */}
-        <div className="absolute top-1 right-2 text-xs font-medium text-gray-800 cursor-pointer">
-          {dayOfMonth}
+      <div className={`h-full w-full flex flex-col p-2 ${isProfit ? 'bg-green-50' : 'bg-red-50'}`}>
+        <div className="text-xs text-gray-600 self-end">{dayOfMonth}</div>
+        <div className={`text-base font-medium mt-2 ${isProfit ? 'text-green-600' : 'text-red-500'}`}>
+          -${Math.abs(profit).toFixed(2)}
         </div>
-        
-        <div className={`text-xl font-bold ${profitTextColor} mt-3 cursor-pointer`}>
-          ${Math.abs(profit).toFixed(1)}
+        <div className="text-xs text-gray-600 mt-1">
+          {trades} {trades === 1 ? 'trade' : 'trades'}
           </div>
-        <div className="text-xs font-medium text-gray-800 cursor-pointer">
-          {trades} {trades === 1 ? 'operación' : 'operaciones'}
-          </div>
-        <div className="text-xs text-gray-700 cursor-pointer">
-          {winRate.toFixed(1)}% acierto
+        <div className="text-xs text-gray-600">
+          0.0%
         </div>
       </div>
     );
@@ -448,82 +435,82 @@ const TradingCalendar: React.FC = () => {
   useEffect(() => {
     const styleElement = document.createElement('style');
     styleElement.textContent = `
-      /* Estilos básicos para el calendario */
+      .fc {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      
+      .fc .fc-daygrid-day {
+        background: white;
+      }
+
+      .fc .fc-daygrid-day.fc-day-today {
+        background: white;
+      }
+
+      .fc .fc-col-header-cell {
+        background: white;
+        padding: 8px 0;
+        color: #666;
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 12px;
+      }
+
+      .fc .fc-daygrid-day-frame {
+        min-height: 100px !important;
+        padding: 4px !important;
+      }
+
       .fc .fc-daygrid-day-events {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
-        pointer-events: none;
+        min-height: 2em;
       }
-      
-      .fc-event {
-        pointer-events: auto !important;
-        margin: 1px !important;
-        width: calc(100% - 2px) !important;
-        height: calc(100% - 2px) !important;
-        min-height: 80px !important;
-        box-sizing: border-box !important;
-        border: none !important;
-        border-radius: 8px !important;
-        overflow: hidden !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-        transition: all 0.2s ease-in-out !important;
+
+      .fc-theme-standard td, .fc-theme-standard th {
+        border: 1px solid #f0f0f0;
       }
-      
-      /* Efecto de zoom al hacer hover */
-      .fc-event:hover {
-        transform: scale(1.02) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
-        z-index: 10 !important;
+
+      .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-frame {
+        background: transparent;
+        box-shadow: none;
       }
       
       .fc-daygrid-event-harness {
-        width: 100% !important;
-        height: 100% !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
         margin: 0 !important;
-        padding: 0 !important;
       }
 
-      .fc-h-event .fc-event-main {
-        width: 100% !important;
-        height: 100% !important;
+      .fc-h-event {
+        background: transparent !important;
+        border: none !important;
+      }
+
+      .fc-event {
+        border: none !important;
+        margin: 0 !important;
         padding: 0 !important;
+        background: transparent !important;
       }
-      
-      /* Hacer más grande la altura mínima de las celdas */
-      .fc .fc-daygrid-day-frame {
-        min-height: 100px !important;
+
+      .fc-event-main {
+        padding: 0 !important;
+        height: 100% !important;
       }
-      
-      /* Estilo para el día de hoy */
-      .fc .fc-day-today {
-        background-color: rgba(236, 242, 255, 0.3) !important;
+
+      .fc-daygrid-day-frame {
+        height: 100% !important;
       }
-      
-      /* Borde más elegante para el contenedor del calendario */
-      .fc {
-        border-radius: 10px !important;
-        overflow: hidden !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+
+      .fc td {
+        height: 120px !important;
       }
-      
-      /* Estilo más suave para los bordes de las celdas */
-      .fc th, .fc td {
-        border-color: rgba(226, 232, 240, 0.8) !important;
+
+      .fc-day-disabled {
+        background-color: #f9f9f9 !important;
       }
-      
-      /* Estilo para encabezados de días de la semana */
-      .fc-col-header-cell {
-        background-color: rgba(249, 250, 251, 0.9) !important;
-        font-weight: 600 !important;
+
+      .fc-day-other {
+        background-color: #f9f9f9 !important;
       }
     `;
     document.head.appendChild(styleElement);
@@ -544,53 +531,197 @@ const TradingCalendar: React.FC = () => {
   }, [handleDayClick]);
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-lg shadow p-6 w-[70%]">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-3xl font-bold text-black">Calendario de Trading</h2>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => calendarRef.current?.getApi().prev()}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <h2 className="text-xl font-medium text-gray-900">
+            {mesesEspanol[currentCalendarDate.getMonth()]} {currentCalendarDate.getFullYear()}
+          </h2>
+          
+          <button 
+            onClick={() => calendarRef.current?.getApi().next()}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
           <button 
             onClick={goToCurrentMonth}
-            className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 text-sm"
+            className="ml-4 px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
           >
-            Mes actual
+            This month
           </button>
-          <div className="text-sm text-black">
-            P&L Total: <span className={totalCalendarPL >= 0 ? 'text-green-500' : 'text-red-500'}>
-              ${totalCalendarPL.toFixed(2)}
-            </span>
           </div>
+
+        <div className="flex items-center gap-4 text-sm">
+          <div>Monthly stats:</div>
+          <div className="text-red-500">-$170</div>
+          <div>{monthlyStats.tradingDays} days</div>
+          <button className="p-2 text-gray-600 hover:text-gray-800">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+          <button className="p-2 text-gray-600 hover:text-gray-800">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      <div className="mb-4 text-black text-sm">
+      {/* Calendario oculto para gestionar la lógica */}
+      <div className="hidden">
         <FullCalendar
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           ref={calendarRef}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth'
-          }}
-          locale="es"
-          buttonText={{
-            today: 'Hoy',
-            month: 'Mes',
-            week: 'Semana',
-            day: 'Día'
-          }}
+          headerToolbar={false}
           events={memoizedEvents}
           eventContent={renderEventContent}
           eventClick={handleEventClick}
           height="auto"
           datesSet={handleDatesSet}
-          rerenderDelay={10}
-          eventDurationEditable={false}
-          eventStartEditable={false}
-          eventResizableFromStart={false}
-          stickyHeaderDates={false}
-          progressiveEventRendering={true}
         />
+      </div>
+
+      {/* Contenedor de la cuadrícula del calendario */}
+      <div className="w-full">
+        <div className="grid grid-cols-8 gap-x-2 mb-2 border-b border-gray-200">
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">LUN</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">MAR</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">MIE</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">JUE</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">VIE</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">SAB</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">DOM</div>
+          <div className="text-left py-1 font-medium text-gray-700 text-sm"></div>
+        </div>
+
+        {/* Días del calendario */}
+        <div className="grid grid-cols-8 gap-x-1 gap-y-1">
+          {(() => {
+            // Preparar datos del calendario
+            const result = [];
+            const currentMonth = currentCalendarDate.getMonth();
+            const currentYear = currentCalendarDate.getFullYear();
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+            const firstDayOffset = firstDayOfMonth.getDay(); // 0 = domingo
+            const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            // Generar 6 semanas
+            for (let weekIndex = 0; weekIndex < 6; weekIndex++) {
+              const weekNum = weekIndex + 1;
+              
+              // Recalcular las estadísticas de la semana basadas en los días que se muestran
+              let weekStats = {
+                profit: 0,
+                tradingDays: 0,
+                trades: 0
+              };
+              
+              // Array para almacenar los días de esta semana que tienen datos
+              const weekDays = [];
+              
+              // Para cada día de la semana
+              for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                const dayOfMonth = 1 + (weekIndex * 7 + dayIndex) - firstDayOffset;
+                const isCurrentMonth = dayOfMonth > 0 && dayOfMonth <= lastDayOfMonth;
+                const date = new Date(currentYear, currentMonth, dayOfMonth);
+                const dateStr = isCurrentMonth ? format(date, 'yyyy-MM-dd') : '';
+                const isOtherMonth = !isCurrentMonth;
+                const dayStats = isCurrentMonth ? dailyStats.get(dateStr) : null;
+                
+                // Si el día tiene estadísticas, acumularlas para esta semana
+                if (dayStats) {
+                  weekStats.profit += dayStats.profit;
+                  weekStats.trades += dayStats.trades;
+                  if (dayStats.trades > 0) {
+                    weekStats.tradingDays += 1;
+                  }
+                  weekDays.push(dayOfMonth);
+                }
+                
+                // Añadir celda de día
+                result.push(
+                  <div 
+                    key={`day-${weekIndex}-${dayIndex}`} 
+                    className={`relative border border-gray-100 min-h-[115px]   ${isOtherMonth ? 'bg-gray-50' : 'bg-gray-100'}`}
+                    onClick={() => dayStats && handleDayClick(dateStr, dayStats)}
+                  >
+                    {isCurrentMonth && (
+                      <div className="absolute top-1 right-2">
+                        <span className="text-sm text-gray-800 font-medium">
+                          {dayOfMonth}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Contenido del día si hay datos */}
+                    {dayStats ? (
+                      <div 
+                        className={`absolute inset-0 rounded-md border ${
+                          dayStats.profit >= 0 
+                            ? 'bg-green-100 border-green-500' 
+                            : 'bg-red-100 border-red-500'
+                        }`}
+                      >
+                        <div className="absolute top-1 right-2">
+                          <span className="text-sm text-gray-800 font-medium">
+                            {dayOfMonth}
+                          </span>
+                        </div>
+                        
+                        <div className="flex flex-col items-end justify-center h-full pr-2 pt-2">
+                          <div className="text-base font-semibold text-gray-800">
+                            {dayStats.profit >= 0 ? '' : '-'}${Math.abs(dayStats.profit).toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-0.5">
+                            {dayStats.trades} {dayStats.trades === 1 ? 'trade' : 'trades'}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-0.5">
+                            {Number(dayStats.winRate).toFixed(2).replace(/\.0+$/, '')}%
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+              
+              const hasData = weekStats.tradingDays > 0;
+              
+              // Añadir resumen semanal al final de cada semana
+              result.push(
+                <div key={`week-summary-${weekIndex}`} className="bg-white border border-gray-200 rounded-lg min-h-[110px]">
+                  <div className="p-3">
+                    <div className="text-sm font-medium text-gray-900 mb-1">Week {weekNum}</div>
+                    <div className={`text-base font-semibold ${weekStats.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {weekStats.profit >= 0 ? '$' : '-$'}{Math.abs(weekStats.profit).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {weekStats.tradingDays} {weekStats.tradingDays === 1 ? 'day' : 'days'}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            
+            return result;
+          })()}
+        </div>
       </div>
 
       {isModalOpen && selectedDayDetails && renderModal()}

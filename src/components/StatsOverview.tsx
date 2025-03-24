@@ -1,9 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import StatCard from './StatCard';
+import { filterDepositsFromMetrics } from '@/contexts/TradingDataContext';
 
 const StatsOverview: React.FC = () => {
   const { processedData, loading, error, dateRange } = useTradingData();
+  
+  // Aplicar filtro para excluir depósitos en las métricas
+  const filteredData = useMemo(() => {
+    return filterDepositsFromMetrics(processedData);
+  }, [processedData]);
   
   // Agregar logs para depuración
   if (loading || !processedData) {
@@ -28,7 +34,7 @@ const StatsOverview: React.FC = () => {
     );
   }
   
-  // Desestructurar los datos procesados y agregar valores por defecto
+  // Desestructurar los datos filtrados y agregar valores por defecto
   const { 
     net_profit = 0, 
     win_rate = 0, 
@@ -44,7 +50,7 @@ const StatsOverview: React.FC = () => {
     losing_days = 0,
     break_even_days = 0,
     rawTrades = []
-  } = processedData;
+  } = filteredData || processedData; // Usar datos filtrados o caer en los originales si hay algún problema
   
   // Volver a las definiciones originales (completamente dinámicas)
   const directWinningTrades = rawTrades && rawTrades.length > 0 

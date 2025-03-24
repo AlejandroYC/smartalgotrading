@@ -15,7 +15,6 @@ import TradeTimePerformance from '@/components/TradeTimePerformance';
 import TradingCalendar from '@/components/TradingCalendar';
 import StatsOverview from '@/components/StatsOverview';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
-import DebugDataView from '@/components/DebugDataView';
 import AccountSelector from '@/components/AccountSelector';
 import { FullScreenLoading, LoadingIndicator, ButtonLoading } from '@/components/LoadingIndicator';
 import Link from 'next/link';
@@ -943,8 +942,6 @@ function DashboardContent() {
               />
             </button>
           </div>
-
-
 
           <div onClick={(e) => e.stopPropagation()}>
             <DateRangeSelector onDateRangeChange={handleDateRangeChange} />

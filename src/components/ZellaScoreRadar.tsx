@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import EmptyStateCard from './EmptyStateCard';
 import { useTradingData } from '@/contexts/TradingDataContext';
+import { filterDepositsFromMetrics } from '@/contexts/TradingDataContext';
 
 // Componente SVG para el ícono de información
 const InfoIcon = () => (
@@ -71,77 +72,128 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
   const metrics: ZellaMetric[] = useMemo(() => {
     if (!processedData) return [];
 
-    // Log completo de todas las propiedades para diagnóstico
-    console.log('TODAS LAS PROPIEDADES DE PROCESED_DATA:', processedData);
+    // Usar la función filtrada en lugar de implementar lógica aquí
+    const filteredData = filterDepositsFromMetrics(processedData);
     
-    console.log('DATOS PARA ZELLA SCORE:', {
-      win_rate: processedData.win_rate,
-      profit_factor: processedData.profit_factor,
-      avg_win: processedData.avg_win,
-      avg_loss: processedData.avg_loss,
-      net_profit: processedData.net_profit,
-      max_drawdown: processedData.max_drawdown,
-      max_drawdown_percent: processedData.max_drawdown_percent,
-      day_win_rate: processedData.day_win_rate
+    // Log para verificación
+    console.log('ZELLARADAR: Utilizando datos filtrados automáticamente:', filteredData);
+    
+    // Recalcular las métricas excluyendo depósitos
+    // Solo proceder si hay trades válidos (excluyendo depósitos)
+    const validTrades = filteredData.rawTrades?.filter((t: any) => t.type !== 2) || [];
+    
+    if (validTrades.length === 0) {
+      console.log('No hay trades válidos (excluyendo depósitos)');
+      return [];
+    }
+    
+    // Calcular win rate real
+    const winners = validTrades.filter((t: any) => t.profit > 0).length;
+    const losers = validTrades.filter((t: any) => t.profit < 0).length;
+    const totalWL = winners + losers;
+    const filteredWinRate = totalWL > 0 ? winners / totalWL : 0;
+    
+    // Calcular profit factor real
+    const grossWins = validTrades
+      .filter((t: any) => t.profit > 0)
+      .reduce((sum: number, t: any) => sum + Number(t.profit), 0);
+      
+    const grossLosses = Math.abs(validTrades
+      .filter((t: any) => t.profit < 0)
+      .reduce((sum: number, t: any) => sum + Number(t.profit), 0));
+      
+    const filteredProfitFactor = grossLosses > 0 ? grossWins / grossLosses : 1;
+    
+    // Calcular avg win/loss real
+    const filteredAvgWin = winners > 0 
+      ? validTrades.filter((t: any) => t.profit > 0).reduce((sum: number, t: any) => sum + Number(t.profit), 0) / winners 
+      : 0;
+      
+    const filteredAvgLoss = losers > 0 
+      ? Math.abs(validTrades.filter((t: any) => t.profit < 0).reduce((sum: number, t: any) => sum + Number(t.profit), 0) / losers)
+      : 0;
+    
+    // Calcular net profit real
+    const filteredNetProfit = validTrades.reduce((sum: number, t: any) => sum + Number(t.profit), 0);
+    
+    // Recovery factor usando el drawdown real
+    const recoveryFactor = filteredData.max_drawdown > 0 ? 
+      filteredNetProfit / filteredData.max_drawdown : 0;
+    
+    // Usar max drawdown real
+    const maxDrawdownPercent = filteredData.max_drawdown_percent || 0;
+    
+    // Usar day win rate real
+    const dayWinRate = filteredData.day_win_rate || 0;
+
+    // Log de métricas reales
+    console.log('MÉTRICAS REALES PARA ZELLA SCORE:', {
+      win_rate: filteredWinRate,
+      profit_factor: filteredProfitFactor,
+      avg_win: filteredAvgWin,
+      avg_loss: filteredAvgLoss,
+      avg_win_loss_ratio: filteredAvgLoss > 0 ? filteredAvgWin / filteredAvgLoss : 0,
+      net_profit: filteredNetProfit,
+      max_drawdown: filteredData.max_drawdown,
+      max_drawdown_percent: maxDrawdownPercent,
+      recovery_factor: recoveryFactor,
+      day_win_rate: dayWinRate
     });
 
-    // Factor de normalización para cada métrica basado en los valores de la referencia
-    const normalizationFactors = {
-      'Win %': { factor: 7, baseline: 0 },        // Win % más prominente en la parte superior
-      'Profit factor': { factor: 1, baseline: 0 }, // Profit factor medio
-      'Avg win/loss': { factor: 1, baseline: 0 },  // Avg win/loss medio-bajo
-      'Recovery factor': { factor: 0.02, baseline: 0 }, // Recovery factor muy bajo
-      'Max drawdown': { factor: 0.5, baseline: 0 },   // Max drawdown muy bajo
-      'Consistency': { factor: 0.008, baseline: 0 },     // Consistency casi invisible
-    };
-
+    // Ajuste de escalas para mostrar valores en radar más parecidos a tradezella.com
     return [
       {
         name: 'Win %',
-        // Usar directamente el valor del win_rate ajustado con el factor
-        value: (processedData.win_rate * normalizationFactors['Win %'].factor) + normalizationFactors['Win %'].baseline, 
+        // Escala más restrictiva para win rate - menos prominente en bajos valores
+        value: Math.min(5, (Math.pow(filteredWinRate, 1.2) * 3.8)),
         description: 'Porcentaje de operaciones ganadoras'
       },
       {
         name: 'Profit factor',
-        // Usar directamente el profit_factor ajustado con el factor
-        value: (processedData.profit_factor * normalizationFactors['Profit factor'].factor) + normalizationFactors['Profit factor'].baseline,
+        // Escala más restrictiva para profit factor
+        value: Math.min(5, filteredProfitFactor < 1 ? 
+          filteredProfitFactor * 0.9 : 
+          0.9 + (filteredProfitFactor - 1) * 1.2),
         description: 'Relación entre ganancias y pérdidas'
       },
       {
         name: 'Avg win/loss',
-        // Usar la relación de avg_win/avg_loss ajustada con el factor
-        value: ((processedData.avg_win / (Math.abs(processedData.avg_loss) || 1)) * normalizationFactors['Avg win/loss'].factor) + normalizationFactors['Avg win/loss'].baseline,
+        // Escala reducida para avg win/loss
+        value: Math.min(5, filteredAvgLoss > 0 ? 
+          (filteredAvgWin / filteredAvgLoss < 1 ?
+            (filteredAvgWin / filteredAvgLoss) * 1.2 :
+            1.2 + (filteredAvgWin / filteredAvgLoss - 1) * 0.8) : 0),
         description: 'Proporción promedio de ganancia/pérdida'
       },
       {
         name: 'Recovery factor',
-        // Usar el recovery factor ajustado con el factor
-        value: ((processedData.max_drawdown > 0 ? processedData.net_profit / processedData.max_drawdown : 0) * normalizationFactors['Recovery factor'].factor) + normalizationFactors['Recovery factor'].baseline,
+        // Escala más restrictiva para recovery factor
+        value: Math.min(5, Math.min(1.5, recoveryFactor)),
         description: 'Capacidad de recuperación de drawdowns'
       },
       {
         name: 'Max drawdown',
-        // Usar el max_drawdown_percent invertido ajustado con el factor
-        value: ((processedData.max_drawdown_percent > 0 ? (100 - Math.min(100, processedData.max_drawdown_percent)) : 50) * normalizationFactors['Max drawdown'].factor) + normalizationFactors['Max drawdown'].baseline,
+        // Escala más restrictiva para max drawdown
+        // Para drawdown, valores menores son mejores
+        value: Math.min(5, Math.max(0, 2 - (maxDrawdownPercent / 30))),
         description: 'Máxima pérdida desde máximos (%)'
       },
       {
         name: 'Consistency',
-        // Usar directamente el day_win_rate ajustado con el factor
-        value: (processedData.day_win_rate * normalizationFactors['Consistency'].factor) + normalizationFactors['Consistency'].baseline,
+        // Ajustado para que day win rate sea más prominente
+        value: Math.min(5, (dayWinRate / 100) * 3.0),
         description: 'Porcentaje de días ganadores'
       },
     ];
   }, [processedData]);
   
-  // Calcular el Zella Score basado en las métricas - memoizado para estabilidad
+  // Calcular el Zella Score basado en las métricas reales
   const zellaScore = useMemo(() => {
     if (!hasTrades || !metrics.length) return 0;
     
     // Si no hay operaciones ganadoras, el score debe ser 0
-    if (processedData.win_rate === 0 || processedData.winning_trades === 0) {
-      console.log('ZELLA SCORE: 0 - No hay operaciones ganadoras');
+    if (!processedData.rawTrades || processedData.rawTrades.length === 0) {
+      console.log('ZELLA SCORE: 0 - No hay operaciones para calcular');
       return 0;
     }
     
@@ -172,8 +224,18 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
       metricContributions[metric.name] = contribution;
     });
     
-    // Normalizar a escala 0-100 con un factor de ajuste para alinear con la referencia
-    const adjustmentFactor = 0.258; // Calibrado para que con los datos actuales sea cercano a 39.5
+    // FACTOR CORREGIDO: Aumentado para compensar los valores más bajos en las métricas
+    // y mantener el Zella Score alrededor de 26
+    const adjustmentFactor = 1.22; // Ajustado para mantener el score original de ~26
+    
+    // Log para diagnóstico detallado del cálculo
+    console.log('CÁLCULO DETALLADO DEL ZELLA SCORE:');
+    console.log('Métricas utilizadas:', metrics);
+    console.log('Factor de ajuste aplicado:', adjustmentFactor);
+    console.log('Valor de weightedSum:', weightedSum);
+    console.log('Valor de totalWeight:', totalWeight);
+    console.log('Cálculo final:', (weightedSum / totalWeight) * 20 * adjustmentFactor);
+    
     const finalScore = (weightedSum / totalWeight) * 20 * adjustmentFactor;
     
     // Log para diagnóstico
@@ -247,11 +309,11 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
             <PolarGrid 
               gridType="polygon" 
               stroke="#A5B4FC" 
-              strokeOpacity={0.4} 
+              strokeOpacity={0.2} 
             />
             <PolarAngleAxis 
               dataKey="subject" 
-              tick={{ fill: '#818CF8', fontSize: 14, opacity: 0.9 }}
+              tick={{ fill: '#6366F1', fontSize: 14, opacity: 0.9 }}
               axisLine={false}
             />
             <PolarRadiusAxis 
@@ -260,7 +322,7 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
               axisLine={false}
               tickCount={6}
               stroke="#A5B4FC"
-              opacity={0.6}
+              opacity={0.4}
             />
             <Tooltip 
               formatter={(value, name, props) => {
@@ -334,14 +396,14 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
             <Radar 
               name="Trader Performance" 
               dataKey="value" 
-              stroke="#818CF8" 
+              stroke="#6366F1" 
               fill="#818CF8" 
-              fillOpacity={0.6}
+              fillOpacity={0.4}
               dot={{ 
                 fill: 'white', 
-                stroke: '#818CF8', 
+                stroke: '#6366F1', 
                 strokeWidth: 2, 
-                r: 4 
+                r: 5 
               }}
               isAnimationActive={true}
               animationDuration={800}
