@@ -84,13 +84,13 @@ export function Sidebar() {
       <div className={`p-4 flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
         <Image
           src="/logo.png"
-          alt="TraderWell"
+          alt="LMC Trade"
           width={40}
           height={40}
           className="min-w-[40px]"
         />
         <span className={`text-xl font-bold ml-2 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-          TraderWell
+          LMC Trade
         </span>
       </div>
 
