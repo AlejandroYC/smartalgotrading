@@ -268,17 +268,34 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
                 marginBottom: '5px'
               }}
             />
+            {/* Área para valores positivos */}
             <Area
               type="monotone"
-              dataKey="value"
-              stroke={lineColor}
-              fill={finalValue >= 0 ? "url(#positiveGradient)" : "url(#negativeGradient)"}
+              dataKey={(data) => data.value >= 0 ? data.value : 0}
+              stroke="#22c55e"
+              fill="url(#positiveGradient)"
               fillOpacity={0.8}
               strokeWidth={2}
               dot={false}
               isAnimationActive={true}
               animationDuration={600}
               animationEasing="ease-out"
+              connectNulls={true}
+            />
+            
+            {/* Área para valores negativos */}
+            <Area
+              type="monotone"
+              dataKey={(data) => data.value < 0 ? data.value : 0}
+              stroke="#ef4444"
+              fill="url(#negativeGradient)"
+              fillOpacity={0.8}
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={true}
+              animationDuration={600}
+              animationEasing="ease-out"
+              connectNulls={true}
             />
             <ReferenceLine y={0} stroke="#000" strokeDasharray="3 3" />
           </AreaChart>

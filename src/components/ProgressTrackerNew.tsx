@@ -344,7 +344,7 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   const totalTradesInCalendar = calendarData.flat().reduce((sum, day) => sum + day.trades, 0);
   
   return (
-    <div className="bg-white w-full">
+    <div className="bg-white w-full h-full">
       {/* Header with border bottom - más compacto */}
       <div className="flex justify-between items-center p-3 border-b border-gray-200">
         <div className="flex items-center gap-1.5">

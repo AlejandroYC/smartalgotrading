@@ -106,8 +106,10 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
     // Determinar el rango total
     const absMax = Math.max(Math.abs(maxProfit), Math.abs(minProfit));
     
-    // Calcular el valor del incremento (usando $10 como en la imagen)
-    const increment = 10;
+    // Calcular el valor del incremento con base en los datos reales
+    // Usar un incremento más pequeño para rangos pequeños
+    let increment = 5;
+    if (absMax > 20) increment = 10;
     
     // Crear un array de ticks desde 0 hacia abajo/arriba
     const ticks = [0];
@@ -115,28 +117,22 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
     // Si tenemos valores negativos, agregar ticks negativos
     if (minProfit < 0) {
       let currentTick = -increment;
-      while (currentTick >= minProfit && ticks.length < 15) { // Limitar a 15 ticks para evitar sobrecarga
+      // Limitar los ticks al mínimo valor real + pequeño margen
+      const minLimit = Math.floor(minProfit / increment) * increment;
+      while (currentTick >= minLimit && ticks.length < 15) {
         ticks.push(currentTick);
         currentTick -= increment;
-      }
-      
-      // Asegurar que el valor mínimo esté incluido
-      if (!ticks.includes(minProfit) && ticks.length < 15) {
-        ticks.push(Math.floor(minProfit / increment) * increment);
       }
     }
     
     // Si tenemos valores positivos, agregar ticks positivos
     if (maxProfit > 0) {
       let currentTick = increment;
-      while (currentTick <= maxProfit && ticks.length < 15) {
+      // Limitar los ticks al máximo valor real + pequeño margen
+      const maxLimit = Math.ceil(maxProfit / increment) * increment;
+      while (currentTick <= maxLimit && ticks.length < 15) {
         ticks.push(currentTick);
         currentTick += increment;
-      }
-      
-      // Asegurar que el valor máximo esté incluido
-      if (!ticks.includes(maxProfit) && ticks.length < 15) {
-        ticks.push(Math.ceil(maxProfit / increment) * increment);
       }
     }
     
@@ -159,6 +155,36 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
   const minProfit = Math.min(...data.map(d => d.profit));
   const absMax = Math.max(Math.abs(maxProfit), Math.abs(minProfit));
 
+  // Función para renderizar barras personalizadas con color completo hasta el eje
+  const CustomBar = (props: any) => {
+    const { x, y, width, height, fill, value, index } = props;
+    
+    // El color depende de si el valor es positivo o negativo
+    const color = value >= 0 ? '#22c55e' : '#ef4444';
+    
+    // Redondear solo las esquinas superiores
+    const radius = 4;
+    
+    // Calcular la posición Y para barras negativas
+    // Para valores negativos, la barra debe ir desde el 0 hacia abajo
+    const barHeight = Math.abs(height);
+    
+    // Devolver un rectángulo con las propiedades calculadas
+    return (
+      <g>
+        <rect
+          x={x}
+          y={value >= 0 ? y : y - barHeight} // Ajustar para barras negativas
+          width={width}
+          height={barHeight}
+          fill={color}
+          rx={radius}
+          ry={radius}
+        />
+      </g>
+    );
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
       <div className="flex items-start justify-start mb-4">
@@ -170,14 +196,14 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
         <ResponsiveContainer width="100%" height={height}>
           <BarChart
             data={data}
-            margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
+            margin={{ top: 20, right: 30, left: 10, bottom: 5 }}
             barGap={2}
-            barCategoryGap={8}
+            barCategoryGap={data.length <= 3 ? 120 : data.length <= 5 ? 80 : 8}
           >
             <CartesianGrid 
               strokeDasharray="3 3" 
               vertical={false} 
-              stroke="#E2E8F0" 
+              stroke="#E2E8F0"
             />
             <XAxis
               dataKey="date"
@@ -199,8 +225,9 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
               fontSize={12}
               width={70}
               domain={[
-                minProfit < 0 ? Math.floor(minProfit / 10) * 10 : -10, 
-                maxProfit > 0 ? Math.ceil(maxProfit / 10) * 10 : 10
+                // Ajustar el dominio para solo tener un pequeño margen
+                minProfit < 0 ? Math.floor(minProfit * 1.1) : -1, 
+                maxProfit > 0 ? Math.ceil(maxProfit * 1.1) : 1
               ]}
             />
             <Tooltip
@@ -221,21 +248,13 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
                 marginBottom: '5px'
               }}
             />
-            <ReferenceLine y={0} stroke="#000" strokeDasharray="3 3" />
             <Bar
               dataKey="profit"
-              radius={[4, 4, 0, 0]}
-              isAnimationActive={true}
-              animationDuration={600}
-              animationEasing="ease-out"
-            >
-              {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.profit >= 0 ? '#22c55e' : '#ef4444'}
-                />
-              ))}
-            </Bar>
+              barSize={data.length <= 3 ? 30 : data.length <= 5 ? 40 : 20}
+              shape={<CustomBar />}
+              isAnimationActive={false}
+            />
+            <ReferenceLine y={0} stroke="#000" strokeDasharray="3 3" />
           </BarChart>
         </ResponsiveContainer>
       </div>

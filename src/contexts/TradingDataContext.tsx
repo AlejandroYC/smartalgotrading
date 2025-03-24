@@ -271,16 +271,15 @@ const initializeMT5Client = () => {
 
 export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const supabase = createClientComponentClient<Database>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [userAccounts, setUserAccounts] = useState<{ account_number: string }[]>([]);
+  const [currentAccount, setCurrentAccount] = useState<string | null>(null);
   const [rawData, setRawData] = useState<any>(null);
   const [processedData, setProcessedData] = useState<any>(null);
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_RANGES[1]);
-  const [positions, setPositions] = useState<Position[]>([]);
+  const [positions, setPositions] = useState<any[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  // Nuevos estados para manejo de múltiples cuentas
-  const [userAccounts, setUserAccounts] = useState<{ account_number: string }[]>([]);
-  const [currentAccount, setCurrentAccount] = useState<string | null>(null);
   // Estado para forzar actualizaciones de UI
   const [lastDataTimestamp, setLastDataTimestamp] = useState<number>(Date.now());
   
@@ -701,7 +700,9 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // Construir resultado final - siempre un objeto completamente nuevo
     const result = {
-      net_profit: filteredTrades.reduce((sum, trade) => sum + trade.profit, 0),
+      net_profit: filteredTrades
+        .filter(trade => trade.type !== 2) // Excluir depósitos/retiros
+        .reduce((sum, trade) => sum + trade.profit, 0),
       win_rate: (() => {
         const winners = filteredTrades.filter(t => t.profit > 0).length;
         const losers = filteredTrades.filter(t => t.profit < 0).length;
@@ -711,12 +712,12 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       profit_factor: (() => {
         // Calcular ganancias brutas totales (suma de todas las operaciones ganadoras)
         const grossWins = filteredTrades
-          .filter(trade => Number(trade.profit) > 0)
+          .filter(trade => trade.type !== 2 && Number(trade.profit) > 0)
           .reduce((sum, trade) => sum + Number(trade.profit), 0);
           
         // Calcular pérdidas brutas totales (suma del valor absoluto de todas las operaciones perdedoras)
         const grossLosses = Math.abs(filteredTrades
-          .filter(trade => Number(trade.profit) < 0)
+          .filter(trade => trade.type !== 2 && Number(trade.profit) < 0)
           .reduce((sum, trade) => sum + Number(trade.profit), 0));
           
         // Mostrar log para debug
@@ -1249,7 +1250,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
             // Actualizar datos desde el backend usando el cliente
             await mt5Client.updateAccountData(accountNumber);
             loadSource = 'backend';
-          } else {
+       } else {
             // Si no se pudo inicializar el cliente, intentar directamente con fetch
             
             // Obtener la URL base del API
@@ -1318,6 +1319,7 @@ export const TradingDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Actualizar el estado con los datos procesados
       if (processedData) {
         setRawData(processedData.rawTrades || []);
+        // Usar setProcessedData directamente en lugar de setProcessedDataWithFilter
         setProcessedData(processedData);
         lastRefreshTimeRef.current = new Date();
         
@@ -2145,3 +2147,47 @@ export const useTradingData = () => {
   }
   return context;
 }; 
+
+// Función helper para filtrar depósitos en el cálculo de métricas
+export function filterDepositsFromMetrics(data: any) {
+  if (!data || !data.rawTrades || !Array.isArray(data.rawTrades)) {
+    return data;
+  }
+
+  // Verificar si hay depósitos (type=2)
+  const depositsCount = data.rawTrades.filter((t: any) => t.type === 2).length;
+  
+  // Si no hay depósitos, devolver los datos sin cambios
+  if (depositsCount === 0) {
+    return data;
+  }
+  
+  // Clonar el objeto para no modificar el original
+  const result = { ...data };
+  
+  // Recalcular net_profit excluyendo depósitos
+  result.net_profit = data.rawTrades
+    .filter((t: any) => t.type !== 2)
+    .reduce((sum: number, t: any) => sum + (typeof t.profit === 'string' ? parseFloat(t.profit) : t.profit), 0);
+  
+  // Recalcular profit_factor excluyendo depósitos
+  const grossWins = data.rawTrades
+    .filter((t: any) => t.type !== 2 && Number(t.profit) > 0)
+    .reduce((sum: number, t: any) => sum + Number(t.profit), 0);
+    
+  const grossLosses = Math.abs(data.rawTrades
+    .filter((t: any) => t.type !== 2 && Number(t.profit) < 0)
+    .reduce((sum: number, t: any) => sum + Number(t.profit), 0));
+  
+  result.profit_factor = grossLosses > 0 ? grossWins / grossLosses : 1;
+  
+  console.log('MÉTRICAS FILTRADAS (sin depósitos):', {
+    depositos_encontrados: depositsCount,
+    net_profit_original: data.net_profit,
+    net_profit_filtrado: result.net_profit,
+    profit_factor_original: data.profit_factor,
+    profit_factor_filtrado: result.profit_factor
+  });
+  
+  return result;
+}
