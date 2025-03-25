@@ -19,6 +19,8 @@ interface DailyResult {
   profit: number;
   trades: number;
   status: 'win' | 'loss' | 'break_even';
+  net_profit?: number;
+  swap?: number;
 }
 
 interface DailyNetCumulativePLProps {
@@ -39,24 +41,48 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
     // y sólo redondeamos al final para la visualización
     let cumulativeProfit = 0;
     
+    // Log de diagnóstico para verificar si daily_results contiene swap
+    console.log('DAILY RESULTS SWAP CHECK:', {
+      tieneSwap: Object.values(dailyResults).some(day => day.swap !== undefined),
+      tieneNetProfit: Object.values(dailyResults).some(day => day.net_profit !== undefined),
+      ejemploDia: Object.entries(dailyResults)[0]?.[1]
+    });
+    
     // Solo utilizar los resultados diarios directamente
     // Ordenados por fecha para calcular el acumulado correctamente
     return Object.entries(dailyResults)
       .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
       .map(([date, data]) => {
-        // Asegurarnos de que profit es un número
-        const profit = typeof data.profit === 'string' ? parseFloat(data.profit) : data.profit;
+        // Usamos net_profit (que incluye swap) si está disponible, sino calculamos profit+swap, o caemos a profit
+        // Esta lógica asegura compatibilidad tanto con el nuevo formato que incluye swap como con el antiguo
+        const dailyNetProfit = data.net_profit !== undefined 
+          ? (typeof data.net_profit === 'string' ? parseFloat(data.net_profit) : data.net_profit)
+          : (data.swap !== undefined 
+              ? (typeof data.profit === 'string' ? parseFloat(data.profit) : data.profit) + 
+                (typeof data.swap === 'string' ? parseFloat(data.swap) : (data.swap || 0))
+              : (typeof data.profit === 'string' ? parseFloat(data.profit) : data.profit));
         
-        // Acumular sin redondeo
-        cumulativeProfit += profit;
+        // Guardo también el valor original de profit para mostrar desglose
+        const dailyProfit = typeof data.profit === 'string' ? parseFloat(data.profit) : data.profit;
+        // Guardo el valor del swap
+        const dailySwap = data.swap !== undefined 
+          ? (typeof data.swap === 'string' ? parseFloat(data.swap) : data.swap) 
+          : 0;
+        
+        // Acumular sin redondeo usando el net profit (con swap)
+        cumulativeProfit += dailyNetProfit;
         
         // Sólo redondear para visualización
         return {
           date,
           value: cumulativeProfit,
           valueDisplay: Number(cumulativeProfit.toFixed(2)),
-          dailyProfit: profit,
-          dailyProfitDisplay: Number(profit.toFixed(2)),
+          dailyNetProfit,
+          dailyNetProfitDisplay: Number(dailyNetProfit.toFixed(2)),
+          dailyProfit,
+          dailyProfitDisplay: Number(dailyProfit.toFixed(2)),
+          dailySwap,
+          dailySwapDisplay: Number(dailySwap.toFixed(2)),
           trades: data.trades,
         };
       });
@@ -69,15 +95,31 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
     // Verificar si tenemos el método centralizado
     if (typeof (dailyResults as any).calculateTotalPL === 'function') {
       const centralTotal = (dailyResults as any).calculateTotalPL();
-
     }
     
     // Total calculado por el gráfico (último valor acumulado)
     if (chartData.length > 0) {
-      Object.values(dailyResults).reduce((sum: number, day: any) => {
-        const profit = typeof day.profit === 'string' ? parseFloat(day.profit) : day.profit;
-        return sum + profit;
-      }, 0).toFixed(2)
+      const graphTotal = chartData[chartData.length - 1].value;
+      
+      // Calcular suma directa de daily_results considerando tanto profit como swap
+      const manualTotal = Object.values(dailyResults).reduce((sum: number, day: any) => {
+        const dayProfit = typeof day.profit === 'string' ? parseFloat(day.profit) : day.profit;
+        const daySwap = day.swap !== undefined ? 
+          (typeof day.swap === 'string' ? parseFloat(day.swap) : day.swap) : 0;
+        const dayNetProfit = day.net_profit !== undefined ? 
+          (typeof day.net_profit === 'string' ? parseFloat(day.net_profit) : day.net_profit) : 
+          (dayProfit + daySwap);
+          
+        return sum + dayNetProfit;
+      }, 0);
+      
+      // Log con detalles para verificar la consistencia
+      console.log('VERIFICACIÓN CONSISTENCIA GRÁFICO (con swap):', {
+        acumulado_grafico: graphTotal.toFixed(2),
+        suma_manual_net_profit: manualTotal.toFixed(2),
+        diferencia: (graphTotal - manualTotal).toFixed(4),
+        consistente: Math.abs(graphTotal - manualTotal) < 0.01
+      });
     }
     
   }, [dailyResults, chartData]);
@@ -173,6 +215,23 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
   const lineColor = "#8778dd"; // Color púrpura para la línea como en la imagen
   const chartMainColor = finalValue >= 0 ? "#22c55e" : "#ef4444";
 
+  // Agregar log de diagnóstico para verificar los datos finales después de construir el gráfico
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development' || chartData.length === 0) return;
+    
+    // Verificar los datos del gráfico para diagnóstico
+    console.log('DAILY NET CUMULATIVE PL DIAGNOSIS:', {
+      chartDataLongitud: chartData.length,
+      primerosDias: chartData.slice(0, 3),
+      ultimosDias: chartData.slice(-3),
+      diasConSwap: chartData.filter(day => day.dailySwap !== 0),
+      acumuladoFinal: chartData[chartData.length - 1]?.value,
+      totalNetProfitSuma: chartData.reduce((sum, day) => sum + day.dailyNetProfit, 0),
+      totalProfitSuma: chartData.reduce((sum, day) => sum + day.dailyProfit, 0),
+      totalSwapSuma: chartData.reduce((sum, day) => sum + day.dailySwap, 0),
+    });
+  }, [chartData]);
+
   if (chartData.length === 0) {
     return (
       <div className="bg-white p-6 rounded-lg shadow h-full">
@@ -197,7 +256,7 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
   return (
     <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
        <div className="flex items-start justify-start mb-4">
-         <h1 className="text-lg font-bold text-black font-roboto text-left">Daily Net Cumulative P&L</h1>
+         <h1 className="text-lg font-bold text-black font-roboto text-left">Daily Net Cumulative P&L (Incl. Swap)</h1>
       </div>
       <hr className="w-full border-t border-gray-200 mb-4 mt-6" />
     
@@ -251,7 +310,12 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
               ]}
             />
             <Tooltip
-              formatter={(value: any) => [`$${parseFloat(value).toFixed(2)}`, undefined]}
+              formatter={(value: any, name: string, props: any) => {
+                if (name === 'value') {
+                  return [`Net P&L: $${parseFloat(props.payload.valueDisplay).toFixed(2)}`, 'Cumulative P&L'];
+                }
+                return [`$${parseFloat(value).toFixed(2)}`, name];
+              }}
               labelFormatter={(date) => format(parseISO(date as string), 'MMM dd, yyyy')}
               contentStyle={{
                 backgroundColor: '#1E293B',
@@ -266,6 +330,26 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
                 color: '#F8FAFC',
                 fontWeight: 'bold',
                 marginBottom: '5px'
+              }}
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0].payload;
+                  return (
+                    <div className="bg-gray-800 p-3 rounded-lg shadow-lg text-white text-sm">
+                      <p className="font-bold mb-2">{format(parseISO(label), 'MMM dd, yyyy')}</p>
+                      <p>Net P&L: <span className="font-bold">${data.dailyNetProfitDisplay}</span></p>
+                      {data.dailySwap !== 0 && (
+                        <>
+                          <p>Trade P&L: <span className="font-bold">${data.dailyProfitDisplay}</span></p>
+                          <p>Swap: <span className="font-bold">${data.dailySwapDisplay}</span></p>
+                        </>
+                      )}
+                      <p>Cumulative: <span className="font-bold">${data.valueDisplay}</span></p>
+                      <p>Trades: <span className="font-bold">{data.trades}</span></p>
+                    </div>
+                  );
+                }
+                return null;
               }}
             />
             {/* Área para valores positivos */}

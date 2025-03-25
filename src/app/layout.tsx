@@ -10,7 +10,7 @@ import { Suspense } from 'react';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Smart Algo Trading",
+  title: "LMC Trade",
   description: "Plataforma de algoritmos de trading",
   icons: {
     icon: "favicon_is.webp",  // Ruta al archivo de favicon
