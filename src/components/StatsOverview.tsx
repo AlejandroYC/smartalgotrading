@@ -139,6 +139,20 @@ const StatsOverview: React.FC = () => {
     processedDataValue: processedData?.profit_factor
   });
   
+  // Diagnóstico de swap y P&L neto
+  console.log('P&L CON SWAP DIAGNÓSTICO:', {
+    net_profit,
+    total_swap: processedData?.total_swap || 0,
+    daily_results_con_swap: Object.entries(processedData?.daily_results || {})
+      .filter(([_, day]: [string, any]) => (day.swap || 0) !== 0)
+      .map(([date, day]: [string, any]) => ({ 
+        date, 
+        profit: day.profit, 
+        swap: day.swap,
+        net_profit: day.net_profit
+      }))
+  });
+  
   // Log para verificar días ganadores y perdedores
   console.log('DÍAS DE TRADING:', {
     winning_days,

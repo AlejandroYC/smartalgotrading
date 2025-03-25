@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import { MT5Client } from '@/services/mt5/mt5Client';
 import { debounce } from 'lodash'; // Asegúrate de tener lodash instalado
+import { ensureNetProfitInDailyResults } from '@/contexts/TradingDataContext';
 
 // Clave para localStorage que controla qué instancia del hook está activa
 const ACTIVE_INSTANCE_KEY = 'smartalgo_auto_update_active_instance';
@@ -222,6 +223,42 @@ class UpdateManager {
       const response = await mt5Client.updateAccountData(currentAccount);
 
       if (response.success && response.data) {
+        // Procesar los daily_results para asegurarnos que incluyan net_profit (profit + swap)
+        if (response.data.statistics?.daily_results) {
+          // Log para diagnóstico
+          console.log('useAutoUpdate: Procesando daily_results para incluir net_profit', {
+            tieneSwapAlgunDia: Object.values(response.data.statistics.daily_results).some((day: any) => day.swap !== undefined)
+          });
+          
+          // Convertir a any para evitar problemas con el tipo
+          const dataAny = response.data as any;
+          
+          // Usar la función centralizada para procesar daily_results
+          if (dataAny.statistics?.daily_results) {
+            ensureNetProfitInDailyResults(dataAny.statistics.daily_results);
+            
+            // Guardar los datos procesados de vuelta en el storage
+            if (typeof window !== 'undefined') {
+              const storageKey = `smartalgo_${currentAccount}_account_data`;
+              const existingData = localStorage.getItem(storageKey);
+              
+              if (existingData) {
+                try {
+                  const parsedData = JSON.parse(existingData);
+                  
+                  // Actualizar daily_results con los valores procesados
+                  if (parsedData.statistics?.daily_results) {
+                    parsedData.statistics.daily_results = dataAny.statistics.daily_results;
+                    localStorage.setItem(storageKey, JSON.stringify(parsedData));
+                  }
+                } catch (error) {
+                  console.error('Error actualizando daily_results en localStorage:', error);
+                }
+              }
+            }
+          }
+        }
+        
         // IMPORTANTE: Restaurar el rango de fechas después de la actualización
         if (currentDateRange && typeof window !== 'undefined') {
           localStorage.setItem('smartalgo_current_date_range', JSON.stringify(currentDateRange));

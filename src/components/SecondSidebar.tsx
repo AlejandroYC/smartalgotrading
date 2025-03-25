@@ -24,7 +24,7 @@ const SecondSidebar = () => {
   };
 
   return (
-    <div className="w-16 h-screen bg-gradient-to-b from-[#242b65] to-[#17192b] border-r border-gray-700 flex flex-col items-center py-4">
+    <div className="w-16 h-screen bg-gradient-to-t from-[#242b65] to-[#17192b] border-r border-gray-700 flex flex-col items-center py-4">
       <div className="flex flex-col space-y-6">
         {/* Ícono de micrófono */}
         <button className="p-3 rounded-lg hover:bg-gray-700 transition-colors">

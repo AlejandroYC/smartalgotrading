@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { ensureNetProfitInDailyResults } from '@/contexts/TradingDataContext';
 
 interface MT5UpdatesProps {
   userId: string;
@@ -62,7 +63,31 @@ export const MT5Updates = ({ userId, connectionId, MT5_API_URL, onUpdate }: MT5U
         return;
       }
 
-      
+      // Verificar si tenemos swap en los datos recibidos para hacer más robusto el procesamiento
+      if (data.data && data.data.positions) {
+        // Log para diagnóstico
+        console.log('MT5UPDATES: Verificando datos de posiciones con swap:', {
+          hayPosiciones: data.data.positions.length > 0,
+          primeraPosicionConSwap: data.data.positions[0]?.swap !== undefined,
+          ejemploSwap: data.data.positions[0]?.swap
+        });
+      }
+
+      // Si tenemos daily_results, asegurarnos de que incluyan net_profit (profit + swap)
+      if (data.data && data.data.statistics && data.data.statistics.daily_results) {
+        const daily_results = data.data.statistics.daily_results;
+        
+        // Log simplificado para diagnóstico
+        console.log('MT5UPDATES: Procesando daily_results para incluir net_profit', {
+          hayDailyResults: Object.keys(daily_results).length > 0
+        });
+        
+        // Usar la función centralizada para asegurar net_profit
+        ensureNetProfitInDailyResults(daily_results);
+        
+        // Actualizar el objeto data.data con los daily_results procesados
+        data.data.statistics.daily_results = daily_results;
+      }
       
       setLastUpdate(new Date().toLocaleTimeString());
       setUpdateCount(prev => prev + 1);

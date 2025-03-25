@@ -5,6 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useState } from 'react';
+// Importar iconos de React Icons
+import { MdDashboard, MdInsertChart, MdBook, MdPlayArrow, MdEmail } from 'react-icons/md';
+import { FaFileAlt, FaChartLine, FaListAlt, FaChartBar } from 'react-icons/fa';
 
 // Crear un evento personalizado para abrir el modal
 export const openAddTradeModal = () => {
@@ -20,15 +23,52 @@ export function Sidebar() {
   const pathname = usePathname();
 
   const menuItems = [
-    { icon: '🏠', name: 'Dashboard', href: '/dashboard' },
-    { icon: '📊', name: 'Trades', href: '/dashboard/trades' },
-    { icon: '📓', name: 'Journal', href: '/dashboard/journal' },
-    { icon: '📝', name: 'Notebook', href: '/dashboard/notebook' },
-    { icon: '📈', name: 'Reports', href: '/dashboard/reports' },
-    { icon: '📚', name: 'Playbooks', href: '/dashboard/playbooks' },
-    { icon: '📊', name: 'Progress Tracker', href: '/dashboard/progress', badge: 'Beta' },
-    { icon: '🎬', name: 'Trade Replay', href: '/dashboard/replay' },
-    { icon: '📚', name: 'Resource Center', href: '/dashboard/resources' },
+    { 
+      icon: <MdDashboard size={20} color="#9ca3af" />, 
+      name: 'Dashboard', 
+      href: '/dashboard' 
+    },
+    { 
+      icon: <FaFileAlt size={20} color="#9ca3af" />, 
+      name: 'Trades', 
+      href: '/dashboard/trades' 
+    },
+    { 
+      icon: <FaListAlt size={20} color="#9ca3af" />, 
+      name: 'Journal', 
+      href: '/dashboard/journal' 
+    },
+    { 
+      icon: <MdBook size={20} color="#9ca3af" />, 
+      name: 'Notebook', 
+      href: '/dashboard/notebook' 
+    },
+    { 
+      icon: <FaChartBar size={20} color="#9ca3af" />, 
+      name: 'Reports', 
+      href: '/dashboard/reports' 
+    },
+    { 
+      icon: <MdBook size={20} color="#9ca3af" />, 
+      name: 'Playbooks', 
+      href: '/dashboard/playbooks' 
+    },
+    { 
+      icon: <FaChartLine size={20} color="#9ca3af" />, 
+      name: 'Progress Tracker', 
+      href: '/dashboard/progress', 
+      badge: 'Beta' 
+    },
+    { 
+      icon: <MdPlayArrow size={20} color="#9ca3af" />, 
+      name: 'Trade Replay', 
+      href: '/dashboard/replay' 
+    },
+    { 
+      icon: <MdInsertChart size={20} color="#9ca3af" />, 
+      name: 'Resource Center', 
+      href: '/dashboard/resources' 
+    },
   ];
 
   // Función mejorada para manejar el logout
@@ -63,11 +103,11 @@ export function Sidebar() {
   };
 
   return (
-    <div className={`h-screen bg-gradient-to-b from-[#242b65] to-[#17192b] text-white transition-all duration-300 relative ${isCollapsed ? 'w-16' : 'w-64'}`}>
+    <div className={`h-screen bg-gradient-to-t from-[#242b65] to-[#17192b] text-white transition-all duration-300 relative ${isCollapsed ? 'w-16' : 'w-64'}`}>
       {/* Toggle Button */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-6 bg-[#242b65] rounded-full p-1.5 text-white hover:bg-[#17192b] transition-colors z-10"
+        className="absolute -right-3 top-6 bg-[#17192b] rounded-full p-1.5 text-white hover:bg-opacity-80 transition-colors z-10"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -81,15 +121,15 @@ export function Sidebar() {
       </button>
 
       {/* Logo */}
-      <div className={`p-4 flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
+      <div className={`py-4 px-5 flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
         <Image
           src="/logo.png"
-          alt="LMC Trade"
-          width={40}
-          height={40}
-          className="min-w-[40px]"
+          alt="Tradezella"
+          width={32}
+          height={32}
+          className="min-w-[32px]"
         />
-        <span className={`text-xl font-bold ml-2 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+        <span className={`text-lg font-semibold ml-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
           LMC Trade
         </span>
       </div>
@@ -97,18 +137,18 @@ export function Sidebar() {
       {/* Add Trade Button */}
       <button 
         onClick={openAddTradeModal}
-        className={`mx-auto my-3 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg flex items-center justify-center transition-all ${
-          isCollapsed ? 'w-12 h-12 mx-2' : 'w-4/5'
+        className={`mx-5 mb-4 py-1.5 bg-[#7C3AED] hover:bg-[#6D28D9] rounded-md flex items-center justify-center transition-all ${
+          isCollapsed ? 'w-[calc(100%-20px)]' : 'w-[calc(100%-50px)]'
         }`}
       >
-        <span className="text-lg">+</span>
-        <span className={`transition-opacity duration-300  ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-          Agregar trade
+        <span className="text-lg font-medium">+</span>
+        <span className={`ml-2 text-sm font-medium transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+          Add Trade
         </span>
       </button>
 
       {/* Navigation Menu */}
-      <nav className={`px-2 py-4 ${isCollapsed ? 'px-2' : 'px-4'}`}>
+      <nav className="px-3">
         {menuItems.map((item) => {
           const active = isItemActive(item.href);
           return (
@@ -120,19 +160,19 @@ export function Sidebar() {
                   sessionStorage.setItem('dashboard_internal_navigation', 'true');
                 }
               }}
-              className={`flex items-center px-4 py-2 rounded-lg mb-2 transition-colors ${
+              className={`flex items-center px-2 py-2.5 rounded-md mb-1 transition-colors ${
                 active
                   ? 'bg-white/10 text-white'
                   : 'text-gray-400 hover:bg-white/5 hover:text-white'
               }`}
               title={isCollapsed ? item.name : ''}
             >
-              <span className="mr-3">{item.icon}</span>
-              <span className={`transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+              <span className={`flex items-center justify-center w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`}>{item.icon}</span>
+              <span className={`text-sm transition-opacity mb-2 duration-300 font-roboto ${isCollapsed ? 'hidden' : 'block'}`}>
                 {item.name}
               </span>
               {item.badge && !isCollapsed && (
-                <span className="ml-auto bg-yellow-400 text-black text-xs px-2 py-1 rounded">
+                <span className="ml-auto text-[10px] font-medium bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded">
                   {item.badge}
                 </span>
               )}
@@ -142,7 +182,7 @@ export function Sidebar() {
       </nav>
 
       {/* User Profile */}
-      <div className={`absolute bottom-0 left-0 right-0 p-4 ${isCollapsed ? 'px-2' : 'w-64'}`}>
+      <div className={`absolute bottom-0 left-0 right-0 p-4 ${isCollapsed ? 'px-2' : ''}`}>
         <button
           onClick={() => !isCollapsed && setIsProfileOpen(!isProfileOpen)}
           className={`flex items-center text-gray-300 hover:bg-white/5 p-2 rounded-lg ${isCollapsed ? 'justify-center' : 'w-full'}`}
