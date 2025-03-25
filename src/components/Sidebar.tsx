@@ -137,12 +137,12 @@ export function Sidebar() {
       {/* Add Trade Button */}
       <button 
         onClick={openAddTradeModal}
-        className={`mx-5 mb-4 py-1.5 bg-[#7C3AED] hover:bg-[#6D28D9] rounded-md flex items-center justify-center transition-all ${
-          isCollapsed ? 'w-[calc(100%-20px)]' : 'w-[calc(100%-50px)]'
+        className={`mx-auto my-4 bg-[#7C3AED] rounded-md flex items-center justify-center transition-all ${
+          isCollapsed ? 'w-10 h-10' : 'w-[calc(100%-40px)] h-10'
         }`}
       >
-        <span className="text-lg font-medium">+</span>
-        <span className={`ml-2 text-sm font-medium transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
+        <span className={`text-white ${isCollapsed ? 'text-lg' : 'text-lg'} font-medium`}>+</span>
+        <span className={`ml-2 text-white font-medium transition-opacity duration-300 ${isCollapsed ? 'hidden' : 'block'}`}>
           Add Trade
         </span>
       </button>
