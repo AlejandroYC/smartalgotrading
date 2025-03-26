@@ -28,7 +28,7 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = ({ metrics, score }) => {
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-start justify-start mb-4">
-           <h1 className="text-2xl text-black font-bold text-left">Zella Score</h1>
+           <h1 className="text-[20px] text-black font-medium text-left">LMC Score</h1>
         </div>
 
         <div className="flex items-center">

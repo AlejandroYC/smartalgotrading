@@ -91,7 +91,7 @@ const TradeTimePerformance: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium text-gray-900">Trade time performance</h2>
+        <h2 className="text-[16px] font-semibold text-gray-900">Rendimiento en el tiempo de operación</h2>
         <div className="text-sm text-gray-600">
           {tradePoints.length} trades
         </div>

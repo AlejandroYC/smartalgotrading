@@ -99,7 +99,7 @@ export function Sidebar() {
     }
     
     // Para el resto, verificamos si la ruta actual comienza con la URL del ítem
-    return pathname.startsWith(href);
+    return pathname?.startsWith(href) || false;
   };
 
   return (
@@ -156,7 +156,7 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               onClick={() => {
-                if (item.href.startsWith('/dashboard') && !pathname.startsWith(item.href)) {
+                if (item.href.startsWith('/dashboard') && pathname && !pathname.startsWith(item.href)) {
                   sessionStorage.setItem('dashboard_internal_navigation', 'true');
                 }
               }}

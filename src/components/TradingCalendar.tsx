@@ -32,7 +32,8 @@ interface DayDetails {
 }
 
 const TradingCalendar: React.FC = () => {
-  const { processedData, dateRange } = useTradingData();
+  // Usar rawData en lugar de processedData para acceder a TODOS los datos sin filtro de fecha
+  const { rawData, processedData, dateRange } = useTradingData();
   // Estado para seguir la fecha actual del calendario
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   // Referencia al calendario
@@ -41,7 +42,7 @@ const TradingCalendar: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetails, setSelectedDayDetails] = useState<DayDetails | null>(null);
 
-  // Memoización estable de los datos calculados
+  // Memoización estable de los datos calculados - USANDO DATOS COMPLETOS sin filtrar por fecha
   const { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL } = useMemo(() => {
     const dailyStats = new Map<string, DayStats>();
     const weeklyStats = new Map<number, WeekStats>();
@@ -53,12 +54,28 @@ const TradingCalendar: React.FC = () => {
       tradingDays: 0
     };
 
-    if (!processedData?.daily_results || !processedData?.rawTrades) {
+    // IMPORTANTE: Usar rawData.statistics en lugar de processedData para obtener TODOS los datos
+    const dailyResults = rawData?.statistics?.daily_results || {};
+    const rawTrades = rawData?.history || [];
+
+    if (!dailyResults || !rawTrades || Object.keys(dailyResults).length === 0) {
+      console.log("TradingCalendar: No hay datos completos disponibles");
       return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
     }
 
+    console.log("TradingCalendar: Procesando datos completos sin filtro de fecha", {
+      diasTotales: Object.keys(dailyResults).length,
+      tradesDiarios: Object.values(dailyResults).reduce((sum: number, day: any) => sum + (day.trades || 0), 0),
+      operacionesTotales: rawTrades.length
+    });
+
     // Ordenar las fechas cronológicamente
-    const sortedDates = Object.keys(processedData.daily_results).sort();
+    const sortedDates = Object.keys(dailyResults).sort();
+    
+    // Si no hay fechas, retornar datos vacíos
+    if (sortedDates.length === 0) {
+      return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
+    }
     
     // Obtener el primer día del mes para calcular el offset de la primera semana
     const firstDate = new Date(sortedDates[0]);
@@ -67,7 +84,7 @@ const TradingCalendar: React.FC = () => {
     
     // Procesar cada día
     sortedDates.forEach((dateStr) => {
-      const dayData = processedData.daily_results[dateStr];
+      const dayData = dailyResults[dateStr];
       if (!dayData) return;
       
       const date = new Date(dateStr);
@@ -85,7 +102,7 @@ const TradingCalendar: React.FC = () => {
       totalCalendarPL += dayStats.profit;
       
       // Obtener los trades del día y procesar estadísticas
-      const dayTrades = processedData.rawTrades.filter((trade: any) => {
+      const dayTrades = rawTrades.filter((trade: any) => {
         try {
           let tradeDate: Date;
           if (typeof trade.time === 'number') {
@@ -111,10 +128,17 @@ const TradingCalendar: React.FC = () => {
       
       dailyStats.set(dateStr, dayStats);
       
-      // Actualizar estadísticas mensuales
-      monthlyStats.totalProfit += dayStats.profit;
-      monthlyStats.totalTrades += dayStats.trades;
-      monthlyStats.tradingDays += dayStats.trades > 0 ? 1 : 0;
+      // Verificar si el día está en el mes seleccionado en el calendario para las estadísticas mensuales
+      const isCurrentMonth = 
+        date.getMonth() === currentCalendarDate.getMonth() && 
+        date.getFullYear() === currentCalendarDate.getFullYear();
+        
+      if (isCurrentMonth) {
+        // Actualizar estadísticas mensuales solo para el mes mostrado en el calendario
+        monthlyStats.totalProfit += dayStats.profit;
+        monthlyStats.totalTrades += dayStats.trades;
+        monthlyStats.tradingDays += dayStats.trades > 0 ? 1 : 0;
+      }
       
       // Calcular el número de semana basado en el calendario real
       try {
@@ -141,8 +165,14 @@ const TradingCalendar: React.FC = () => {
       }
     });
 
+    console.log("TradingCalendar: Procesamiento completado", {
+      diasProcesados: dailyStats.size,
+      semanasProcesadas: weeklyStats.size,
+      totalProfit: totalCalendarPL
+    });
+
     return { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL };
-  }, [processedData?.daily_results, processedData?.rawTrades]);
+  }, [rawData?.statistics?.daily_results, rawData?.history, currentCalendarDate]);
 
   // Renderizar eventos de calendario en lugar de personalizar celdas - Ahora con memoización estable
   const calendarEvents = useMemo(() => {
@@ -189,14 +219,14 @@ const TradingCalendar: React.FC = () => {
     return (
       <div className={`h-full w-full flex flex-col p-2 ${isProfit ? 'bg-green-50' : 'bg-red-50'}`}>
         <div className="text-xs text-gray-600 self-end">{dayOfMonth}</div>
-        <div className={`text-base font-medium mt-2 ${isProfit ? 'text-green-600' : 'text-red-500'}`}>
-          -${Math.abs(profit).toFixed(2)}
+        <div className={`text-base font-medium mt-2 ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
+          {isProfit ? '$' : '-$'}{Math.abs(profit).toFixed(2)}
         </div>
         <div className="text-xs text-gray-600 mt-1">
           {trades} {trades === 1 ? 'trade' : 'trades'}
-          </div>
+        </div>
         <div className="text-xs text-gray-600">
-          0.0%
+          {extendedProps.stats.winRate.toFixed(1)}%
         </div>
       </div>
     );
@@ -560,14 +590,16 @@ const TradingCalendar: React.FC = () => {
             onClick={goToCurrentMonth}
             className="ml-4 px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
           >
-            This month
+            Este mes
           </button>
           </div>
 
         <div className="flex items-center gap-4 text-sm">
-          <div>Monthly stats:</div>
-          <div className="text-red-500">-$170</div>
-          <div>{monthlyStats.tradingDays} days</div>
+          <div>Estadísticas mensuales:</div>
+          <div className={`${monthlyStats.totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+            {monthlyStats.totalProfit >= 0 ? '$' : '-$'}{Math.abs(monthlyStats.totalProfit).toFixed(2)}
+          </div>
+          <div>{monthlyStats.tradingDays} días</div>
           <button className="p-2 text-gray-600 hover:text-gray-800">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -600,13 +632,13 @@ const TradingCalendar: React.FC = () => {
       {/* Contenedor de la cuadrícula del calendario */}
       <div className="w-full">
         <div className="grid grid-cols-8 gap-x-2 mb-2 border-b border-gray-200">
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">DOM</div>
           <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">LUN</div>
-          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">MAR</div>
-          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">MIE</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">MART</div>
+          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">MIER</div>
           <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">JUE</div>
           <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">VIE</div>
           <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">SAB</div>
-          <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">DOM</div>
           <div className="text-left py-1 font-medium text-gray-700 text-sm"></div>
         </div>
 
