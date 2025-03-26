@@ -22,30 +22,12 @@ function NavigationLoading() {
       return;
     }
 
-    if (prevPathname !== pathname) {
-      setPrevPathname(pathname || '');
-    }
-  }, [prevPathname, pathname]);
-
-  const handleComplete = () => {
-    if (pathname && prevPathname !== pathname) {
-      setPrevPathname(pathname);
-    }
-  };
-
-  useEffect(() => {
-    if (!pathname) return;
-
-    if (prevPathname === pathname) {
-      return;
-    }
-
     if (pathname !== prevPathname) {
-      if ((pathname === '/dashboard' || pathname.startsWith('/dashboard/')) && 
+      if ((pathname && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) && 
           !prevPathname.startsWith('/dashboard')) {
         sessionStorage.setItem('dashboard_internal_navigation', 'true');
       } 
-      else if (pathname.startsWith('/dashboard/') && prevPathname.startsWith('/dashboard/')) {
+      else if (pathname && pathname.startsWith('/dashboard/') && prevPathname.startsWith('/dashboard/')) {
         sessionStorage.setItem('dashboard_internal_navigation', 'true');
       }
       
@@ -53,7 +35,7 @@ function NavigationLoading() {
       
       const timer = setTimeout(() => {
         setIsNavigating(false);
-        handleComplete();
+        setPrevPathname(pathname || '');
       }, 500);
       
       return () => clearTimeout(timer);
@@ -113,47 +95,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const [isNavigating, setIsNavigating] = useState(false);
-  const [prevPathname, setPrevPathname] = useState("");
-  
-  // Efecto inicial para establecer la ruta inicial
-  useEffect(() => {
-    if (!prevPathname) {
-      setPrevPathname(pathname || '');
-      return;
-    }
-
-    if (prevPathname !== pathname) {
-      setPrevPathname(pathname || '');
-    }
-  }, [prevPathname, pathname]);
-
-  // Función para manejar la actualización de la ruta
-  const handleComplete = React.useCallback(() => {
-    if (pathname && prevPathname !== pathname) {
-      setPrevPathname(pathname);
-    }
-  }, [pathname, prevPathname, setPrevPathname]);
-  
-  // Efecto para manejar la navegación
-  useEffect(() => {
-    if (!pathname) return;
-
-    if (prevPathname === pathname) {
-      return;
-    }
-
-    setIsNavigating(true);
-
-    const timer = setTimeout(() => {
-      setIsNavigating(false);
-      handleComplete();
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [pathname, prevPathname, handleComplete]);
-
   return (
     <TradingDataProvider>
       <SidebarProvider>
