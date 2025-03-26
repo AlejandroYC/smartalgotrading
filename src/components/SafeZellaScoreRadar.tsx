@@ -22,7 +22,7 @@ export const SafeZellaScoreRadar: React.FC<SafeZellaScoreRadarProps> = ({ classN
     return (
       <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-gray-800">Zella Score</h3>
+          <h3 className="text-[20px] font-semibold text-gray-800">Puntuación LMC</h3>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuthContext } from '@/providers/AuthProvider';
-import { MdDashboard, MdInsertDriveFile } from 'react-icons/md';
 
 const SecondSidebar = () => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -25,33 +24,43 @@ const SecondSidebar = () => {
   };
 
   return (
-    <div className="w-16 h-screen bg-gradient-to-t from-[#242b65] to-[#17192b] border-r border-gray-700 flex flex-col items-center py-6">
-      <div className="flex flex-col space-y-8">
-        {/* Botón Add con + */}
-        <button className="w-12 h-12 bg-[#7C3AED] flex items-center justify-center rounded-xl">
-          <span className="text-white text-2xl font-medium">+</span>
+    <div className="w-16 h-screen bg-gradient-to-t from-[#242b65] to-[#17192b] border-r border-gray-700 flex flex-col items-center py-4">
+      <div className="flex flex-col space-y-6">
+        {/* Ícono de micrófono */}
+        <button className="p-3 rounded-lg hover:bg-gray-700 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
         </button>
 
-        {/* Ícono de dashboard */}
-        <div className="w-12 h-12 bg-gray-800/60 flex items-center justify-center rounded-xl">
-          <MdDashboard className="h-5 w-5 text-gray-400" />
-        </div>
+        {/* Ícono de auriculares */}
+        <button className="p-3 rounded-lg hover:bg-gray-700 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+          </svg>
+        </button>
 
-        {/* Ícono de documento */}
-        <div className="w-12 h-12 bg-gray-800/60 flex items-center justify-center rounded-xl">
-          <MdInsertDriveFile className="h-5 w-5 text-gray-400" />
-        </div>
-
-        {/* Resto de los iconos con el mismo diseño */}
-        <div className="w-12 h-12 bg-gray-800/60 flex items-center justify-center rounded-xl">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        {/* Ícono de ventanas */}
+        <button className="p-3 rounded-lg hover:bg-gray-700 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
           </svg>
-        </div>
+        </button>
+
+        {/* Ícono de graduación */}
+        <button className="p-3 rounded-lg hover:bg-gray-700 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path d="M12 14l9-5-9-5-9 5 9 5z" />
+            <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+          </svg>
+        </button>
       </div>
 
       {/* Ícono de perfil con menú desplegable */}
       <div className="mt-auto mb-4 relative">
+      
+
         {/* Menú desplegable */}
         {isProfileMenuOpen && (
           <div className="absolute bottom-full left-16 mb-2 w-48 bg-[#242b65] rounded-lg shadow-lg py-2 border border-gray-700">

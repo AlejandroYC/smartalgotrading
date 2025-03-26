@@ -348,7 +348,7 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       {/* Header with border bottom - más compacto */}
       <div className="flex justify-between items-center p-3 border-b border-gray-200">
         <div className="flex items-center gap-1.5">
-          <h2 className="text-[#2D3748] text-base font-medium">Progress tracker</h2>
+          <h2 className="text-[#2D3748] text-[16px] font-semibold">Seguimiento de progreso</h2>
           <InfoIcon />
           <span className="ml-0.5 bg-[#FFEAA0] text-[#92400E] text-xs px-2 py-0.5 rounded-full font-medium">
             BETA

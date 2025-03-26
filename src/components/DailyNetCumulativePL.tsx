@@ -256,7 +256,7 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
   return (
     <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
        <div className="flex items-start justify-start mb-4">
-         <h1 className="text-lg font-bold text-black font-roboto text-left">Daily Net Cumulative P&L (Incl. Swap)</h1>
+         <h1 className="text-[16px] font-semibold text-black font-roboto text-left">P&L neto acumulado diario</h1>
       </div>
       <hr className="w-full border-t border-gray-200 mb-4 mt-6" />
     

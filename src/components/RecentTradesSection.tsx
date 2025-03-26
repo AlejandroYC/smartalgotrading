@@ -20,6 +20,19 @@ interface DailyResult {
   status: 'win' | 'loss' | 'break_even';
 }
 
+interface Position {
+  ticket?: string | number;
+  symbol?: string;
+  type?: string | number;
+  volume?: number;
+  time?: string | number;  // Agregar time como alternativa a openTime
+  openTime?: string | number;
+  openPrice?: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  profit?: number;
+}
+
 const RecentTradesSection: React.FC = () => {
   const [activeTab, setActiveTab] = useState('trades');
   const { processedData, dateRange, positions } = useTradingData();
@@ -103,6 +116,54 @@ const RecentTradesSection: React.FC = () => {
     return limitedTrades;
   }, [processedData?.rawTrades, dateRange]);
 
+  // Función de ayuda para convertir fechas de forma segura
+  const safeFormatDate = (dateValue: string | number | undefined): string => {
+    if (!dateValue) return 'N/A';
+    
+    try {
+      let timestamp: number;
+      
+      // Convertir el valor a timestamp
+      if (typeof dateValue === 'string') {
+        // Intentar parsear como fecha ISO primero
+        const parsedDate = new Date(dateValue);
+        if (!isNaN(parsedDate.getTime())) {
+          timestamp = parsedDate.getTime();
+        } else {
+          // Si no es una fecha ISO válida, intentar como número
+          timestamp = parseInt(dateValue, 10);
+          // Si es un timestamp en segundos, convertir a milisegundos
+          if (timestamp < 10000000000) timestamp *= 1000;
+        }
+      } else {
+        timestamp = dateValue;
+        // Si es un timestamp en segundos, convertir a milisegundos
+        if (timestamp < 10000000000) timestamp *= 1000;
+      }
+
+      const date = new Date(timestamp);
+      
+      // Verificar si la fecha es válida
+      if (isNaN(date.getTime())) {
+        console.warn('Fecha inválida:', { dateValue, timestamp });
+        return 'Fecha inválida';
+      }
+      
+      // Log para diagnóstico
+      console.log('Procesando fecha:', {
+        original: dateValue,
+        timestamp,
+        date: date.toISOString(),
+        formatted: format(date, 'MM/dd/yyyy HH:mm')
+      });
+      
+      return format(date, 'MM/dd/yyyy HH:mm');
+    } catch (error) {
+      console.error('Error formateando fecha:', { dateValue, error });
+      return 'Error en fecha';
+    }
+  };
+
   // Renderizar el contenido según el tab activo
   const renderContent = () => {
     if (activeTab === 'trades') {
@@ -146,27 +207,42 @@ const RecentTradesSection: React.FC = () => {
     } else {
       // Mostrar posiciones abiertas
       return positions.length > 0 ? (
-        positions.map((position) => (
-          <div key={position.ticket} className="px-6 py-4 text-black hover:bg-gray-50">
-            <div className="grid grid-cols-4 text-sm">
-              <div>
-                {format(
-                  typeof position.openTime === 'string' 
-                    ? new Date(position.openTime) 
-                    : new Date(Number(position.openTime) * 1000),
-                  'MM/dd/yyyy HH:mm'
-                )}
-              </div>
-              <div>{position.symbol}</div>
-              <div>{position.type}</div>
-              <div className={`text-right ${
-                (position.profit || 0) >= 0 ? 'text-green-500' : 'text-red-500'
-              }`}>
-                ${(position.profit || 0).toFixed(2)}
+        positions.map((position) => {
+          // Log para diagnóstico de cada posición
+          console.log('Datos de posición:', {
+            ticket: position.ticket,
+            openTime: position.openTime,
+            type: position.type,
+            symbol: position.symbol
+          });
+
+          // Intentar obtener la fecha actual si no hay openTime
+          const currentTime = new Date().toISOString();
+
+          return (
+            <div key={position.ticket} className="px-6 py-4 text-black hover:bg-gray-50">
+              <div className="grid grid-cols-4 text-sm">
+                <div>{position.openTime ? safeFormatDate(position.openTime) : format(new Date(), 'MM/dd/yyyy HH:mm')}</div>
+                <div>{position.symbol || 'N/A'}</div>
+                <div>
+                  <span className={`
+                    px-2 py-1 rounded-full text-xs 
+                    ${isBuyOperation(position.type) 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'}
+                  `}>
+                    {formatTradeType(position.type)}
+                  </span>
+                </div>
+                <div className={`text-right ${
+                  (position.profit || 0) >= 0 ? 'text-green-500' : 'text-red-500'
+                }`}>
+                  ${(position.profit || 0).toFixed(2)}
+                </div>
               </div>
             </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <EmptyStateCard 
           icon="cards"
@@ -187,7 +263,7 @@ const RecentTradesSection: React.FC = () => {
           }`}
           onClick={() => setActiveTab('trades')}
         >
-          RECENT TRADES
+          OPERACIONES RECENTES
         </button>
         <button 
           className={`px-6 py-3 text-sm font-medium ${
@@ -197,7 +273,7 @@ const RecentTradesSection: React.FC = () => {
           }`}
           onClick={() => setActiveTab('positions')}
         >
-          OPEN POSITIONS
+          POSICIONES ABIERTAS
         </button>
       </div>
 
@@ -206,17 +282,17 @@ const RecentTradesSection: React.FC = () => {
         <div className="grid grid-cols-4 text-xs font-medium text-gray-500">
           {activeTab === 'trades' ? (
             <>
-          <div>Close Date</div>
-          <div>Symbol</div>
-              <div>Type</div>
-          <div className="text-right">Net P&L</div>
+          <div>Fecha de cierre</div>
+          <div>Símbolo</div>
+              <div>Tipo</div>
+          <div className="text-right">P&L neto</div>
             </>
           ) : (
             <>
-              <div>Open Date</div>
-              <div>Symbol</div>
-              <div>Type</div>
-              <div className="text-right">Floating P&L</div>
+              <div>Fecha de apertura</div>
+              <div>Símbolo</div>
+              <div>Tipo</div>
+              <div className="text-right">P&L flotante</div>
             </>
           )}
         </div>
