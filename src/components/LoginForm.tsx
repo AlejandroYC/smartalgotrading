@@ -124,10 +124,12 @@ export function LoginForm({ onLoadingStart, onLoadingEnd }: LoginFormProps) {
       // Marcar que venimos del login para evitar doble loading
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('coming_from_login', 'true');
+        // También forzar actualización de datos
+        sessionStorage.setItem('force_dashboard_update', 'true');
       }
       
-      // Redireccionar inmediatamente al dashboard
-      router.push('/dashboard');
+      // Redireccionar inmediatamente al dashboard usando replace
+      router.replace('/dashboard');
       
       // Mostrar mensaje de éxito como toast (aparecerá después de la redirección)
       toast.success('¡Inicio de sesión exitoso!', {

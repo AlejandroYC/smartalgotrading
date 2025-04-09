@@ -16,8 +16,28 @@ function NavigationLoading() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [prevPathname, setPrevPathname] = useState("");
 
+  // Verificar si venimos desde el login para controlar el estado de navegación
+  useEffect(() => {
+    // Verificar si venimos de login
+    if (typeof window !== 'undefined' && sessionStorage.getItem('coming_from_login')) {
+      console.log('NavigationLoading: Detectada redirección desde login');
+      // Eliminar flag para futuras navegaciones
+      sessionStorage.removeItem('coming_from_login');
+      // No mostrar loading si venimos del login
+      setIsNavigating(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!prevPathname) {
+      setPrevPathname(pathname || '');
+      return;
+    }
+
+    // Evitar mostrar animación de carga si venimos del login
+    if (typeof window !== 'undefined' && sessionStorage.getItem('coming_from_login')) {
+      console.log('NavigationLoading: Omitiendo animación por venir de login');
+      sessionStorage.removeItem('coming_from_login');
       setPrevPathname(pathname || '');
       return;
     }

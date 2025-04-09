@@ -71,9 +71,18 @@ export async function middleware(req: NextRequest) {
     const redirectUrl = new URL('/dashboard', req.url);
     const redirectRes = NextResponse.redirect(redirectUrl);
     
+    // Establecer encabezados para evitar problemas de caché
     redirectRes.headers.set('Cache-Control', 'no-store, max-age=0');
     redirectRes.headers.set('Pragma', 'no-cache');
     redirectRes.headers.set('Expires', '0');
+    
+    // Establecer una cookie para indicar que venimos de una redirección de autenticación
+    // Esto ayudará al front-end a manejar el estado de carga correctamente
+    redirectRes.cookies.set('auth_redirect', 'true', { 
+      maxAge: 10, // Solo 10 segundos de duración
+      path: '/',
+      httpOnly: false // Debe ser accesible por JavaScript
+    });
     
     return redirectRes;
   }

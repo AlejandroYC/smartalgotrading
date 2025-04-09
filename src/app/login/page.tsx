@@ -28,7 +28,12 @@ export default function LoginPage() {
           if (data.session) {
             // Si ya hay una sesión, redirigir al dashboard inmediatamente
             console.log('[LoginPage] Sesión existente detectada, redirigiendo...');
-            router.push('/dashboard');
+            
+            // Marcar que venimos del login para evitar doble loading
+            sessionStorage.setItem('coming_from_login', 'true');
+            
+            // Forzar navegación con reemplazo para evitar problemas con la historia del navegador
+            router.replace('/dashboard');
           } else {
             // Sin sesión, mostrar formulario de login
             setInitialLoading(false);

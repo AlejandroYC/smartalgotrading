@@ -304,10 +304,8 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
               stroke="#94A3B8"
               fontSize={12}
               width={70}
-              domain={[
-                minValue < 0 ? Math.floor(minValue / 20) * 20 : 0, 
-                maxValue > 0 ? Math.ceil(maxValue / 20) * 20 : 0
-              ]}
+              domain={['auto', 'auto']}
+              allowDataOverflow={false}
             />
             <Tooltip
               formatter={(value: any, name: string, props: any) => {

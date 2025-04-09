@@ -70,6 +70,16 @@ export default function MT5Dashboard() {
   useEffect(() => {
     if (user?.id && activeConnection?.id) {
       loadMT5Data();
+      
+      // Solicitar actualización en segundo plano con prioridad
+      const mt5Client = MT5Client.getInstance();
+      mt5Client.requestAccountDataUpdate(activeConnection.id, true)
+        .then(response => {
+          console.log('Actualización prioritaria solicitada:', response);
+        })
+        .catch(err => {
+          console.error('Error al solicitar actualización prioritaria:', err);
+        });
     }
   }, [user, activeConnection, loadMT5Data]);
 
@@ -77,7 +87,18 @@ export default function MT5Dashboard() {
   useEffect(() => {
     if (!user?.id || !activeConnection?.id) return;
     const interval = setInterval(() => {
-      loadMT5Data();
+      // Usar el sistema de cola sin prioridad para actualizaciones periódicas
+      const mt5Client = MT5Client.getInstance();
+      mt5Client.requestAccountDataUpdate(activeConnection.id, false)
+        .then(response => {
+          console.log('Actualización periódica solicitada:', response);
+          // Después de un tiempo, consultar si la actualización está lista
+          setTimeout(() => loadMT5Data(), 10000);
+        })
+        .catch(err => {
+          console.error('Error al solicitar actualización periódica:', err);
+          loadMT5Data(); // Intentar cargar datos locales si falla la solicitud
+        });
     }, 5 * 60 * 1000); // 5 minutos
 
     return () => {

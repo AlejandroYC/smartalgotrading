@@ -661,6 +661,37 @@ export class MT5Client extends EventEmitter {
       return null;
     }
   }
+
+  // Solicitar actualización de datos de cuenta
+  async requestAccountDataUpdate(connectionId: string, isNewConnection: boolean = false): Promise<{
+    success: boolean;
+    request_id?: string;
+    message?: string;
+    queue_position?: number;
+  }> {
+    try {
+      // Usar el endpoint queue-update para solicitar actualización
+      const response = await this.axiosInstance.post('/request-update', {
+        connection_id: connectionId,
+        is_new_connection: isNewConnection  // Enviar el flag para priorización
+      });
+      
+      if (response.status === 200 && response.data.success) {
+        console.log(`Solicitud de actualización encolada: ${response.data.request_id}`);
+        return {
+          success: true,
+          request_id: response.data.request_id,
+          message: response.data.message,
+          queue_position: response.data.queue_position
+        };
+      } else {
+        throw new Error(response.data.detail || 'Error desconocido al solicitar actualización');
+      }
+    } catch (error) {
+      console.error('Error al solicitar actualización de datos:', error);
+      throw error;
+    }
+  }
 }
 
 export const mt5Client = MT5Client.getInstance();
