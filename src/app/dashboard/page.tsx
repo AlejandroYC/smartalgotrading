@@ -24,19 +24,9 @@ import StartMyDayButton from '@/components/StartMyDayButton';
 
 // Componente ClientOnly para asegurar renderizado solo del lado del cliente
 function ClientOnly({ children }: { children: React.ReactNode }) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) {
-    return <div className="w-full h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-t-2 border-b-2 border-indigo-500"></div>
-    </div>;
-  }
-
-  return <>{children}</>;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? <>{children}</> : null;
 }
 
 // Agregar una bandera para controlar si se muestra la vista de depuración
@@ -523,7 +513,7 @@ function DashboardContent() {
   const { user } = useAuthContext();
 
   const {
-    loading,
+    loading: isLoading,
     error,
     processedData,
     refreshData,
@@ -795,7 +785,7 @@ function DashboardContent() {
   }, [handleManualUpdate]);
 
   // Mostrar la pantalla de carga durante la carga de contenido
-  if (loading || isContentLoading) {
+  if (isLoading || isContentLoading) {
     return (
       <div className="w-full h-full">
         <HangTightLoading
@@ -849,7 +839,7 @@ function DashboardContent() {
   }
 
   // Mostrar errores
-  if (!loading && error) {
+  if (!isLoading && error) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
         <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
@@ -1059,6 +1049,8 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
+  const { loading: isLoading, error } = useTradingData();
+  
   // Usar localStorage en lugar de sessionStorage para manejar el estado entre páginas
   const [isInitialLoading, setIsInitialLoading] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1073,6 +1065,35 @@ export default function Dashboard() {
   });
 
   const { user, session } = useAuthContext();
+  
+  // Detectar redirección de autenticación para manejar correctamente la carga
+  useEffect(() => {
+    // Verificar si hay una cookie de redirección de autenticación
+    const checkAuthRedirect = () => {
+      if (typeof document === 'undefined') return;
+      
+      // Buscar la cookie auth_redirect
+      const cookies = document.cookie.split(';');
+      const hasAuthRedirect = cookies.some(cookie => 
+        cookie.trim().startsWith('auth_redirect=')
+      );
+      
+      if (hasAuthRedirect) {
+        console.log('Detectada redirección de autenticación, configurando estado de navegación');
+        // Establecer el flag de redirección desde login
+        sessionStorage.setItem('coming_from_login', 'true');
+        // Forzar actualización de datos
+        sessionStorage.setItem('force_dashboard_update', 'true');
+        // No mostrar la carga inicial
+        setIsInitialLoading(false);
+        
+        // Eliminar la cookie ya que la hemos detectado
+        document.cookie = 'auth_redirect=; Max-Age=0; Path=/; SameSite=Strict';
+      }
+    };
+    
+    checkAuthRedirect();
+  }, []);
 
   // Mostrar dashboard rápidamente
   useEffect(() => {

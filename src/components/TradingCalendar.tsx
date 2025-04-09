@@ -31,6 +31,17 @@ interface DayDetails {
   trades: any[];
 }
 
+// Interfaz para opciones de visualización
+interface DisplayOptions {
+  showRMultiple: boolean;
+  showDailyPL: boolean;
+  showTicks: boolean;
+  showPips: boolean;
+  showPoints: boolean;
+  showNumberOfTrades: boolean;
+  showDayWinrate: boolean;
+}
+
 const TradingCalendar: React.FC = () => {
   // Usar rawData en lugar de processedData para acceder a TODOS los datos sin filtro de fecha
   const { rawData, processedData, dateRange } = useTradingData();
@@ -41,6 +52,23 @@ const TradingCalendar: React.FC = () => {
   // Estado para el modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDayDetails, setSelectedDayDetails] = useState<DayDetails | null>(null);
+  // Estado para el modal de selección de mes
+  const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false);
+  
+  // Estado para el modal de opciones de visualización
+  const [isDisplayOptionsOpen, setIsDisplayOptionsOpen] = useState(false);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  
+  // Estado para las opciones de visualización
+  const [displayOptions, setDisplayOptions] = useState<DisplayOptions>({
+    showRMultiple: true,
+    showDailyPL: true,
+    showTicks: true,
+    showPips: true,
+    showPoints: true,
+    showNumberOfTrades: true,
+    showDayWinrate: true
+  });
 
   // Memoización estable de los datos calculados - USANDO DATOS COMPLETOS sin filtrar por fecha
   const { dailyStats, weeklyStats, monthlyStats, tradesByDate, totalCalendarPL } = useMemo(() => {
@@ -219,21 +247,28 @@ const TradingCalendar: React.FC = () => {
     return (
       <div className={`h-full w-full flex flex-col p-2 ${isProfit ? 'bg-green-50' : 'bg-red-50'}`}>
         <div className="text-xs text-gray-600 self-end">{dayOfMonth}</div>
-        <div className={`text-base font-medium mt-2 ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
-          {isProfit ? '$' : '-$'}{Math.abs(profit).toFixed(2)}
-        </div>
-        <div className="text-xs text-gray-600 mt-1">
-          {trades} {trades === 1 ? 'trade' : 'trades'}
-        </div>
-        <div className="text-xs text-gray-600">
-          {extendedProps.stats.winRate.toFixed(1)}%
-        </div>
+        {displayOptions.showDailyPL && (
+          <div className={`text-base font-medium mt-2 ${isProfit ? 'text-green-600' : 'text-red-600'}`}>
+            {isProfit ? '$' : '-$'}{Math.abs(profit).toFixed(2)}
+          </div>
+        )}
+        {displayOptions.showNumberOfTrades && (
+          <div className="text-xs text-gray-600 mt-1">
+            {trades} {trades === 1 ? 'trade' : 'trades'}
+          </div>
+        )}
+        {displayOptions.showDayWinrate && (
+          <div className="text-xs text-gray-600">
+            {extendedProps.stats.winRate.toFixed(1)}%
+          </div>
+        )}
       </div>
     );
-  }, []);
+  }, [displayOptions]);
 
   // Manejar cambio de fechas - Ahora con estabilidad
   const handleDatesSet = useCallback((dateInfo: any) => {
+    console.log('handleDatesSet called with date:', dateInfo.view.currentStart);
     setCurrentCalendarDate(dateInfo.view.currentStart);
   }, []);
 
@@ -560,10 +595,68 @@ const TradingCalendar: React.FC = () => {
     handleDayClick(dateStr, stats);
   }, [handleDayClick]);
 
+  // Nueva referencia para el título del mes (corregir el tipo)
+  const monthTitleRef = useRef<HTMLButtonElement>(null);
+  
+  // Efecto para manejar clics fuera del modal para cerrarlo
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (isMonthSelectorOpen && monthTitleRef.current && !monthTitleRef.current.contains(e.target as Node)) {
+        setIsMonthSelectorOpen(false);
+      }
+      
+      // Cerrar el modal de opciones de visualización si se hace clic fuera
+      if (isDisplayOptionsOpen && settingsButtonRef.current) {
+        const targetEl = e.target as HTMLElement;
+        // No cerrar si se hace clic en el botón o en un elemento dentro del modal
+        if (!settingsButtonRef.current.contains(targetEl) && !targetEl.closest('.display-options-modal')) {
+          setIsDisplayOptionsOpen(false);
+        }
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMonthSelectorOpen, isDisplayOptionsOpen]);
+
+  // Función simple para cambiar el mes
+  const handleMonthChange = (monthIndex: number) => {
+    try {
+      // Log para depuración
+      console.log(`Cambiando al mes: ${monthIndex + 1} (${mesesEspanol[monthIndex]})`);
+      
+      // Obtener referencia a la API del calendario
+      if (!calendarRef.current) {
+        console.error('No se pudo acceder a la referencia del calendario');
+        return;
+      }
+      
+      // Crear nueva fecha con el mes seleccionado
+      const newDate = new Date(currentCalendarDate.getFullYear(), monthIndex, 1);
+      
+      // Navegar al nuevo mes usando la API
+      calendarRef.current.getApi().gotoDate(newDate);
+      
+      // Actualizar el estado
+      setCurrentCalendarDate(newDate);
+      
+      // Cerrar el selector
+      setIsMonthSelectorOpen(false);
+      
+      // Log de éxito
+      console.log(`Mes cambiado a: ${mesesEspanol[monthIndex]}`);
+    } catch (error) {
+      console.error('Error al cambiar mes:', error);
+      alert(`Error: ${error}`);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6 w-[70%]">
       <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 relative">
           <button 
             onClick={() => calendarRef.current?.getApi().prev()}
             className="text-gray-600 hover:text-gray-800"
@@ -573,9 +666,58 @@ const TradingCalendar: React.FC = () => {
             </svg>
           </button>
           
-          <h2 className="text-xl font-medium text-gray-900">
+          <div className="relative">
+            {/* Título del mes que se puede hacer clic */}
+            <button
+              onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}
+              className="text-xl font-medium text-gray-900 bg-transparent border-none appearance-none flex items-center"
+            >
             {mesesEspanol[currentCalendarDate.getMonth()]} {currentCalendarDate.getFullYear()}
-          </h2>
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {/* Modal selector de mes */}
+            {isMonthSelectorOpen && (
+              <div className="absolute top-10 left-0 z-50 bg-white rounded-lg shadow-xl border border-gray-200 w-72">
+                <div className="px-4 py-3 flex justify-between items-center border-b border-gray-200 bg-gray-50">
+                  <span className="font-semibold text-gray-800">{currentCalendarDate.getFullYear()}</span>
+                  <button
+                    onClick={() => setIsMonthSelectorOpen(false)}
+                    className="text-gray-600 hover:text-gray-800 transition-colors py-1 px-3 rounded hover:bg-gray-100"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2 p-3">
+                  {mesesEspanol.map((mes, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        console.log(`Cambiando al mes: ${mes}`);
+                        const newDate = new Date(currentCalendarDate.getFullYear(), index, 1);
+                        if (calendarRef.current) {
+                          const api = calendarRef.current.getApi();
+                          api.gotoDate(newDate);
+                          setCurrentCalendarDate(newDate);
+                          setIsMonthSelectorOpen(false);
+                        }
+                      }}
+                      className={`
+                        py-2 px-2 text-center rounded-md 
+                        ${currentCalendarDate.getMonth() === index 
+                          ? 'bg-indigo-600 text-white font-medium' 
+                          : 'hover:bg-gray-100 text-gray-700'}
+                      `}
+                    >
+                      {mes.substring(0, 3)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           
           <button 
             onClick={() => calendarRef.current?.getApi().next()}
@@ -588,7 +730,7 @@ const TradingCalendar: React.FC = () => {
 
           <button 
             onClick={goToCurrentMonth}
-            className="ml-4 px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="ml-4 px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
           >
             Este mes
           </button>
@@ -596,21 +738,122 @@ const TradingCalendar: React.FC = () => {
 
         <div className="flex items-center gap-4 text-sm">
           <div>Estadísticas mensuales:</div>
-          <div className={`${monthlyStats.totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-            {monthlyStats.totalProfit >= 0 ? '$' : '-$'}{Math.abs(monthlyStats.totalProfit).toFixed(2)}
+          {displayOptions.showDailyPL && (
+            <div className={`${monthlyStats.totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {monthlyStats.totalProfit >= 0 ? '$' : '-$'}{Math.abs(monthlyStats.totalProfit).toFixed(2)}
+            </div>
+          )}
+          {displayOptions.showNumberOfTrades && (
+            <div>{monthlyStats.tradingDays} días</div>
+          )}
+          <div className="relative group">
+            <button className="p-2 text-gray-600 hover:text-gray-800">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <div className="absolute right-0 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+              <div className="bg-black text-white text-sm p-2 rounded-md shadow-md whitespace-nowrap">
+                Resumen visual de tu mes de trading
+              </div>
+              <div className="absolute -bottom-1 right-4 w-2 h-2 bg-black transform rotate-45"></div>
+            </div>
           </div>
-          <div>{monthlyStats.tradingDays} días</div>
-          <button className="p-2 text-gray-600 hover:text-gray-800">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-          <button className="p-2 text-gray-600 hover:text-gray-800">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
+          <div className="relative">
+            <button 
+              ref={settingsButtonRef}
+              className="p-2 text-gray-600 hover:text-gray-800"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDisplayOptionsOpen(!isDisplayOptionsOpen);
+              }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            {isDisplayOptionsOpen && (
+              <div className="absolute right-0 top-10 bg-white rounded-lg shadow-xl border border-gray-200 w-64 z-50 display-options-modal">
+                <div className="p-3 border-b border-gray-200 bg-gray-50">
+                  <span className="font-semibold text-gray-800">Display stats</span>
+                </div>
+                <div className="p-3 max-h-60 overflow-y-auto">
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                        checked={displayOptions.showRMultiple}
+                        onChange={(e) => setDisplayOptions({...displayOptions, showRMultiple: e.target.checked})}
+                      />
+                      <span className="text-sm text-gray-700">R Multiple</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                        checked={displayOptions.showDailyPL}
+                        onChange={(e) => setDisplayOptions({...displayOptions, showDailyPL: e.target.checked})}
+                      />
+                      <span className="text-sm text-gray-700">Daily P/L</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                        checked={displayOptions.showTicks}
+                        onChange={(e) => setDisplayOptions({...displayOptions, showTicks: e.target.checked})}
+                      />
+                      <span className="text-sm text-gray-700">Ticks</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                        checked={displayOptions.showPips}
+                        onChange={(e) => setDisplayOptions({...displayOptions, showPips: e.target.checked})}
+                      />
+                      <span className="text-sm text-gray-700">Pips</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                        checked={displayOptions.showPoints}
+                        onChange={(e) => setDisplayOptions({...displayOptions, showPoints: e.target.checked})}
+                      />
+                      <span className="text-sm text-gray-700">Points</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                        checked={displayOptions.showNumberOfTrades}
+                        onChange={(e) => setDisplayOptions({...displayOptions, showNumberOfTrades: e.target.checked})}
+                      />
+                      <span className="text-sm text-gray-700">Number of trades</span>
+                    </label>
+                    
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                        checked={displayOptions.showDayWinrate}
+                        onChange={(e) => setDisplayOptions({...displayOptions, showDayWinrate: e.target.checked})}
+                      />
+                      <span className="text-sm text-gray-700">Day winrate</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -690,7 +933,7 @@ const TradingCalendar: React.FC = () => {
                 result.push(
                   <div 
                     key={`day-${weekIndex}-${dayIndex}`} 
-                    className={`relative border border-gray-100 min-h-[115px]   ${isOtherMonth ? 'bg-gray-50' : 'bg-gray-100'}`}
+                    className={`relative border border-gray-100 min-h-[115px] ${isOtherMonth ? 'bg-gray-50' : 'bg-gray-100'}`}
                     onClick={() => dayStats && handleDayClick(dateStr, dayStats)}
                   >
                     {isCurrentMonth && (
@@ -717,15 +960,26 @@ const TradingCalendar: React.FC = () => {
                         </div>
                         
                         <div className="flex flex-col items-end justify-center h-full pr-2 pt-2">
-                          <div className="text-base font-semibold text-gray-800">
-                            {dayStats.profit >= 0 ? '' : '-'}${Math.abs(dayStats.profit).toFixed(1)}
-                          </div>
-                          <div className="text-xs text-gray-600 mt-0.5">
-                            {dayStats.trades} {dayStats.trades === 1 ? 'trade' : 'trades'}
-                          </div>
-                          <div className="text-xs text-gray-600 mt-0.5">
-                            {Number(dayStats.winRate).toFixed(2).replace(/\.0+$/, '')}%
-                          </div>
+                          {/* P&L diario - Mostrar solo si la opción está activada */}
+                          {displayOptions.showDailyPL && (
+                            <div className="text-base font-semibold text-gray-800">
+                              {dayStats.profit >= 0 ? '' : '-'}${Math.abs(dayStats.profit).toFixed(1)}
+                            </div>
+                          )}
+                          
+                          {/* Número de trades - Mostrar solo si la opción está activada */}
+                          {displayOptions.showNumberOfTrades && (
+                            <div className="text-xs text-gray-600 mt-0.5">
+                              {dayStats.trades} {dayStats.trades === 1 ? 'trade' : 'trades'}
+                            </div>
+                          )}
+                          
+                          {/* Day winrate - Mostrar solo si la opción está activada */}
+                          {displayOptions.showDayWinrate && (
+                            <div className="text-xs text-gray-600 mt-0.5">
+                              {Number(dayStats.winRate).toFixed(2).replace(/\.0+$/, '')}%
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : null}
@@ -740,12 +994,16 @@ const TradingCalendar: React.FC = () => {
                 <div key={`week-summary-${weekIndex}`} className="bg-white border border-gray-200 rounded-lg min-h-[110px]">
                   <div className="p-3">
                     <div className="text-sm font-medium text-gray-900 mb-1">Week {weekNum}</div>
-                    <div className={`text-base font-semibold ${weekStats.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                      {weekStats.profit >= 0 ? '$' : '-$'}{Math.abs(weekStats.profit).toFixed(2)}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {weekStats.tradingDays} {weekStats.tradingDays === 1 ? 'day' : 'days'}
-                    </div>
+                    {displayOptions.showDailyPL && (
+                      <div className={`text-base font-semibold ${weekStats.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {weekStats.profit >= 0 ? '$' : '-$'}{Math.abs(weekStats.profit).toFixed(2)}
+                      </div>
+                    )}
+                    {displayOptions.showNumberOfTrades && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {weekStats.tradingDays} {weekStats.tradingDays === 1 ? 'day' : 'days'}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
