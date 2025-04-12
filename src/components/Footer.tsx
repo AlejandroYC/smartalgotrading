@@ -10,8 +10,8 @@ const Footer = () => {
         <div className="col-span-1 md:col-span-1">
           
              <Image
-                                    src="is_logo_white.webp" 
-                                    alt="Logo Indices Sinteticos"
+                                    src="lmc-trade-morado.webp" 
+                                    alt="Logo LMC Trade"
                                     width={200}
                                     height={55}
                                     
