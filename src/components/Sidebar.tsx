@@ -123,15 +123,13 @@ export function Sidebar() {
       {/* Logo */}
       <div className={`py-4 px-5 flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
         <Image
-          src="/logo.png"
-          alt="Tradezella"
-          width={32}
-          height={32}
+          src="/lmc-trade-morado.webp"
+          alt="Logo LMC Trade"
+          width={160}
+          height={36}
           className="min-w-[32px]"
         />
-        <span className={`text-lg font-semibold ml-3 transition-opacity duration-300 ${isCollapsed ? 'opacity-0 w-0' : 'opacity-100'}`}>
-          LMC Trade
-        </span>
+       
       </div>
 
       {/* Add Trade Button */}
