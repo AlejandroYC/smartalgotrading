@@ -113,7 +113,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
               <Image
-                          src="lmc-trade-morado.webp" 
+                          src="lmc_trade_logo.webp" 
                           alt="Logo LMC Trade"
                           width={200}
                           height={55}

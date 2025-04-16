@@ -123,7 +123,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className={`py-4 px-5 flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
         <Image
-          src="/lmc-trade-morado.webp"
+          src="/lmc_trade_logo.webp"
           alt="Logo LMC Trade"
           width={160}
           height={36}
