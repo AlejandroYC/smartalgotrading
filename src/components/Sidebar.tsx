@@ -25,18 +25,18 @@ export function Sidebar() {
   const menuItems = [
     { 
       icon: <MdDashboard size={20} color="#9ca3af" />, 
-      name: 'Dashboard', 
+      name: 'Panel', 
       href: '/dashboard' 
+    },
+    { 
+      icon: <FaListAlt size={20} color="#9ca3af" />, 
+      name: 'Diario ', 
+      href: '/dashboard/journal' 
     },
     { 
       icon: <FaFileAlt size={20} color="#9ca3af" />, 
       name: 'Trades', 
       href: '/dashboard/trades' 
-    },
-    { 
-      icon: <FaListAlt size={20} color="#9ca3af" />, 
-      name: 'Journal', 
-      href: '/dashboard/journal' 
     },
     { 
       icon: <MdBook size={20} color="#9ca3af" />, 
@@ -125,8 +125,8 @@ export function Sidebar() {
         <Image
           src="/lmc-trade-morado.webp"
           alt="Logo LMC Trade"
-          width={160}
-          height={36}
+          width={100}
+          height={100}
           className="min-w-[32px]"
         />
        
