@@ -55,6 +55,10 @@ const TradingCalendar: React.FC = () => {
   // Estado para el modal de selección de mes
   const [isMonthSelectorOpen, setIsMonthSelectorOpen] = useState(false);
   
+  // Estados para el selector de año
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [years, setYears] = useState<number[]>([]);
+  
   // Estado para el modal de opciones de visualización
   const [isDisplayOptionsOpen, setIsDisplayOptionsOpen] = useState(false);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
@@ -269,14 +273,18 @@ const TradingCalendar: React.FC = () => {
   // Manejar cambio de fechas - Ahora con estabilidad
   const handleDatesSet = useCallback((dateInfo: any) => {
     console.log('handleDatesSet called with date:', dateInfo.view.currentStart);
-    setCurrentCalendarDate(dateInfo.view.currentStart);
+    const newDate = dateInfo.view.currentStart;
+    setCurrentCalendarDate(newDate);
+    setSelectedYear(newDate.getFullYear());
   }, []);
 
   // Ir al mes actual
   const goToCurrentMonth = useCallback(() => {
     if (calendarRef.current) {
       calendarRef.current.getApi().today();
-      setCurrentCalendarDate(new Date());
+      const today = new Date();
+      setCurrentCalendarDate(today);
+      setSelectedYear(today.getFullYear());
     }
   }, []);
 
@@ -621,6 +629,14 @@ const TradingCalendar: React.FC = () => {
     };
   }, [isMonthSelectorOpen, isDisplayOptionsOpen]);
 
+  // Efecto para inicializar los años disponibles
+  useEffect(() => {
+    // Crear un rango de años desde 5 años atrás hasta 5 años adelante
+    const currentYear = new Date().getFullYear();
+    const yearRange = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
+    setYears(yearRange);
+  }, []);
+
   // Función simple para cambiar el mes
   const handleMonthChange = (monthIndex: number) => {
     try {
@@ -633,8 +649,8 @@ const TradingCalendar: React.FC = () => {
         return;
       }
       
-      // Crear nueva fecha con el mes seleccionado
-      const newDate = new Date(currentCalendarDate.getFullYear(), monthIndex, 1);
+      // Crear nueva fecha con el mes seleccionado y el año actual
+      const newDate = new Date(selectedYear, monthIndex, 1);
       
       // Navegar al nuevo mes usando la API
       calendarRef.current.getApi().gotoDate(newDate);
@@ -646,9 +662,37 @@ const TradingCalendar: React.FC = () => {
       setIsMonthSelectorOpen(false);
       
       // Log de éxito
-      console.log(`Mes cambiado a: ${mesesEspanol[monthIndex]}`);
+      console.log(`Mes cambiado a: ${mesesEspanol[monthIndex]} ${selectedYear}`);
     } catch (error) {
       console.error('Error al cambiar mes:', error);
+      alert(`Error: ${error}`);
+    }
+  };
+
+  // Función para cambiar el año
+  const handleYearChange = (year: number) => {
+    try {
+      console.log(`Cambiando al año: ${year}`);
+      
+      // Obtener referencia a la API del calendario
+      if (!calendarRef.current) {
+        console.error('No se pudo acceder a la referencia del calendario');
+        return;
+      }
+      
+      // Crear nueva fecha con el año seleccionado manteniendo el mes actual
+      const newDate = new Date(year, currentCalendarDate.getMonth(), 1);
+      
+      // Navegar a la nueva fecha
+      calendarRef.current.getApi().gotoDate(newDate);
+      
+      // Actualizar el estado
+      setCurrentCalendarDate(newDate);
+      setSelectedYear(year);
+      
+      console.log(`Año cambiado a: ${year}`);
+    } catch (error) {
+      console.error('Error al cambiar año:', error);
       alert(`Error: ${error}`);
     }
   };
@@ -682,7 +726,18 @@ const TradingCalendar: React.FC = () => {
             {isMonthSelectorOpen && (
               <div className="absolute top-10 left-0 z-50 bg-white rounded-lg shadow-xl border border-gray-200 w-72">
                 <div className="px-4 py-3 flex justify-between items-center border-b border-gray-200 bg-gray-50">
-                  <span className="font-semibold text-gray-800">{currentCalendarDate.getFullYear()}</span>
+                  <div className="flex items-center">
+                    <span className="font-semibold text-gray-800 mr-2">Año:</span>
+                    <select 
+                      value={selectedYear}
+                      onChange={(e) => handleYearChange(parseInt(e.target.value))}
+                      className="p-1 border border-gray-300 rounded text-sm"
+                    >
+                      {years.map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
                   <button
                     onClick={() => setIsMonthSelectorOpen(false)}
                     className="text-gray-600 hover:text-gray-800 transition-colors py-1 px-3 rounded hover:bg-gray-100"
@@ -694,16 +749,7 @@ const TradingCalendar: React.FC = () => {
                   {mesesEspanol.map((mes, index) => (
                     <button
                       key={index}
-                      onClick={() => {
-                        console.log(`Cambiando al mes: ${mes}`);
-                        const newDate = new Date(currentCalendarDate.getFullYear(), index, 1);
-                        if (calendarRef.current) {
-                          const api = calendarRef.current.getApi();
-                          api.gotoDate(newDate);
-                          setCurrentCalendarDate(newDate);
-                          setIsMonthSelectorOpen(false);
-                        }
-                      }}
+                      onClick={() => handleMonthChange(index)}
                       className={`
                         py-2 px-2 text-center rounded-md 
                         ${currentCalendarDate.getMonth() === index 

@@ -16,7 +16,7 @@ export function formatTradeType(type: number | string | undefined): string {
   if (typeof type === 'string') {
     const upperType = type.toUpperCase();
     if (['BUY', 'SELL', 'COMPRA', 'VENTA'].includes(upperType)) {
-      return upperType === 'BUY' ? 'COMPRA' : upperType === 'SELL' ? 'VENTA' : upperType;
+      return upperType === 'BUY' ? 'VENTA' : upperType === 'SELL' ? 'COMPRA' : upperType;
     }
     // Intenta convertir a número si es posible
     const numType = parseInt(type, 10);
@@ -30,17 +30,17 @@ export function formatTradeType(type: number | string | undefined): string {
   // Manejar tipos numéricos según documentación de MT5
   switch (Number(type)) {
     case 0:
-      return 'COMPRA';  // BUY
+      return 'VENTA';  // BUY -> Invertido
     case 1:
-      return 'VENTA';   // SELL
+      return 'COMPRA';   // SELL -> Invertido
     case 2:
-      return 'COMPRA LIMITADA';  // BUY_LIMIT
+      return 'VENTA LIMITADA';  // BUY_LIMIT -> Invertido
     case 3:
-      return 'VENTA LIMITADA';   // SELL_LIMIT
+      return 'COMPRA LIMITADA';   // SELL_LIMIT -> Invertido
     case 4:
-      return 'COMPRA STOP';      // BUY_STOP
+      return 'VENTA STOP';      // BUY_STOP -> Invertido
     case 5:
-      return 'VENTA STOP';       // SELL_STOP
+      return 'COMPRA STOP';       // SELL_STOP -> Invertido
     case 6:
       return 'BALANCE';          // BALANCE operation
     case 7:
@@ -71,7 +71,10 @@ export function isBuyOperation(type: number | string | undefined): boolean {
   if (typeof type === 'string') {
     const upperType = type.toUpperCase();
     if (upperType === 'BUY' || upperType === 'COMPRA') {
-      return true;
+      return false; // Invertido: BUY/COMPRA ahora es VENTA
+    }
+    if (upperType === 'SELL' || upperType === 'VENTA') {
+      return true; // Invertido: SELL/VENTA ahora es COMPRA
     }
     // Convertir a número si es posible
     const numType = parseInt(type, 10);
@@ -82,8 +85,8 @@ export function isBuyOperation(type: number | string | undefined): boolean {
     }
   }
 
-  // Los tipos 0, 2, 4 son operaciones de compra (BUY, BUY_LIMIT, BUY_STOP)
-  return [0, 2, 4].includes(Number(type));
+  // Los tipos 1, 3, 5 son ahora operaciones de compra (invertidos de SELL, SELL_LIMIT, SELL_STOP)
+  return [1, 3, 5].includes(Number(type));
 }
 
 /**
@@ -99,7 +102,10 @@ export function isSellOperation(type: number | string | undefined): boolean {
   if (typeof type === 'string') {
     const upperType = type.toUpperCase();
     if (upperType === 'SELL' || upperType === 'VENTA') {
-      return true;
+      return false; // Invertido: SELL/VENTA ahora es COMPRA
+    }
+    if (upperType === 'BUY' || upperType === 'COMPRA') {
+      return true; // Invertido: BUY/COMPRA ahora es VENTA
     }
     // Convertir a número si es posible
     const numType = parseInt(type, 10);
@@ -110,6 +116,6 @@ export function isSellOperation(type: number | string | undefined): boolean {
     }
   }
 
-  // Los tipos 1, 3, 5 son operaciones de venta (SELL, SELL_LIMIT, SELL_STOP)
-  return [1, 3, 5].includes(Number(type));
+  // Los tipos 0, 2, 4 son ahora operaciones de venta (invertidos de BUY, BUY_LIMIT, BUY_STOP)
+  return [0, 2, 4].includes(Number(type));
 } 

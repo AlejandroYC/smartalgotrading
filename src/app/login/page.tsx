@@ -65,56 +65,6 @@ export default function LoginPage() {
     setFormLoading(false);
   };
 
-  // Mostrar pantalla de carga durante verificación inicial
-  if (initialLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center p-6">
-        <LoadingStyles />
-        <div className="bg-white/90 p-8 rounded-2xl shadow-xl backdrop-blur-sm flex flex-col items-center">
-          <div className="w-16 h-16 mb-4 relative">
-            <LoadingIndicator 
-              type="pulse" 
-              size="lg" 
-              color="secondary" 
-            />
-          </div>
-          <p className="text-purple-800 font-medium text-lg">
-            Cargando
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Mostrar pantalla de carga durante proceso de login
-  if (formLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center p-6">
-        <LoadingStyles />
-        <div className="fixed inset-0 z-50 backdrop-blur-md flex items-center justify-center bg-gradient-to-br from-blue-100/60 to-purple-200/60">
-          <div className="bg-white/90 p-8 rounded-2xl shadow-xl backdrop-blur-sm flex flex-col items-center transform transition-all duration-300 hover:scale-105">
-            <div className="w-16 h-16 mb-4 relative">
-              <LoadingIndicator 
-                type="pulse" 
-                size="lg" 
-                color="secondary" 
-              />
-            </div>
-            <p className="text-purple-800 font-medium text-lg animate-pulse">
-              Preparando tu experiencia
-            </p>
-            <p className="text-gray-500 text-sm mt-2">
-              Estamos verificando tu información
-              <span className="inline-block animate-bounce text-purple-500 ml-1">.</span>
-              <span className="inline-block animate-bounce text-purple-500 ml-0.5 animation-delay-100">.</span>
-              <span className="inline-block animate-bounce text-purple-500 ml-0.5 animation-delay-200">.</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Formulario de login
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 flex items-center justify-center p-6">

@@ -100,6 +100,22 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
     return date >= dateRange.startDate && date <= dateRange.endDate;
   };
 
+  // Función para establecer el rango por defecto (últimos 30 días)
+  const setDefaultDateRange = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    const defaultRange = { 
+      startDate: thirtyDaysAgo, 
+      endDate: today,
+      label: 'Last 30 days'
+    };
+    
+    handleRangeChange(defaultRange);
+    setIsOpen(false);
+  };
+
   const MonthYearSelector = ({ date, onChange }: { date: Date, onChange: (date: Date) => void }) => {
   return (
       <div className="flex items-center justify-between mb-4 px-1">
@@ -176,6 +192,18 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
         <span className="text-gray-700">
           {formatDate(dateRange.startDate)} - {formatDate(dateRange.endDate)}
         </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setDefaultDateRange();
+          }}
+          className="ml-2 text-gray-400 hover:text-gray-600 focus:outline-none"
+          aria-label="Resetear rango de fechas"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </button>
 
       {isOpen && (
