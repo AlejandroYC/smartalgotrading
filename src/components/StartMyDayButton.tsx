@@ -12,13 +12,13 @@ const StartMyDayButton: React.FC<StartMyDayButtonProps> = ({
   return (
     <button
       onClick={onClick}
-      className={`bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-white font-medium rounded-lg px-6 py-3 flex items-center justify-center ${className}`}
+      className={`bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-white text-[14px] font-medium rounded-lg px-2.5 py-2.5  flex items-center justify-center ${className}`}
     >
       {/* Icono de cohete */}
       <svg 
         xmlns="http://www.w3.org/2000/svg" 
-        width="24" 
-        height="24" 
+        width="20" 
+        height="20" 
         viewBox="0 0 24 24" 
         fill="none" 
         stroke="currentColor" 

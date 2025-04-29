@@ -590,13 +590,45 @@ const StatCard: React.FC<StatCardProps> = ({
 
 
           <div className="flex items-center justify-between">
-            <div className="bg-indigo-50 p-2 rounded-md flex items-center justify-center">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="10" width="10" height="4" rx="2" fill="#EBE9FE" />
-                <rect x="4" y="0" width="2" height="40" rx="1" fill="#6366F1" />
-                <rect x="18" y="0" width="2" height="40" rx="1" fill="#6366F1" />
-                <rect x="11" y="0" width="2" height="40" rx="1" fill="#6366F1" />
-              </svg>
+            <div className="bg-indigo-29 p-2 rounded-md flex items-center justify-center">
+            <svg 
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 36 36"
+  fill="none"
+  className="w-[29px] h-[29px] rounded-[8px] flex-shrink-0"
+  style={{
+    minWidth: '29px',
+    minHeight: '29px',
+    transformOrigin: 'center',
+    display: 'block'
+  }}
+>
+  {/* Fondo */}
+  <rect 
+    width="36" 
+    height="36" 
+    rx="8" 
+    className="fill-[#F5F2FD]"
+  />
+  
+  {/* Iconos/interior */}
+  <path 
+    d="M14.666 19.7933C14.3927 19.7933 14.166 19.5667 14.166 19.2933V17.1533C14.166 16.88 14.3927 16.6533 14.666 16.6533C14.9393 16.6533 15.166 16.88 15.166 17.1533V19.2933C15.166 19.5733 14.9393 19.7933 14.666 19.7933Z" 
+    className="fill-[#5925DC]"
+  />
+  <path 
+    d="M18 20.9533C17.7267 20.9533 17.5 20.7267 17.5 20.4533V16C17.5 15.7267 17.7267 15.5 18 15.5C18.2733 15.5 18.5 15.7267 18.5 16V20.4533C18.5 20.7267 18.2733 20.9533 18 20.9533Z" 
+    className="fill-[#5925DC]"
+  />
+  <path 
+    d="M21.334 19.7933C21.0607 19.7933 20.834 19.5667 20.834 19.2933V17.1533C20.834 16.88 21.0607 16.6533 21.334 16.6533C21.6073 16.6533 21.834 16.88 21.834 17.1533V19.2933C21.834 19.5733 21.6073 19.7933 21.334 19.7933Z" 
+    className="fill-[#5925DC]"
+  />
+  <path 
+    d="M20.0007 25.1668H16.0007C12.3807 25.1668 10.834 23.6202 10.834 20.0002V16.0002C10.834 12.3802 12.3807 10.8335 16.0007 10.8335H20.0007C23.6207 10.8335 25.1673 12.3802 25.1673 16.0002V20.0002C25.1673 23.6202 23.6207 25.1668 20.0007 25.1668ZM16.0007 11.8335C12.9273 11.8335 11.834 12.9268 11.834 16.0002V20.0002C11.834 23.0735 12.9273 24.1668 16.0007 24.1668H20.0007C23.074 24.1668 24.1673 23.0735 24.1673 20.0002V16.0002C24.1673 12.9268 23.074 11.8335 20.0007 11.8335H16.0007Z" 
+    className="fill-[#5925DC]"
+  />
+</svg>
             </div>
           </div>
 

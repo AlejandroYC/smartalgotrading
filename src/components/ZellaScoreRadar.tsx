@@ -298,16 +298,16 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
   }
 
   return (
-    <div className={`bg-white p-6 rounded-lg shadow h-full ${className}`}>
-      <div className="flex items-center mb-3">
-        <h2 className="text-[16px] font-semibold text-gray-800">LMC score</h2>
+    <div className={`bg-white  rounded-lg shadow max-h-[392px] ${className}`}>
+      <div className="flex items-center p-[16px]">
+        <h2 className="text-[16px] font-semibold text-gray-800 ">LMC score</h2>
         <div className="ml-2">
           <InfoIcon />
         </div>
       </div>
-      <hr className="w-full border-t border-gray-200 mb-4" />
+      <hr className="w-full border-t border-gray-200" />
 
-      <div className="h-[350px] w-full">
+      <div className="h-[250px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart 
             cx="50%" 
@@ -411,10 +411,10 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 border-t border-gray-100 pt-3">
+      <div className=" border-t border-gray-100 ">
         <div className="flex items-center">
           {/* Score y barra integrados */}
-          <div className="flex items-center flex-1">
+          <div className="flex items-center flex-1 p-[16px]">
             {/* Título y valor del score */}
             <div className="flex flex-col">
                 <h3 className="text-[14px] font-semibold text-gray-700">LMC SCORE</h3>
@@ -422,44 +422,41 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
             </div>
              <div className="h-16 ml-16 w-px bg-gray-300 mx-4"></div>
             {/* Barra de progreso */}
-            <div className="flex-1 ml-8">
+            <div className="flex-1">
               {/* Contenedor principal con padding para el círculo */}
               <div className="py-2 -my-2">
                 {/* Barra principal */}
-                <div className="h-[6px] w-full bg-gray-100 rounded-full overflow-hidden relative">
-                  {/* Fondo con degradado */}
-                  <div className="absolute top-0 left-0 h-full rounded-full"
-                    style={{ 
-                      background: 'linear-gradient(90deg, rgb(244, 63, 94) 0%, rgb(234, 179, 8) 50%, rgb(34, 197, 94) 100%)',
-                      width: `${Math.min(98, zellaScore)}%`,
-                      opacity: 0.9
-                    }}
-                  />
-                  
-                  {/* Fondo gris para la parte no completada */}
-                  <div className="absolute top-0 right-0 h-full bg-gray-100 rounded-full"
-                    style={{
-                      left: `${Math.min(98, zellaScore)}%`,
-                      right: 0
-                    }}
-                  />
+                <div className="relative w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+  {/* Fill con degradado */}
+  <div
+    className="absolute top-0 left-0 h-full rounded-full"
+    style={{
+      width: `${Math.min(98, zellaScore)}%`,
+      background: 'linear-gradient(90deg, #F43F5E 0%, #EAB308 50%, #22C55E 100%)',
+      opacity: 0.9,
+    }}
+  />
 
-                  {/* Marcador simple - solo un punto en la posición correcta */}
-                  <div 
-                    className="absolute w-4 h-4 bg-white border-2 border-indigo-600 rounded-full shadow"
-                    style={{ 
-                      left: `${Math.min(98, zellaScore)}%`, 
-                      top: '1px',
-                      transform: 'translate(-50%, -25%)',
-                      zIndex: 10
-                    }}
-                  />
-                </div>
+  {/* Thumb circular */}
+  <div
+    className="absolute top-1/2"
+    style={{
+      left: `${Math.min(98, zellaScore)}%`,
+      transform: 'translate(-50%, -50%)',
+      zIndex: 10,
+    }}
+  >
+    <div className="w-[10px] h-[10px] bg-white rounded-full border-2 border-gray-300 shadow-md" />
+  </div>
+</div> 
                 
                 {/* Numeración simple */}
-                <div className="mt-4 w-full flex justify-between text-xs text-gray-500">
+                <div className="mt-[4px] w-full flex justify-between text-xs text-gray-500">
                   <span>0</span>
-                  <span>50</span>
+                  <span>20</span>
+                  <span>40</span>
+                  <span>60</span>
+                  <span>80</span>
                   <span>100</span>
                 </div>
               </div>

@@ -186,7 +186,7 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
+    <div className="bg-white p-[16px] rounded-lg shadow h-full flex flex-col">
       <div className="flex items-start justify-start mb-4">
         <h1 className="text-[16px] font-semibold text-black font-roboto text-left">P&L neto diario</h1>
       </div>

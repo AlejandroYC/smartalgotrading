@@ -59,10 +59,10 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center h-[44px] space-x-2 px-8 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="flex items-center h-[44px] space-x-2 px-8 text-sm bg-white border border-gray-200 rounded-lg hover: border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-300"
       >
         <svg
-          className="w-4 h-4 text-gray-500"
+          className="w-4 h-4 text-[#6457a6]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -89,7 +89,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
         <div className="absolute right-0 z-50 w-64 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 overflow-hidden">
           {/* All accounts section */}
           <div className="px-3 py-2">
-            <div className="text-xs font-medium text-purple-600 mb-2">All accounts</div>
+            <div className="text-xs font-medium text-gray-600 mb-2">All accounts</div>
             <button
               onClick={() => {
                 onSelectAccount('all');
@@ -98,7 +98,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
               className="w-full flex items-center px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
             >
               <svg
-                className="w-4 h-4 mr-2 text-gray-500"
+                className="w-4 h-4 mr-2 text-[#6457a6]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"

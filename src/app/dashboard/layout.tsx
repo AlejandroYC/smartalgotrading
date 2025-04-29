@@ -94,7 +94,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           <SecondSidebar />
           <Sidebar />
         </div>
-        <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-[140px]' : 'ml-80'} relative`}>
+        <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-[130px]' : 'ml-[280px]'} relative`}>
           <NavigationLoading />
           <main className="flex-1">
             {children}

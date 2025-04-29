@@ -178,7 +178,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
         className="flex items-center h-[44px] space-x-2 px-[1rem] py-[1rem] text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
         <svg
-          className="w-4 h-4 text-gray-500"
+          className="w-4 h-4 text-[#6457a6]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -197,10 +197,10 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
             e.stopPropagation();
             setDefaultDateRange();
           }}
-          className="ml-2 text-gray-400 hover:text-gray-600 focus:outline-none"
+          className="ml-2 text-white-400 bg-[#6457a6] rounded-full p-0.5 hover:text-white-600 focus:outline-none"
           aria-label="Resetear rango de fechas"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
@@ -232,7 +232,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
                       relative h-7 w-7 flex items-center justify-center text-sm rounded-full
                       ${!day.isCurrentMonth ? 'text-gray-400' : 'text-gray-900'}
                       ${isSelected(day.date)
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-blue-900 text-white'
                         : isInRange(day.date)
                         ? 'bg-blue-50'
                         : 'hover:bg-gray-100'
@@ -268,9 +268,9 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
                       relative h-7 w-7 flex items-center justify-center text-sm rounded-full
                       ${!day.isCurrentMonth ? 'text-gray-400' : 'text-gray-900'}
                       ${isSelected(day.date)
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-blue-900 text-white'
                         : isInRange(day.date)
-                        ? 'bg-blue-50'
+                        ? 'bg-purple-50'
                         : 'hover:bg-gray-100'
                       }
                     `}
