@@ -3,14 +3,13 @@
 import React from "react";
 import Image from "next/image";
 
-export default function PlaybookMain() {
+export default function MyPlaybook() {
   return (
     <main className="flex-1 flex flex-col items-center justify-center text-center bg-[#F8F9FC]">
       <div className="max-w-lg px-8">
-        {/* Ilustración */}
         <div className="relative w-full h-64 mx-auto">
           <Image
-            src="/noMyPlaybookImage.svg" // Usa tu archivo .webp aquí
+            src="/noMyPlaybookImage.svg"
             alt="Playbook Illustration"
             fill
             style={{ objectFit: "contain" }}

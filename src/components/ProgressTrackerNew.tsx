@@ -8,22 +8,28 @@ import toast from 'react-hot-toast';
 
 // Componente para el ícono de información
 const InfoIcon = () => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="24" 
-    height="24" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className="text-[#333333]"
-  >
-    <circle cx="12" cy="12" r="10"></circle>
-    <line x1="12" y1="16" x2="12" y2="12"></line>
-    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-  </svg>
+  <svg
+  xmlns="http://www.w3.org/2000/svg"
+  width={16}
+  height={16}
+  viewBox="0 0 24 24"  // ViewBox original para mantener proporciones
+  fill="none"
+  stroke="currentColor"
+  strokeWidth={2}
+  strokeLinecap="round"
+  strokeLinejoin="round"
+  className="text-gray-500 hover:text-gray-700 flex-shrink-0"
+  style={{
+    display: 'block',
+    overflow: 'visible',
+    transform: 'scale(1.0)',  // Escala exacta (16/24 = 0.6667)
+    transformOrigin: 'center'
+  }}
+>
+  <circle cx="12" cy="12" r="10" />
+  <line x1="12" y1="16" x2="12" y2="12" />
+  <line x1="12" y1="8" x2="12.01" y2="8" />
+</svg>
 );
 
 interface ProgressTrackerProps {
@@ -344,24 +350,24 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   const totalTradesInCalendar = calendarData.flat().reduce((sum, day) => sum + day.trades, 0);
   
   return (
-    <div className="bg-white w-full h-full">
+    <div className="bg-white rounded-lg shadow-md h-[392px]">
       {/* Header with border bottom - más compacto */}
-      <div className="flex justify-between items-center p-3 border-b border-gray-200">
+      <div className="flex justify-between items-center px-[16px]  py-[12px]    border-b border-gray-200">
         <div className="flex items-center gap-1.5">
           <h2 className="text-[#2D3748] text-[16px] font-semibold">Seguimiento de progreso</h2>
           <InfoIcon />
-          <span className="ml-0.5 bg-[#FFEAA0] text-[#92400E] text-xs px-2 py-0.5 rounded-full font-medium">
+          <span className="ml-0.5 bg-[#FFD740] text-[#ffffff] text-[10px] px-[10px] py-[5px] rounded-full font-medium">
             BETA
           </span>
         </div>
-        <div className="text-[#6366F1] text-sm font-medium">
-          View more
+        <div className="text-white bg-[#6457A6] h-8 px-3 py-1.5 text-sm font-medium rounded hover:bg-[#352E77] transition-colors duration-200">
+          Explorar
         </div>
       </div>
 
       {/* Calendar section - más compacto */}
-      <div className="p-3 overflow-x-auto">
-        <div className="min-w-[500px]">
+      <div className="px-2 ">
+        <div className="min-w-[420px] p-[8px]">
           {/* Month headers - más compactos */}
           <div className="flex mb-2">
             <div className="w-[40px]"></div>
@@ -375,9 +381,11 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
           {calendarData.map((row, rowIndex) => {
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             return (
+
               <div key={rowIndex} className="flex mb-1">
+                
                 <div className="w-[40px] text-[#4A5568] font-medium text-xs">{dayNames[rowIndex]}</div>
-                <div className="flex-1 grid grid-cols-[repeat(14,1fr)] gap-[2px]">
+                <div className="flex-1 grid grid-cols-[repeat(14,1fr)] gap-[4px]">
                   {row.map((day, dayIndex) => {
                     const bgColor = day.active
                       ? day.trades > 0
@@ -409,7 +417,7 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
           })}
 
           {/* Color legend - más compacto */}
-          <div className="flex items-center justify-end mt-2 gap-1">
+          <div className="flex items-center justify-center mt-[4px] gap-1">
             <span className="text-[#4A5568] text-xs">Less</span>
             {ACTIVITY_COLORS.slice(1).map((color, index) => (
               <div
@@ -424,8 +432,8 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       </div>
 
       {/* TODAY'S SCORE section - más compacto */}
-      <div className="border-t border-gray-200 p-3">
-        <div className="flex justify-between items-center mb-2">
+      <div className="border-t border-gray-200 px-[16px]  pb-[16px] pt-[8px]">
+        <div className="flex justify-between items-center ">
           <div className="flex items-center gap-1.5">
             <h3 className="text-[#2D3748] font-bold uppercase text-xs">TODAY'S SCORE</h3>
             <InfoIcon />

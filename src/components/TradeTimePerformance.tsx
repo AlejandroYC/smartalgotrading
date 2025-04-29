@@ -89,46 +89,46 @@ const TradeTimePerformance: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-white rounded-lg shadow-md h-[392px]   ">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[16px] font-semibold text-gray-900">Rendimiento en el tiempo de operación</h2>
+        <h2 className="text-[16px] font-semibold text-gray-900 p-[16px]">Rendimiento en el tiempo de operación</h2>
         <div className="text-sm text-gray-600">
           {tradePoints.length} trades
         </div>
       </div>
-      <div className="h-[400px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart
-            margin={{ top: 50, right: 20, bottom: 20, left: 0 }}
-          >
-            <XAxis
-              type="number"
-              dataKey="hour"
-              name="Hora"
-              domain={[0, 24]}
-              tickCount={13}
-              tickFormatter={(value) => `${Math.floor(value)}:00`}
-            />
-            <YAxis
-              type="number"
-              dataKey="profit"
-              name="Profit"
-              tickFormatter={(value) => `$${value}`}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Scatter
-              name="Trades ganadores"
-              data={tradePoints.filter((point: TradePoint) => point.profit >= 0)}
-              fill="#10B981"
-            />
-            <Scatter
-              name="Trades perdedores"
-              data={tradePoints.filter((point: TradePoint) => point.profit < 0)}
-              fill="#EF4444"
-            />
-          </ScatterChart>
-        </ResponsiveContainer>
-      </div>
+      <div className="w-[420px] max-h-[295px] p-4 overflow-hidden">
+  <ResponsiveContainer width="100%" height="100%">
+    <ScatterChart
+      margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+    >
+      <XAxis
+        type="number"
+        dataKey="hour"
+        name="Hora"
+        domain={[0, 24]}
+        tickCount={13}
+        tickFormatter={(value) => `${Math.floor(value)}:00`}
+      />
+      <YAxis
+        type="number"
+        dataKey="profit"
+        name="Profit"
+        tickFormatter={(value) => `$${value}`}
+      />
+      <Tooltip content={<CustomTooltip />} />
+      <Scatter
+        name="Trades ganadores"
+        data={tradePoints.filter((point: TradePoint) => point.profit >= 0)}
+        fill="#10B981"
+      />
+      <Scatter
+        name="Trades perdedores"
+        data={tradePoints.filter((point: TradePoint) => point.profit < 0)}
+        fill="#EF4444"
+      />
+    </ScatterChart>
+  </ResponsiveContainer>
+</div>
     </div>
   );
 };

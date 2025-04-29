@@ -253,7 +253,7 @@ const RecentTradesSection: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-white rounded-lg shadow-md h-[392px]">
       <div className="flex gap-6 border-b">
         <button 
           className={`px-6 py-3 text-sm font-medium ${
@@ -299,7 +299,7 @@ const RecentTradesSection: React.FC = () => {
       </div>
 
       {/* Table Content */}
-      <div className="divide-y divide-gray-200 max-h-[400px] overflow-auto">
+      <div className="divide-y divide-gray-200 max-h-[280px] overflow-auto">
         {renderContent()}
       </div>
     </div>

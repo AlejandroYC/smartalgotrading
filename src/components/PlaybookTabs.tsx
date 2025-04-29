@@ -7,23 +7,23 @@ interface PlaybookSubnavProps {
   setActiveTab: (tab: "my" | "shared" | "templates") => void;
 }
 
-const PlaybookSubnav: React.FC<PlaybookSubnavProps> = ({ activeTab, setActiveTab }) => {
+export default function PlaybookSubnav({ activeTab, setActiveTab }: PlaybookSubnavProps) {
   const tabs = [
-    { label: "My playbook", value: "my" },
-    { label: "Shared playbook", value: "shared" },
+    { label: "My Playbook", value: "my" },
+    { label: "Shared Playbook", value: "shared" },
     { label: "Templates", value: "templates" },
   ];
 
   return (
-    <div className="flex space-x-6 px-6 py-4 bg-[#F8F9FC] ">
+    <div className="flex space-x-4 px-6 py-3 bg-white shadow">
       {tabs.map((tab) => (
         <button
           key={tab.value}
           onClick={() => setActiveTab(tab.value as "my" | "shared" | "templates")}
-          className={`text-sm font-medium px-3 py-1.5 rounded-md transition-all ${
+          className={`px-4 py-2 rounded-full text-sm font-medium ${
             activeTab === tab.value
-              ? "bg-[#E8E7FB] text-[#5D5FEF]" // activo: fondo morado claro, texto morado
-              : "text-gray-500 hover:text-gray-800"
+              ? "bg-indigo-500 text-white"
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
           {tab.label}
@@ -31,6 +31,4 @@ const PlaybookSubnav: React.FC<PlaybookSubnavProps> = ({ activeTab, setActiveTab
       ))}
     </div>
   );
-};
-
-export default PlaybookSubnav;
+}

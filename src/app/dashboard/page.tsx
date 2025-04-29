@@ -913,8 +913,12 @@ function DashboardContent() {
 
   return (
     <div className="bg-gray-100 text-black">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-white">
-        <h1 className="text-xl sm:text-[24px] font-sb sm:mb-0">Dashboard</h1>
+     <div className="
+  flex flex-col sm:flex-row sm:items-center justify-between
+  sm:pl-[30px] pr-[30px] pt-[16px] pb-[16px] bg-white
+ shadow-sm shadow-[0_1px_3px_rgba(0,0,0,0.12)]
+">
+        <h1 className="text-xl sm:text-[24px] font-semibold sm:mb-0">Dashboard</h1>
         <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-2 space-y-2 sm:space-y-0 sm:h-[44px]">
           {/* Toggle para actualización automática */}
           <div className="flex items-center space-x-2">
@@ -968,7 +972,9 @@ function DashboardContent() {
           <button
             onClick={triggerManualUpdate}
             disabled={status.isUpdating}
-            className=" text-sm  text-gray-600 underline hover:text-gray-800 disabled:bg-gray-400 transition"
+            className="font-semibold text-[14px] text-[#6457A6] underline hover:text-[#513aa6]
+            bg-transparent hover:bg-[#352E77]/10 p-1.5 rounded
+            transition-all duration-300 ease-in-out"
           >
             Actualizar datos
           </button>
@@ -980,12 +986,12 @@ function DashboardContent() {
       </div>
 
       {/* Estadísticas básicas */}
-      <div className="px-4 sm:px-8">
+      <div className="px-4 sm:px-6">
         <StatsOverview />
       </div>
 
       {/* Componentes gráficos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 px-4 sm:px-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-[16px] px-2 sm:px-6 [&>*]:min-w-[420px] [&>*]:max-h-[392px]">
         <ChartErrorBoundary key="zella-score-radar">
           <div className="w-full">
             <SafeZellaScoreRadar />
@@ -1031,7 +1037,7 @@ function DashboardContent() {
         </ChartErrorBoundary>
       </div>
 
-      <div className="w-full px-4 sm:px-8 py-4">
+      <div className="w-full px-4 sm:px-6 py-4">
         <ChartErrorBoundary key="trading-calendar">
           <div className="w-full">
             <TradingCalendar />

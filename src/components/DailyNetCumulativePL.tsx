@@ -254,19 +254,19 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
   const absMax = Math.max(Math.abs(maxValue), Math.abs(minValue));
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow h-full flex flex-col">
-       <div className="flex items-start justify-start mb-4">
-         <h1 className="text-[16px] font-semibold text-black font-roboto text-left">P&L neto acumulado diario</h1>
+    <div className="bg-white  rounded-lg shadow h-full flex flex-col">
+       <div className="flex items-center p-[16px]">
+         <h1 className="text-[#2D3748] text-[16px] font-semibold">P&L neto acumulado diario</h1>
       </div>
-      <hr className="w-full border-t border-gray-200 mb-4 mt-6" />
+      <hr className="w-full border-t border-gray-200 " />
     
 
-      <div className="flex-1 w-full min-h-0">
-        <ResponsiveContainer width="100%" height={height}>
-          <AreaChart
-            data={chartData}
-            margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
-          >
+      <div className="flex-1 w-[420px] max-h-[300px] p-4">
+  <ResponsiveContainer width="100%" height="100%">
+    <AreaChart
+      data={chartData}
+      margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
+    >
             <CartesianGrid 
               strokeDasharray="3 3" 
               vertical={false} 
