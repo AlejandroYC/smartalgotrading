@@ -90,16 +90,19 @@ const TradeTimePerformance: React.FC = () => {
 
   return (
     <div className="bg-white rounded-lg shadow-md h-[392px]   ">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[16px] font-semibold text-gray-900 p-[16px]">Rendimiento en el tiempo de operación</h2>
+      <div className="flex items-start justify-between p-[16px]">
+        <h2 className="text-[16px] font-semibold text-[#2D3748] ">Rendimiento en el tiempo de operación</h2>
         <div className="text-sm text-gray-600">
+
           {tradePoints.length} trades
         </div>
+        
       </div>
-      <div className="w-[420px] max-h-[295px] p-4 overflow-hidden">
-  <ResponsiveContainer width="100%" height="100%">
+      <hr className="w-full border-t border-gray-200  " />
+      <div className="w-full h-[330px] p-4 overflow-hidden">
+  <ResponsiveContainer width="95%" height="100%">
     <ScatterChart
-      margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+      margin={{ top: 0, right: 0, bottom: 0, left: 5 }}
     >
       <XAxis
         type="number"

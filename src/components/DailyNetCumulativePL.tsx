@@ -261,11 +261,11 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
       <hr className="w-full border-t border-gray-200 " />
     
 
-      <div className="flex-1 w-[420px] max-h-[300px] p-4">
+      <div className="flex-1 min-w-[420px] min-h-[250px] p-[16px]  ">
   <ResponsiveContainer width="100%" height="100%">
     <AreaChart
       data={chartData}
-      margin={{ top: 10, right: 30, left: 10, bottom: 0 }}
+      margin={{ top:0, right:0, left:-30, bottom: 0 }}
     >
             <CartesianGrid 
               strokeDasharray="3 3" 

@@ -254,9 +254,9 @@ const RecentTradesSection: React.FC = () => {
 
   return (
     <div className="bg-white rounded-lg shadow-md h-[392px]">
-      <div className="flex gap-6 border-b">
+      <div className="flex gap-6 border-b h-[56px] items-center justify-center ">
         <button 
-          className={`px-6 py-3 text-sm font-medium ${
+          className={` py-3 text-sm font-medium${
             activeTab === 'trades' 
               ? 'text-purple-600 border-b-2 border-purple-600' 
               : 'text-gray-400 hover:text-gray-600'

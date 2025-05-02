@@ -698,7 +698,7 @@ const TradingCalendar: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 w-[70%]">
+    <div className="bg-white rounded-lg shadow p-6 w-[66.5%]">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4 relative">
           <button 

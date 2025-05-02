@@ -366,8 +366,8 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       </div>
 
       {/* Calendar section - más compacto */}
-      <div className="px-2 ">
-        <div className="min-w-[420px] p-[8px]">
+      <div>
+        <div className="min-w-[420px]  min-w-[250px]  p-[16px]">
           {/* Month headers - más compactos */}
           <div className="flex mb-2">
             <div className="w-[40px]"></div>
@@ -382,10 +382,10 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
             const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             return (
 
-              <div key={rowIndex} className="flex mb-1">
+              <div key={rowIndex} className="flex mb-1 w">
                 
                 <div className="w-[40px] text-[#4A5568] font-medium text-xs">{dayNames[rowIndex]}</div>
-                <div className="flex-1 grid grid-cols-[repeat(14,1fr)] gap-[4px]">
+                <div className="flex-1 grid grid-cols-[repeat(14,1fr)] gap-[14px]">
                   {row.map((day, dayIndex) => {
                     const bgColor = day.active
                       ? day.trades > 0
@@ -432,18 +432,18 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       </div>
 
       {/* TODAY'S SCORE section - más compacto */}
-      <div className="border-t border-gray-200 px-[16px]  pb-[16px] pt-[8px]">
+      <div className="border-t border-gray-200 px-[8px]  pb-[8px] pt-[8px]">
         <div className="flex justify-between items-center ">
           <div className="flex items-center gap-1.5">
             <h3 className="text-[#2D3748] font-bold uppercase text-xs">TODAY'S SCORE</h3>
             <InfoIcon />
           </div>
-          <button className="bg-white border border-gray-300 rounded-full px-3 py-1 text-[#2D3748] text-xs font-medium hover:bg-gray-50 transition-colors">
+          <button className="bg-white border border-gray-300 rounded-md px-[10px]  py-[4px]  text-[#2D3748] text-[14px] font-semibold hover:bg-gray-100 transition-colors">
             Daily checklist
           </button>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2  mt-[16px]   ">
           <div className="text-[#2D3748] text-xl font-bold">
             {todayScore.current}/{todayScore.total}
           </div>

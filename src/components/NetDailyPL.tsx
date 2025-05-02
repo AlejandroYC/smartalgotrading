@@ -186,17 +186,17 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
   };
 
   return (
-    <div className="bg-white p-[16px] rounded-lg shadow h-full flex flex-col">
-      <div className="flex items-start justify-start mb-4">
-        <h1 className="text-[16px] font-semibold text-black font-roboto text-left">P&L neto diario</h1>
+    <div className="bg-white rounded-lg shadow h-full flex flex-col">
+      <div className="flex items-start justify-start p-[16px] ">
+        <h1 className="text-[16px] font-semibold text-[#2D3748] font-roboto text-left">P&L neto diario</h1>
       </div>
-      <hr className="w-full border-t border-gray-200 mb-4 mt-6" />
+      <hr className="w-full border-t border-gray-200  " />
 
-      <div className="flex-1 w-full min-h-0">
+      <div className="flex-1 min-w-[420px] min-h-[250px] p-[16px]  ">
         <ResponsiveContainer width="100%" height={height}>
           <BarChart
             data={data}
-            margin={{ top: 20, right: 30, left: 10, bottom: 5 }}
+            margin={{ top:10, right: 0, left: -30, bottom: 0 }}
             barGap={2}
             barCategoryGap={data.length <= 3 ? 120 : data.length <= 5 ? 80 : 8}
           >
