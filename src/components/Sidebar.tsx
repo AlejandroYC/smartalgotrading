@@ -1,13 +1,15 @@
 'use client';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuthContext } from '@/providers/AuthProvider';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { useState } from 'react';
-// Importar iconos de React Icons
-import { MdDashboard, MdInsertChart, MdBook, MdPlayArrow, MdEmail } from 'react-icons/md';
-import { FaFileAlt, FaChartLine, FaListAlt, FaChartBar } from 'react-icons/fa';
+import { MdDashboard, MdInsertChart, MdBook, MdPlayArrow, MdEmail, MdBarChart } from 'react-icons/md';
+import { FaFileAlt, FaChartLine, FaListAlt, FaChartBar, FaRegChartBar } from 'react-icons/fa';
+import { GoArrowRight } from "react-icons/go";
+import { MdOutlinePlayArrow } from "react-icons/md";
+import { BsPencilSquare } from "react-icons/bs";
 
 // Crear un evento personalizado para abrir el modal
 export const openAddTradeModal = () => {
@@ -30,8 +32,13 @@ export function Sidebar() {
     },
     { 
       icon: <FaListAlt size={20} color="#9ca3af" />, 
-      name: 'Diario ', 
+      name: 'Diario', 
       href: '/dashboard/journal' 
+    },
+    { 
+      icon: <MdBarChart size={20} color="#9ca3af" />, 
+      name: 'Estadísticas', 
+      href: '/dashboard/stats' 
     },
     { 
       icon: <FaFileAlt size={20} color="#9ca3af" />, 
@@ -55,19 +62,8 @@ export function Sidebar() {
     },
     { 
       icon: <FaChartLine size={20} color="#9ca3af" />, 
-      name: 'Progress Tracker', 
-      href: '/dashboard/progress', 
-      badge: 'Beta' 
-    },
-    { 
-      icon: <MdPlayArrow size={20} color="#9ca3af" />, 
-      name: 'Trade Replay', 
-      href: '/dashboard/replay' 
-    },
-    { 
-      icon: <MdInsertChart size={20} color="#9ca3af" />, 
-      name: 'Resource Center', 
-      href: '/dashboard/resources' 
+      name: 'MT5', 
+      href: '/mt5' 
     },
   ];
 
@@ -169,11 +165,6 @@ export function Sidebar() {
               <span className={`text-sm transition-opacity mb-2 duration-300 font-roboto ${isCollapsed ? 'hidden' : 'block'}`}>
                 {item.name}
               </span>
-              {item.badge && !isCollapsed && (
-                <span className="ml-auto text-[10px] font-medium bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded">
-                  {item.badge}
-                </span>
-              )}
             </Link>
           );
         })}
