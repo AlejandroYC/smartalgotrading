@@ -175,10 +175,10 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center h-[44px] space-x-2 px-[1rem] py-[1rem] text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="flex items-center h-9 space-x-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
       >
         <svg
-          className="w-4 h-4 text-[#6457a6]"
+          className="w-4 h-4 text-gray-500"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -192,15 +192,26 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
         <span className="text-gray-700">
           {formatDate(dateRange.startDate)} - {formatDate(dateRange.endDate)}
         </span>
+        {isOpen && (
+          <svg
+            className="w-4 h-4 text-gray-500 ml-1"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
             setDefaultDateRange();
           }}
-          className="ml-2 text-white-400 bg-[#6457a6] rounded-full p-0.5 hover:text-white-600 focus:outline-none"
+          className="ml-1 text-gray-400 hover:text-gray-500 focus:outline-none"
           aria-label="Resetear rango de fechas"
         >
-        <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>

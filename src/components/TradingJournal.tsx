@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format, parseISO, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, addDays, isAfter, isBefore, isEqual } from 'date-fns';
 import { useTradingData } from '@/contexts/TradingDataContext';
+import { useJournalData } from '@/hooks/useJournalData';
 import { toast } from 'react-toastify';
 import AccountSelector from './AccountSelector';
 import { LoadingIndicator } from './LoadingIndicator';
@@ -54,9 +55,17 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
     endDate: null
   });
   
-  // Obtener datos de trading
-  const { rawData, currentAccount, selectAccount, userAccounts } = useTradingData();
-
+  // Obtener datos de trading del contexto
+  const { currentAccount, selectAccount, userAccounts } = useTradingData();
+  
+  // Usar el nuevo hook de datos del diario que carga desde localStorage
+  const { daily_results, history, rawData, isLoading, reloadData } = useJournalData();
+  
+  // Actualizar el estado de carga combinando ambas fuentes
+  useEffect(() => {
+    setLoading(loading || isLoading);
+  }, [loading, isLoading]);
+  
   // Función para cargar las notas
   const loadNotes = useCallback(async () => {
     if (!userId) {
@@ -213,16 +222,16 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
     }));
   };
   
-  // Obtener las fechas con operaciones de trading del localStorage
-  const getTradingDays = () => {
+  // Obtener las fechas con operaciones de trading del localStorage usando el nuevo hook
+  const getTradingDays = useCallback(() => {
     // Si no hay datos, retornar un array vacío
-    if (!rawData?.statistics?.daily_results) {
+    if (!daily_results || Object.keys(daily_results).length === 0) {
       return [];
     }
     
-    return Object.keys(rawData.statistics.daily_results)
+    return Object.keys(daily_results)
       .map(dateStr => {
-        const dayData = rawData.statistics.daily_results[dateStr];
+        const dayData = daily_results[dateStr];
         return {
           date: dateStr,
           profit: typeof dayData.profit === 'string' ? parseFloat(dayData.profit) : dayData.profit,
@@ -236,9 +245,9 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
         };
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Ordenar por fecha descendente
-  };
+  }, [daily_results]);
 
-  // Calcular días de trading
+  // Calcular días de trading usando el callback
   const tradingDays = getTradingDays();
   
   // Filtrar días de trading basados en la selección del rango del calendario
@@ -320,10 +329,10 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
   };
 
   // Obtener las operaciones para un día específico
-  const getTradesForDay = (dateStr: string) => {
-    if (!rawData?.history) return [];
+  const getTradesForDay = useCallback((dateStr: string) => {
+    if (!history || history.length === 0) return [];
     
-    return rawData.history.filter((trade: any) => {
+    return history.filter((trade: any) => {
       try {
         let tradeDate: Date;
         if (typeof trade.time === 'number') {
@@ -337,7 +346,7 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
         return false;
       }
     });
-  };
+  }, [history]);
   
   // Mostrar las notas por fecha
   const getNoteForDay = (dateStr: string): JournalNote | undefined => {
@@ -382,16 +391,9 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
 
   return (
     <div className="bg-white shadow-lg rounded-lg p-6">
-      {/* Header con selector de cuenta */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-semibold text-black">Diario de Trading</h2>
-        <div className="w-full md:w-auto">
-          <AccountSelector 
-            accounts={formattedAccounts}
-            onSelectAccount={(account) => selectAccount(account)}
-            currentAccount={currentAccount} 
-          />
-        </div>
+      {/* Header con título */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-black">Detalle de Operaciones</h2>
       </div>
       
       {loading && <LoadingIndicator />}
@@ -471,6 +473,14 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
                         <h3 className="text-lg font-medium">
                           {format(date, 'EEE, MMM d, yyyy', { locale: es })}
                         </h3>
+                        {note && (
+                          <div className="ml-2 bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Nota
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center">
                         <span className={`mr-4 font-medium ${day.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -481,12 +491,16 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
                             e.stopPropagation();
                             note ? openEditModal(note) : openNewNoteModal(date);
                           }}
-                          className="py-2 px-4 bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-sm rounded-md flex items-center"
+                          className={`py-2 px-4 text-sm rounded-md flex items-center ${
+                            note 
+                              ? 'bg-blue-50 text-blue-700 border border-blue-300 hover:bg-blue-100' 
+                              : 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-800'
+                          }`}
                         >
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
-                          {note ? 'View note' : 'Add note'}
+                          {note ? 'Ver nota' : 'Agregar nota'}
                         </button>
                       </div>
                     </div>
@@ -643,7 +657,7 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
         
         {/* Columna derecha: Calendario */}
         <div className="lg:w-1/4">
-          <div className="border rounded-lg shadow-sm p-4">
+          <div className="border rounded-lg shadow-sm p-4 lg:sticky lg:top-4">
             <div className="flex justify-between items-center mb-4">
               <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -702,43 +716,43 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4">
-              {currentNote ? 'Edit Note' : 'New Note'}
+            <h3 className="text-xl font-semibold mb-4 text-black">
+              {currentNote ? 'Editar nota' : 'Nueva nota'}
             </h3>
             
             <div className="mb-4">
               <label className="block text-gray-700 text-sm font-medium mb-1">
-                Date
+                Fecha
               </label>
               <div className="text-gray-900">
-                {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy', { locale: es }) : 'No date selected'}
+                {selectedDate ? format(selectedDate, 'EEEE, d MMMM yyyy', { locale: es }) : 'No hay fecha seleccionada'}
               </div>
             </div>
             
             <div className="mb-4">
               <label htmlFor="noteTitle" className="block text-gray-700 text-sm font-medium mb-1">
-                Title (optional)
+                Titulo (opcional)
               </label>
               <input
                 type="text"
                 id="noteTitle"
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="w-full p-2 border border-gray-300 rounded-md text-black"
                 value={noteTitle}
                 onChange={(e) => setNoteTitle(e.target.value)}
-                placeholder="Note title"
+                placeholder="Título de la nota"
               />
             </div>
             
             <div className="mb-4">
               <label htmlFor="noteContent" className="block text-gray-700 text-sm font-medium mb-1">
-                Content
+                Contenido
               </label>
               <textarea
                 id="noteContent"
-                className="w-full p-2 border border-gray-300 rounded-md h-40"
+                className="w-full p-2 border border-gray-300 rounded-md h-40 text-black"
                 value={noteContent}
                 onChange={(e) => setNoteContent(e.target.value)}
-                placeholder="Write your note here..."
+                placeholder="Escribe tu nota aquí..."
               />
             </div>
             
@@ -747,14 +761,14 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 onClick={() => setIsModalOpen(false)}
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 onClick={saveNote}
                 disabled={loading}
               >
-                {loading ? 'Saving...' : 'Save Note'}
+                {loading ? 'Guardando...' : 'Guardar nota'}
               </button>
             </div>
           </div>
