@@ -698,7 +698,7 @@ const TradingCalendar: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 w-[66.5%]">
+    <div className="bg-white rounded-lg shadow p-6 w-[100%]">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4 relative">
           <button 
@@ -710,7 +710,7 @@ const TradingCalendar: React.FC = () => {
             </svg>
           </button>
           
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             {/* Título del mes que se puede hacer clic */}
             <button
               onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}

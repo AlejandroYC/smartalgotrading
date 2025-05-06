@@ -961,7 +961,7 @@ function DashboardContent() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-4 sm:px-8 py-3 sm:py-4">
+      <div className="flex flex-col sm:flex-row justify-between  sm:items-center px-4 sm:px-8 py-3 sm:py-4">
         <div className="flex flex-row items-center justify-between gap-4">
           {status.lastUpdate && (
             <div className="text-xs text-gray-500 mb-3 sm:mb-0">
@@ -990,16 +990,20 @@ function DashboardContent() {
         <StatsOverview />
       </div>
 
-      {/* Componentes gráficos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-[16px] px-2 sm:px-6 [&>*]:min-w-[420px] [&>*]:max-h-[392px]">
-        <ChartErrorBoundary key="zella-score-radar">
-          <div className="w-full">
-            <SafeZellaScoreRadar />
-          </div>
-        </ChartErrorBoundary>
+      <div class="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 px-2 sm:px-4 overflow-x-hidden min-w-0">
+  <ChartErrorBoundary key="zella-score-radar">
+    <div className="w-full">
+      <SafeZellaScoreRadar />
+    </div>
+  </ChartErrorBoundary>
+
+
+
+
+
 
         <ChartErrorBoundary key="progress-tracker">
-          <div className="w-full">
+        <div className="w-full">
             <ProgressTrackerNew
               handleDateRangeChange={(fromDate, toDate) => {
                 setDateRange({
@@ -1037,13 +1041,13 @@ function DashboardContent() {
         </ChartErrorBoundary>
       </div>
 
-      <div className="w-full px-4 sm:px-6 py-4">
-        <ChartErrorBoundary key="trading-calendar">
-          <div className="w-full">
-            <TradingCalendar />
-          </div>
-        </ChartErrorBoundary>
-      </div>
+      <div className="w-full px-4 sm:px-6 py-4 hidden sm:block">
+  <ChartErrorBoundary key="trading-calendar">
+    <div className="w-full">
+      <TradingCalendar />
+    </div>
+  </ChartErrorBoundary>
+</div>
 
       <AccountChangeIndicator isChanging={isChangingAccount} account={selectedAccountNumber} />
       <DateRangeChangeIndicator

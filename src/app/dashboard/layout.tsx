@@ -88,25 +88,29 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex min-h-screen bg-white">
-        <div className="flex fixed left-0 z-50">
-          <SecondSidebar />
-          <Sidebar />
-        </div>
-        <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-[130px]' : 'ml-[280px]'} relative`}>
-          <NavigationLoading />
-          <main className="flex-1">
-            {children}
-          </main>
-        </div>
-      </div>
-      
-      <AddTradeModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-      />
+  <div className="min-h-screen bg-gray-50">
+  <div className="flex min-h-screen bg-white">
+    <div className="hidden lg:flex fixed left-0 z-50">
+      <SecondSidebar />
+      <Sidebar />
     </div>
+    <div
+      className={`flex-1 transition-all duration-300 relative ${
+        isCollapsed ? 'lg:ml-[130px] ml-0' : 'lg:ml-[280px] ml-0'
+      }`}
+    >
+      <NavigationLoading />
+      <main className="flex-1">
+        {children}
+      </main>
+    </div>
+  </div>
+
+  <AddTradeModal
+    isOpen={isModalOpen}
+    onClose={() => setIsModalOpen(false)}
+  />
+</div>
   );
 }
 

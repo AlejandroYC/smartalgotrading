@@ -254,32 +254,26 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
   const absMax = Math.max(Math.abs(maxValue), Math.abs(minValue));
 
   return (
-    <div className="bg-white  rounded-lg shadow h-full flex flex-col">
-       <div className="flex items-center p-[16px]">
-         <h1 className="text-[#2D3748] text-[16px] font-semibold">P&L neto acumulado diario</h1>
+    <div className="bg-white rounded-lg shadow h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center px-4 sm:px-6 py-4">
+        <h1 className="text-[#2D3748] text-[16px] font-semibold">P&L neto acumulado diario</h1>
       </div>
-      <hr className="w-full border-t border-gray-200 " />
-    
-
-      <div className="flex-1 min-w-[420px] min-h-[250px] p-[16px]  ">
-  <ResponsiveContainer width="100%" height="100%">
-    <AreaChart
-      data={chartData}
-      margin={{ top:0, right:0, left:-30, bottom: 0 }}
-    >
-            <CartesianGrid 
-              strokeDasharray="3 3" 
-              vertical={false} 
-              stroke="#E2E8F0" 
-            />
+      <hr className="w-full border-t border-gray-200" />
+  
+      {/* Chart */}
+      <div className="flex-1 w-full min-h-[250px] h-[300px] sm:h-[400px] md:h-[450px] px-4 sm:px-6 pb-4">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={chartData}
+            margin={{ top: 0, right: 0, left: -30, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
             <defs>
-              {/* Gradiente para valores positivos (verde) */}
               <linearGradient id="positiveGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
                 <stop offset="100%" stopColor="#22c55e" stopOpacity={0.1} />
               </linearGradient>
-              
-              {/* Gradiente para valores negativos (rojo/rosa como en la imagen) */}
               <linearGradient id="negativeGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#f87171" stopOpacity={0.8} />
                 <stop offset="95%" stopColor="#fecaca" stopOpacity={0.3} />
@@ -289,16 +283,13 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
               dataKey="date"
               ticks={xAxisTicks}
               tickFormatter={(date) => {
-                if (!date) return '';
-                const parts = date.split('-');
-                if (parts.length !== 3) return date;
-                // Formato MM/DD estilo imagen
-                return `${parts[1]}/${parts[2]}`;
+                const parts = date?.split('-');
+                return parts?.length === 3 ? `${parts[1]}/${parts[2]}` : date;
               }}
               stroke="#94A3B8"
               fontSize={12}
             />
-            <YAxis 
+            <YAxis
               ticks={yAxisTicks}
               tickFormatter={(value) => `$${value.toFixed(2)}`}
               stroke="#94A3B8"
@@ -314,23 +305,17 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
                 }
                 return [`$${parseFloat(value).toFixed(2)}`, name];
               }}
-              labelFormatter={(date) => format(parseISO(date as string), 'MMM dd, yyyy')}
+              labelFormatter={(date) => format(parseISO(date), 'MMM dd, yyyy')}
               contentStyle={{
                 backgroundColor: '#1E293B',
                 border: 'none',
                 borderRadius: '8px',
                 boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
               }}
-              itemStyle={{
-                color: '#E2E8F0'
-              }}
-              labelStyle={{
-                color: '#F8FAFC',
-                fontWeight: 'bold',
-                marginBottom: '5px'
-              }}
+              itemStyle={{ color: '#E2E8F0' }}
+              labelStyle={{ color: '#F8FAFC', fontWeight: 'bold', marginBottom: '5px' }}
               content={({ active, payload, label }) => {
-                if (active && payload && payload.length) {
+                if (active && payload?.length) {
                   const data = payload[0].payload;
                   return (
                     <div className="bg-gray-800 p-3 rounded-lg shadow-lg text-white text-sm">
@@ -350,34 +335,25 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
                 return null;
               }}
             />
-            {/* Área para valores positivos */}
             <Area
               type="monotone"
               dataKey={(data) => data.value >= 0 ? data.value : 0}
               stroke="#22c55e"
               fill="url(#positiveGradient)"
-              fillOpacity={0.8}
               strokeWidth={2}
               dot={false}
-              isAnimationActive={true}
-              animationDuration={600}
-              animationEasing="ease-out"
-              connectNulls={true}
+              isAnimationActive
+              connectNulls
             />
-            
-            {/* Área para valores negativos */}
             <Area
               type="monotone"
               dataKey={(data) => data.value < 0 ? data.value : 0}
               stroke="#ef4444"
               fill="url(#negativeGradient)"
-              fillOpacity={0.8}
               strokeWidth={2}
               dot={false}
-              isAnimationActive={true}
-              animationDuration={600}
-              animationEasing="ease-out"
-              connectNulls={true}
+              isAnimationActive
+              connectNulls
             />
             <ReferenceLine y={0} stroke="#000" strokeDasharray="3 3" />
           </AreaChart>
@@ -385,6 +361,7 @@ const DailyNetCumulativePL: React.FC<DailyNetCumulativePLProps> = ({
       </div>
     </div>
   );
+  
 };
 
 export default React.memo(DailyNetCumulativePL); 

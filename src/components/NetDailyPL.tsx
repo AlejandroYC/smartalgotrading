@@ -187,46 +187,39 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow h-full flex flex-col">
-      <div className="flex items-start justify-start p-[16px] ">
+      <div className="flex items-start justify-start p-4">
         <h1 className="text-[16px] font-semibold text-[#2D3748] font-roboto text-left">P&L neto diario</h1>
       </div>
-      <hr className="w-full border-t border-gray-200  " />
-
-      <div className="flex-1 min-w-[420px] min-h-[250px] p-[16px]  ">
+      <hr className="w-full border-t border-gray-200" />
+  
+      <div className="flex-1 w-full min-h-[250px] sm:min-h-[300px] md:min-h-[350px] p-4">
         <ResponsiveContainer width="100%" height={height}>
           <BarChart
             data={data}
-            margin={{ top:10, right: 0, left: -30, bottom: 0 }}
-            barGap={2}
-            barCategoryGap={data.length <= 3 ? 120 : data.length <= 5 ? 80 : 8}
+            margin={{ top: 10, right: 0, left: -30, bottom: 0 }}
+            barGap={data.length <= 3 ? 100 : data.length <= 5 ? 60 : 8}
+            barCategoryGap={data.length <= 3 ? 100 : data.length <= 5 ? 60 : 8}
           >
-            <CartesianGrid 
-              strokeDasharray="3 3" 
-              vertical={false} 
-              stroke="#E2E8F0"
-            />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
             <XAxis
               dataKey="date"
               ticks={xAxisTicks}
               tickFormatter={(date) => {
                 if (!date) return '';
                 const parts = date.split('-');
-                if (parts.length !== 3) return date;
-                // Formato MM/DD estilo imagen
-                return `${parts[1]}/${parts[2]}`;
+                return parts.length === 3 ? `${parts[1]}/${parts[2]}` : date;
               }}
               stroke="#94A3B8"
               fontSize={12}
             />
-            <YAxis 
+            <YAxis
               ticks={yAxisTicks}
               tickFormatter={(value) => `$${value.toFixed(2)}`}
               stroke="#94A3B8"
               fontSize={12}
               width={70}
               domain={[
-                // Ajustar el dominio para solo tener un pequeño margen
-                minProfit < 0 ? Math.floor(minProfit * 1.1) : -1, 
+                minProfit < 0 ? Math.floor(minProfit * 1.1) : -1,
                 maxProfit > 0 ? Math.ceil(maxProfit * 1.1) : 1
               ]}
             />
@@ -239,9 +232,7 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
                 borderRadius: '8px',
                 boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
               }}
-              itemStyle={{
-                color: '#E2E8F0'
-              }}
+              itemStyle={{ color: '#E2E8F0' }}
               labelStyle={{
                 color: '#F8FAFC',
                 fontWeight: 'bold',
@@ -250,7 +241,7 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
             />
             <Bar
               dataKey="profit"
-              barSize={data.length <= 3 ? 30 : data.length <= 5 ? 40 : 20}
+              barSize={data.length <= 3 ? 24 : data.length <= 5 ? 32 : 16}
               shape={<CustomBar />}
               isAnimationActive={false}
             />
@@ -260,6 +251,7 @@ const NetDailyPL: React.FC<NetDailyPLProps> = ({
       </div>
     </div>
   );
+  
 };
 
 export default React.memo(NetDailyPL);

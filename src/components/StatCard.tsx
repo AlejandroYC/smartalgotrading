@@ -382,9 +382,9 @@ const StatCard: React.FC<StatCardProps> = ({
     const lossFormatted = `-$${lossAbs.toFixed(2)}`;
 
     return (
-      <div className="flex flex-col w-full">
+      <div className="flex flex-col w-full px-2">
         {/* Barra horizontal con proporción real */}
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full flex ">
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full flex">
           <div
             className="h-full rounded-l-full"
             style={{
@@ -400,11 +400,11 @@ const StatCard: React.FC<StatCardProps> = ({
             }}
           ></div>
         </div>
-
+    
         {/* Valores monetarios debajo de la barra */}
-        <div className="flex justify-between w-full px-1">
-          <span className="text-base font-semibold text-green-600">{winFormatted}</span>
-          <span className="text-base font-semibold text-red-500">{lossFormatted}</span>
+        <div className="flex justify-between w-full text-xs sm:text-sm md:text-base px-1 mt-1">
+          <span className="font-semibold text-green-600">{winFormatted}</span>
+          <span className="font-semibold text-red-500">{lossFormatted}</span>
         </div>
       </div>
     );
@@ -544,7 +544,7 @@ const StatCard: React.FC<StatCardProps> = ({
     // Para la tarjeta de P&L
     if (variant === 'profit') {
       return (
-        <div className="flex flex-row justify-around items-center h-full">
+        <div className="flex flex-row justify-center sm:justify-center items-center h-full">
 
           <div className="flex flex-col items-center">
 
@@ -742,9 +742,9 @@ const StatCard: React.FC<StatCardProps> = ({
     // Diseño especial para Avg Trade (como en la imagen)
     if (variant === 'avg-trade') {
       return (
-        <div className="flex flex-col justify-center items-start w-full h-full p-5">
-
-          <div className="flex items-center gap-2 mb-1">
+        <div className="flex flex-col w-full p-2">
+    
+          <div className="flex items-center gap-2 mb-2">
             <h3 className="text-[15px] font-normal text-[#334155]">{title}</h3>
             {info && (
               <div className="relative">
@@ -758,21 +758,21 @@ const StatCard: React.FC<StatCardProps> = ({
                   </svg>
                 </button>
                 {showTooltip && (
-                  <div className="fixed right-20 top-30 z-10 w-48 p-[5px] bg-gray-800 text-white text-[10px] rounded shadow-lg">
+                  <div className="absolute top-0 right-0 z-10 w-48 p-[5px] bg-gray-800 text-white text-[10px] rounded shadow-lg">
                     {getTooltipText()}
                   </div>
                 )}
               </div>
             )}
           </div>
-
-          <div className="flex justify-between gap-6 items-center">
-            <div className="text-[30px] font-roboto font-bold text-[#0f172a]">
+    
+          <div className="flex justify-between gap-4 items-center">
+            <div className="text-[20px] sm:text-[30px] font-roboto font-bold text-[#0f172a]">
               {formatValue()}
             </div>
-
-            <div className="flex flex-col gap-1 mt-2">
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-[110px] flex">
+    
+            <div className="flex flex-col gap-1 mt-2 w-full">
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden w-full sm:w-[110px] flex">
                 <div
                   className="h-full rounded-l-full bg-[#2fac7e]"
                   style={{
@@ -786,15 +786,18 @@ const StatCard: React.FC<StatCardProps> = ({
                   }}
                 ></div>
               </div>
-              <div className="flex justify-between w-full">
-                <span className="text-[15px] font-medium text-[#2fac7e]">${Math.abs(winAmount).toFixed(2)}</span>
-                <span className="text-[15px] font-medium text-[#ef5350]">-${Math.abs(lossAmount).toFixed(2)}</span>
+    
+              <div className="flex justify-between w-full text-xs sm:text-base mt-1">
+                <span className="font-medium text-[#2fac7e]">${Math.abs(winAmount).toFixed(2)}</span>
+                <span className="font-medium text-[#ef5350]">-${Math.abs(lossAmount).toFixed(2)}</span>
               </div>
             </div>
           </div>
+    
         </div>
       );
     }
+    
 
     // Para las otras tarjetas
     return (
