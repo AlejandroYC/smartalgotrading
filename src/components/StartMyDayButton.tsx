@@ -12,7 +12,7 @@ const StartMyDayButton: React.FC<StartMyDayButtonProps> = ({
   return (
     <button
       onClick={onClick}
-      className={`bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-white text-[14px] font-medium rounded-lg px-2.5 py-2.5  flex items-center justify-center ${className}`}
+      className={`w-full sm:w-auto bg-blue-600 hover:bg-blue-700 transition-colors duration-200 text-white text-[14px] font-medium rounded-lg px-2.5 py-2.5 flex items-center justify-center ${className}`}
     >
       {/* Icono de cohete */}
       <svg 
@@ -38,3 +38,5 @@ const StartMyDayButton: React.FC<StartMyDayButtonProps> = ({
 };
 
 export default StartMyDayButton; 
+
+

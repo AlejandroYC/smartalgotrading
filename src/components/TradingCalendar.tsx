@@ -11,6 +11,8 @@ import { formatTradeType, isBuyOperation, isSellOperation } from '@/utils/tradeU
 // Añadir nombres de meses en español como constante
 const mesesEspanol = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+
+
 interface DayStats {
   profit: number;
   trades: number;
@@ -30,6 +32,8 @@ interface DayDetails {
   stats: DayStats;
   trades: any[];
 }
+
+type DisplayOptionKey = keyof DisplayOptions;
 
 // Interfaz para opciones de visualización
 interface DisplayOptions {
@@ -698,8 +702,162 @@ const TradingCalendar: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 w-[70%]">
-      <div className="flex justify-between items-center mb-4">
+    <div className="bg-white rounded-lg shadow p-4 md:p-6 w-full">
+      {/* Header - Versión móvil */}
+      <div className="md:hidden mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => calendarRef.current?.getApi().prev()}
+              className="text-gray-600 hover:text-gray-800 p-1"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}
+              className="text-lg font-medium text-gray-900 bg-transparent border-none flex items-center"
+            >
+              {mesesEspanol[currentCalendarDate.getMonth()].substring(0, 3)} {currentCalendarDate.getFullYear()}
+              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            <button 
+              onClick={() => calendarRef.current?.getApi().next()}
+              className="text-gray-600 hover:text-gray-800 p-1"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          
+          <button 
+            onClick={goToCurrentMonth}
+            className="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+          >
+            Hoy
+          </button>
+        </div>
+  
+        {/* Selector de mes móvil */}
+        {isMonthSelectorOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg shadow-xl border border-gray-200 w-[90%] mx-auto">
+              <div className="px-4 py-3 flex justify-between items-center border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center">
+                  <span className="font-semibold text-gray-800 mr-2">Año:</span>
+                  <select 
+                    value={selectedYear}
+                    onChange={(e) => handleYearChange(parseInt(e.target.value))}
+                    className="p-1 border border-gray-300 rounded text-sm"
+                  >
+                    {years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => setIsMonthSelectorOpen(false)}
+                  className="text-gray-600 hover:text-gray-800 transition-colors py-1 px-3 rounded hover:bg-gray-100"
+                >
+                  Cerrar
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2 p-3">
+                {mesesEspanol.map((mes, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      handleMonthChange(index);
+                      setIsMonthSelectorOpen(false);
+                    }}
+                    className={`py-2 px-2 text-center rounded-md text-sm ${
+                      currentCalendarDate.getMonth() === index 
+                        ? 'bg-indigo-600 text-white font-medium' 
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {mes.substring(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+  
+        {/* Estadísticas móviles */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            {displayOptions.showDailyPL && (
+              <div className={`text-sm font-medium ${monthlyStats.totalProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {monthlyStats.totalProfit >= 0 ? '$' : '-$'}{Math.abs(monthlyStats.totalProfit).toFixed(2)}
+              </div>
+            )}
+            {displayOptions.showNumberOfTrades && (
+              <div className="text-xs text-gray-600">
+                {monthlyStats.tradingDays} días
+              </div>
+            )}
+          </div>
+  
+          <div className="flex items-center gap-2">
+  <div className="relative">
+    <button 
+      ref={settingsButtonRef}
+      className="p-1 text-gray-600 hover:text-gray-800"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsDisplayOptionsOpen(!isDisplayOptionsOpen);
+      }}
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    </button>
+    {isDisplayOptionsOpen && (
+      <div className="absolute right-0 top-8 bg-white rounded-lg shadow-xl border border-gray-200 w-48 z-50">
+        <div className="p-2 border-b border-gray-200 bg-gray-50">
+          <span className="font-semibold text-gray-800 text-sm">Mostrar:</span>
+        </div>
+        <div className="p-2 max-h-60 overflow-y-auto">
+          <div className="space-y-2">
+            {(
+              [
+                { key: 'showDailyPL' as const, label: 'Daily P/L' },
+                { key: 'showNumberOfTrades' as const, label: 'N° trades' },
+                { key: 'showDayWinrate' as const, label: 'Winrate día' }
+              ] as const
+            ).map(({ key, label }) => (
+              <label key={key} className="flex items-center space-x-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="form-checkbox h-4 w-4 text-indigo-600 rounded"
+                  checked={displayOptions[key]}
+                  onChange={(e) => setDisplayOptions({
+                    ...displayOptions, 
+                    [key]: e.target.checked
+                  })}
+                />
+                <span className="text-xs text-gray-700">{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+        </div>
+      </div>
+  
+      {/* Header - Versión desktop (oculto en móviles) */}
+      <div className="hidden md:flex justify-between items-center mb-4">
         <div className="flex items-center gap-4 relative">
           <button 
             onClick={() => calendarRef.current?.getApi().prev()}
@@ -710,19 +868,17 @@ const TradingCalendar: React.FC = () => {
             </svg>
           </button>
           
-          <div className="relative">
-            {/* Título del mes que se puede hacer clic */}
+          <div className="relative w-full sm:w-auto">
             <button
               onClick={() => setIsMonthSelectorOpen(!isMonthSelectorOpen)}
               className="text-xl font-medium text-gray-900 bg-transparent border-none appearance-none flex items-center"
             >
-            {mesesEspanol[currentCalendarDate.getMonth()]} {currentCalendarDate.getFullYear()}
+              {mesesEspanol[currentCalendarDate.getMonth()]} {currentCalendarDate.getFullYear()}
               <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             
-            {/* Modal selector de mes */}
             {isMonthSelectorOpen && (
               <div className="absolute top-10 left-0 z-50 bg-white rounded-lg shadow-xl border border-gray-200 w-72">
                 <div className="px-4 py-3 flex justify-between items-center border-b border-gray-200 bg-gray-50">
@@ -773,15 +929,15 @@ const TradingCalendar: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-
+  
           <button 
             onClick={goToCurrentMonth}
             className="ml-4 px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
           >
             Este mes
           </button>
-          </div>
-
+        </div>
+  
         <div className="flex items-center gap-4 text-sm">
           <div>Estadísticas mensuales:</div>
           {displayOptions.showDailyPL && (
@@ -820,7 +976,7 @@ const TradingCalendar: React.FC = () => {
               </svg>
             </button>
             {isDisplayOptionsOpen && (
-              <div className="absolute right-0 top-10 bg-white rounded-lg shadow-xl border border-gray-200 w-64 z-50 display-options-modal">
+              <div className="absolute right-0 top-10 bg-white rounded-lg shadow-xl border border-gray-200 w-64 z-50">
                 <div className="p-3 border-b border-gray-200 bg-gray-50">
                   <span className="font-semibold text-gray-800">Display stats</span>
                 </div>
@@ -902,8 +1058,8 @@ const TradingCalendar: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Calendario oculto para gestionar la lógica */}
+  
+      {/* Calendario oculto para gestión */}
       <div className="hidden">
         <FullCalendar
           plugins={[dayGridPlugin, interactionPlugin]}
@@ -917,9 +1073,72 @@ const TradingCalendar: React.FC = () => {
           datesSet={handleDatesSet}
         />
       </div>
-
-      {/* Contenedor de la cuadrícula del calendario */}
-      <div className="w-full">
+  
+      {/* Calendario visual - Versión móvil */}
+      <div className="md:hidden w-full">
+        <div className="grid grid-cols-7 gap-1 mb-1">
+          {['D', 'L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => (
+            <div key={i} className="text-center py-1 text-xs font-medium text-gray-500">
+              {day}
+            </div>
+          ))}
+        </div>
+  
+        <div className="grid grid-cols-7 gap-1">
+          {(() => {
+            const result = [];
+            const currentMonth = currentCalendarDate.getMonth();
+            const currentYear = currentCalendarDate.getFullYear();
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+            const firstDayOffset = firstDayOfMonth.getDay();
+            const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  
+            for (let weekIndex = 0; weekIndex < 6; weekIndex++) {
+              for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+                const dayOfMonth = 1 + (weekIndex * 7 + dayIndex) - firstDayOffset;
+                const isCurrentMonth = dayOfMonth > 0 && dayOfMonth <= lastDayOfMonth;
+                const date = new Date(currentYear, currentMonth, dayOfMonth);
+                const dateStr = isCurrentMonth ? format(date, 'yyyy-MM-dd') : '';
+                const isOtherMonth = !isCurrentMonth;
+                const dayStats = isCurrentMonth ? dailyStats.get(dateStr) : null;
+  
+                result.push(
+                  <div 
+                    key={`mobile-day-${weekIndex}-${dayIndex}`}
+                    className={`relative rounded-md min-h-[50px] ${isOtherMonth ? 'bg-gray-50' : 'bg-gray-100'}`}
+                    onClick={() => dayStats && handleDayClick(dateStr, dayStats)}
+                  >
+                    <div className="absolute top-1 right-1">
+                      <span className={`text-xs ${isCurrentMonth ? 'text-gray-800' : 'text-gray-400'}`}>
+                        {isCurrentMonth ? dayOfMonth : ''}
+                      </span>
+                    </div>
+                    
+                    {dayStats && (
+                      <div className={`
+                        absolute inset-0 rounded-md border
+                        ${dayStats.profit >= 0 ? 'bg-green-100 border-green-300' : 'bg-red-100 border-red-300'}
+                      `}>
+                        <div className="flex flex-col items-end justify-end h-full p-1">
+                          {displayOptions.showDailyPL && (
+                            <div className={`text-xs font-medium ${dayStats.profit >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                              {dayStats.profit >= 0 ? '+' : ''}{dayStats.profit.toFixed(0)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+            }
+            return result;
+          })()}
+        </div>
+      </div>
+  
+      {/* Calendario visual - Versión desktop (oculto en móviles) */}
+      <div className="hidden md:block w-full">
         <div className="grid grid-cols-8 gap-x-2 mb-2 border-b border-gray-200">
           <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">DOM</div>
           <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">LUN</div>
@@ -930,33 +1149,20 @@ const TradingCalendar: React.FC = () => {
           <div className="text-center py-1 font-medium text-gray-700 text-sm border border-gray-200 rounded-lg">SAB</div>
           <div className="text-left py-1 font-medium text-gray-700 text-sm"></div>
         </div>
-
-        {/* Días del calendario */}
+  
         <div className="grid grid-cols-8 gap-x-1 gap-y-1">
           {(() => {
-            // Preparar datos del calendario
             const result = [];
             const currentMonth = currentCalendarDate.getMonth();
             const currentYear = currentCalendarDate.getFullYear();
             const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-            const firstDayOffset = firstDayOfMonth.getDay(); // 0 = domingo
+            const firstDayOffset = firstDayOfMonth.getDay();
             const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             
-            // Generar 6 semanas
             for (let weekIndex = 0; weekIndex < 6; weekIndex++) {
               const weekNum = weekIndex + 1;
+              let weekStats = { profit: 0, tradingDays: 0, trades: 0 };
               
-              // Recalcular las estadísticas de la semana basadas en los días que se muestran
-              let weekStats = {
-                profit: 0,
-                tradingDays: 0,
-                trades: 0
-              };
-              
-              // Array para almacenar los días de esta semana que tienen datos
-              const weekDays = [];
-              
-              // Para cada día de la semana
               for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
                 const dayOfMonth = 1 + (weekIndex * 7 + dayIndex) - firstDayOffset;
                 const isCurrentMonth = dayOfMonth > 0 && dayOfMonth <= lastDayOfMonth;
@@ -965,20 +1171,17 @@ const TradingCalendar: React.FC = () => {
                 const isOtherMonth = !isCurrentMonth;
                 const dayStats = isCurrentMonth ? dailyStats.get(dateStr) : null;
                 
-                // Si el día tiene estadísticas, acumularlas para esta semana
                 if (dayStats) {
                   weekStats.profit += dayStats.profit;
                   weekStats.trades += dayStats.trades;
                   if (dayStats.trades > 0) {
                     weekStats.tradingDays += 1;
                   }
-                  weekDays.push(dayOfMonth);
                 }
                 
-                // Añadir celda de día
                 result.push(
                   <div 
-                    key={`day-${weekIndex}-${dayIndex}`} 
+                    key={`desktop-day-${weekIndex}-${dayIndex}`} 
                     className={`relative border border-gray-100 min-h-[115px] ${isOtherMonth ? 'bg-gray-50' : 'bg-gray-100'}`}
                     onClick={() => dayStats && handleDayClick(dateStr, dayStats)}
                   >
@@ -990,8 +1193,7 @@ const TradingCalendar: React.FC = () => {
                       </div>
                     )}
                     
-                    {/* Contenido del día si hay datos */}
-                    {dayStats ? (
+                    {dayStats && (
                       <div 
                         className={`absolute inset-0 rounded-md border ${
                           dayStats.profit >= 0 
@@ -1006,21 +1208,18 @@ const TradingCalendar: React.FC = () => {
                         </div>
                         
                         <div className="flex flex-col items-end justify-center h-full pr-2 pt-2">
-                          {/* P&L diario - Mostrar solo si la opción está activada */}
                           {displayOptions.showDailyPL && (
                             <div className="text-base font-semibold text-gray-800">
                               {dayStats.profit >= 0 ? '' : '-'}${Math.abs(dayStats.profit).toFixed(1)}
                             </div>
                           )}
                           
-                          {/* Número de trades - Mostrar solo si la opción está activada */}
                           {displayOptions.showNumberOfTrades && (
                             <div className="text-xs text-gray-600 mt-0.5">
                               {dayStats.trades} {dayStats.trades === 1 ? 'trade' : 'trades'}
                             </div>
                           )}
                           
-                          {/* Day winrate - Mostrar solo si la opción está activada */}
                           {displayOptions.showDayWinrate && (
                             <div className="text-xs text-gray-600 mt-0.5">
                               {Number(dayStats.winRate).toFixed(2).replace(/\.0+$/, '')}%
@@ -1028,14 +1227,11 @@ const TradingCalendar: React.FC = () => {
                           )}
                         </div>
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 );
               }
               
-              const hasData = weekStats.tradingDays > 0;
-              
-              // Añadir resumen semanal al final de cada semana
               result.push(
                 <div key={`week-summary-${weekIndex}`} className="bg-white border border-gray-200 rounded-lg min-h-[110px]">
                   <div className="p-3">
@@ -1054,12 +1250,11 @@ const TradingCalendar: React.FC = () => {
                 </div>
               );
             }
-            
             return result;
           })()}
         </div>
       </div>
-
+  
       {isModalOpen && selectedDayDetails && renderModal()}
     </div>
   );

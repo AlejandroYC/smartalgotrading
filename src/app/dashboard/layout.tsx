@@ -18,12 +18,9 @@ function NavigationLoading() {
 
   // Verificar si venimos desde el login para controlar el estado de navegación
   useEffect(() => {
-    // Verificar si venimos de login
     if (typeof window !== 'undefined' && sessionStorage.getItem('coming_from_login')) {
       console.log('NavigationLoading: Detectada redirección desde login');
-      // Eliminar flag para futuras navegaciones
       sessionStorage.removeItem('coming_from_login');
-      // No mostrar loading si venimos del login
       setIsNavigating(false);
     }
   }, []);
@@ -34,7 +31,6 @@ function NavigationLoading() {
       return;
     }
 
-    // Evitar mostrar animación de carga si venimos del login
     if (typeof window !== 'undefined' && sessionStorage.getItem('coming_from_login')) {
       console.log('NavigationLoading: Omitiendo animación por venir de login');
       sessionStorage.removeItem('coming_from_login');
@@ -90,21 +86,25 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex min-h-screen bg-white">
-        <div className="flex fixed left-0 z-50">
+        <div className="hidden lg:flex fixed left-0 z-50">
           <SecondSidebar />
           <Sidebar />
         </div>
-        <div className={`flex-1 transition-all duration-300 ${isCollapsed ? 'ml-[130px]' : 'ml-[280px]'} relative`}>
+        <div
+          className={`flex-1 transition-all duration-300 relative ${
+            isCollapsed ? 'lg:ml-[130px] ml-0' : 'lg:ml-[280px] ml-0'
+          }`}
+        >
           <NavigationLoading />
           <main className="flex-1">
             {children}
           </main>
         </div>
       </div>
-      
-      <AddTradeModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+
+      <AddTradeModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
       />
     </div>
   );
@@ -124,4 +124,4 @@ export default function DashboardLayout({
       </SidebarProvider>
     </TradingDataProvider>
   );
-} 
+}

@@ -175,7 +175,7 @@ const StatsOverview: React.FC = () => {
   });
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
       <StatCard 
         title={`Net P&L`} 
         value={net_profit}
@@ -212,7 +212,7 @@ const StatsOverview: React.FC = () => {
         info={true}
       />
       <StatCard 
-        title={`Avg win/loss trade `} 
+        title={`Avg win/loss trade`} 
         value={avgWinLossRatio}
         winAmount={avg_win}
         lossAmount={avg_loss}
@@ -221,6 +221,7 @@ const StatsOverview: React.FC = () => {
       />
     </div>
   );
+  
 };
 
 export default StatsOverview; 

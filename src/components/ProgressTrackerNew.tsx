@@ -352,7 +352,7 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   return (
     <div className="bg-white rounded-lg shadow-md h-[392px]">
       {/* Header with border bottom - más compacto */}
-      <div className="flex justify-between items-center px-[16px]  py-[12px]    border-b border-gray-200">
+      <div className="flex justify-between items-center px-[16px] py-[12px] border-b border-gray-200">
         <div className="flex items-center gap-1.5">
           <h2 className="text-[#2D3748] text-[16px] font-semibold">Seguimiento de progreso</h2>
           <InfoIcon />
@@ -364,10 +364,10 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
           Explorar
         </div>
       </div>
-
+  
       {/* Calendar section - más compacto */}
-      <div className="px-2 ">
-        <div className="min-w-[420px] p-[8px]">
+      <div className="overflow-x-auto w-full">
+  <div className="min-w-fit p-[16px] max-h-[250px]">
           {/* Month headers - más compactos */}
           <div className="flex mb-2">
             <div className="w-[40px]"></div>
@@ -376,46 +376,50 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
               <div className="text-[#6366F1] text-sm font-medium ml-[120px]">mar</div>
             </div>
           </div>
+  
+{/* Calendar grid - horizontal scroll en móviles */}
+<div className="overflow-x-auto w-full max-w-full h-[150px]">
+  <div className="min-w-fit">
+    {calendarData.map((row, rowIndex) => {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return (
+        <div key={rowIndex} className="flex mb-1">
+          <div className="w-[40px] shrink-0 text-[#4A5568] font-medium text-xs">
+            {dayNames[rowIndex]}
+          </div>
+          <div className="flex gap-[6px] sm:gap-[8px] md:gap-[10px] lg:gap-[12px]">
+            {row.map((day, dayIndex) => {
+              const bgColor = day.active
+                ? day.trades > 0
+                  ? ACTIVITY_COLORS[getActivityLevel(day.trades)]
+                  : ACTIVITY_COLORS[1]
+                : 'white';
+              const borderClass = !day.active ? 'border border-[#E2E8F0]' : '';
 
-          {/* Calendar grid - más compacto */}
-          {calendarData.map((row, rowIndex) => {
-            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            return (
-
-              <div key={rowIndex} className="flex mb-1">
-                
-                <div className="w-[40px] text-[#4A5568] font-medium text-xs">{dayNames[rowIndex]}</div>
-                <div className="flex-1 grid grid-cols-[repeat(14,1fr)] gap-[4px]">
-                  {row.map((day, dayIndex) => {
-                    const bgColor = day.active
-                      ? day.trades > 0
-                        ? ACTIVITY_COLORS[getActivityLevel(day.trades)]
-                        : ACTIVITY_COLORS[1]
-                      : 'white';
-                    const borderClass = !day.active ? 'border border-[#E2E8F0]' : '';
-                    
-                    return (
-                      <div
-                        key={`${rowIndex}-${dayIndex}`}
-                        className={`aspect-square ${borderClass} rounded-[2px] cursor-pointer 
-                          hover:ring-1 hover:ring-[#6366F1] transition-all relative`}
-                        style={{ backgroundColor: bgColor }}
-                        onClick={() => handleDayClick(day)}
-                      >
-                        {tooltipInfo && isSameDay(day.date, tooltipInfo.date) && (
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
-                            bg-[#1A202C] text-white text-[10px] py-0.5 px-1.5 rounded whitespace-nowrap z-10">
-                            {tooltipInfo.info}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+              return (
+                <div
+                  key={`${rowIndex}-${dayIndex}`}
+                  className={`w-[24px] h-[24px] ${borderClass} rounded-[2px] cursor-pointer 
+                    hover:ring-1 hover:ring-[#6366F1] transition-all relative shrink-0`}
+                  style={{ backgroundColor: bgColor }}
+                  onClick={() => handleDayClick(day)}
+                >
+                  {tooltipInfo && isSameDay(day.date, tooltipInfo.date) && (
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
+                      bg-[#1A202C] text-white text-[10px] py-0.5 px-1.5 rounded whitespace-nowrap z-10">
+                      {tooltipInfo.info}
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })}
-
+              );
+            })}
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
+  
           {/* Color legend - más compacto */}
           <div className="flex items-center justify-center mt-[4px] gap-1">
             <span className="text-[#4A5568] text-xs">Less</span>
@@ -430,26 +434,26 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
           </div>
         </div>
       </div>
-
+  
       {/* TODAY'S SCORE section - más compacto */}
-      <div className="border-t border-gray-200 px-[16px]  pb-[16px] pt-[8px]">
+      <div className="border-t border-gray-200 px-[8px] pb-[8px] pt-[8px]">
         <div className="flex justify-between items-center ">
           <div className="flex items-center gap-1.5">
             <h3 className="text-[#2D3748] font-bold uppercase text-xs">TODAY'S SCORE</h3>
             <InfoIcon />
           </div>
-          <button className="bg-white border border-gray-300 rounded-full px-3 py-1 text-[#2D3748] text-xs font-medium hover:bg-gray-50 transition-colors">
+          <button className="bg-white border border-gray-300 rounded-md px-[10px] py-[4px] text-[#2D3748] text-[14px] font-semibold hover:bg-gray-100 transition-colors">
             Daily checklist
           </button>
         </div>
-        
-        <div className="flex items-center gap-2">
+  
+        <div className="flex items-center gap-2 mt-[8px]">
           <div className="text-[#2D3748] text-xl font-bold">
             {todayScore.current}/{todayScore.total}
           </div>
           <div className="flex-1 bg-[#EDF2F7] rounded-full h-2">
-            <div 
-              className="bg-[#6366F1] h-full rounded-full transition-all duration-300" 
+            <div
+              className="bg-[#6366F1] h-full rounded-full transition-all duration-300"
               style={{ width: `${todayScore.percentage}%` }}
             ></div>
           </div>
@@ -457,6 +461,7 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       </div>
     </div>
   );
+  
 };
 
 export default ProgressTrackerNew; 

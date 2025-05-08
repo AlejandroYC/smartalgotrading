@@ -65,7 +65,7 @@ export default function TradesPage() {
         </div>
       )}
       
-      {/* Header - Siempre visible */}
+      {/*  - Siempre visible */}
       <div className="flex-none flex justify-between items-center p-4 bg-white border-b z-30">
         <h1 className="text-2xl font-semibold text-gray-800">Trade Log</h1>
         <div className="flex items-center gap-2">

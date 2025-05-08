@@ -175,7 +175,9 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center h-9 space-x-2 px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+
+        className="flex items-center h-[44px] w-[44px] sm:w-auto px-3 sm:px-[1rem] py-[1rem] space-x-0 sm:space-x-2 justify-center sm:justify-start text-sm bg-white border border-gray-200 rounded-full sm:rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+
       >
         <svg
           className="w-4 h-4 text-gray-500"
@@ -189,7 +191,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        <span className="text-gray-700">
+        <span className="hidden sm:block text-gray-700">
           {formatDate(dateRange.startDate)} - {formatDate(dateRange.endDate)}
         </span>
         {isOpen && (
@@ -203,161 +205,175 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
             <polyline points="18 15 12 9 6 15" />
           </svg>
         )}
+        
         <button
           onClick={(e) => {
             e.stopPropagation();
             setDefaultDateRange();
           }}
-          className="ml-1 text-gray-400 hover:text-gray-500 focus:outline-none"
+          className="hidden sm:flex ml-2 text-white-400 bg-[#6457a6] rounded-full p-0.5 hover:text-white-600 focus:outline-none"
           aria-label="Resetear rango de fechas"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+          <svg
+            className="w-4 h-4 text-white"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path
+              d="M6 18L18 6M6 6l12 12"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </button>
-      </button>
 
+  
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 flex">
-          <div className="flex p-6 border-r border-gray-200">
-            {/* Calendario izquierdo */}
-            <div className="mr-8">
-              <MonthYearSelector
-                date={dateRange.startDate}
-                onChange={(date) => handleRangeChange({ ...dateRange, startDate: date })}
-              />
-              <div className="grid grid-cols-7 gap-1">
-                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                  <div key={day} className="text-xs font-medium text-gray-500 text-center h-7 flex items-center justify-center">
-                    {day}
+        <>
+          {/* Fondo oscuro solo para móviles */}
+          <div 
+            className="fixed inset-0 z-40 bg-black bg-opacity-50 sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Contenido del dropdown */}
+          <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-lg shadow-lg border border-gray-200 max-h-[80vh] overflow-y-auto sm:absolute sm:right-0 sm:bottom-auto sm:top-full sm:mt-2 sm:rounded-lg sm:w-auto sm:max-h-none sm:inset-x-auto">
+            <div className="flex flex-col sm:flex-row">
+              {/* Contenedor de calendarios */}
+              <div className="flex flex-col sm:flex-row p-6 border-r border-gray-200">
+                {/* Calendario izquierdo */}
+                <div className="mr-8 mb-6 sm:mb-0">
+                  <MonthYearSelector
+                    date={dateRange.startDate}
+                    onChange={(date) => handleRangeChange({ ...dateRange, startDate: date })}
+                  />
+                  <div className="grid grid-cols-7 gap-1">
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                      <div key={day} className="text-xs font-medium text-gray-500 text-center h-7 flex items-center justify-center">
+                        {day}
+                      </div>
+                    ))}
+                    {generateCalendar(dateRange.startDate).map((day, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleRangeChange({ ...dateRange, startDate: day.date })}
+                        className={`relative h-7 w-7 flex items-center justify-center text-sm rounded-full
+                          ${!day.isCurrentMonth ? 'text-gray-400' : 'text-gray-900'}
+                          ${isSelected(day.date)
+                            ? 'bg-blue-900 text-white'
+                            : isInRange(day.date)
+                            ? 'bg-blue-50'
+                            : 'hover:bg-gray-100'
+                          }`}
+                      >
+                        {day.date.getDate()}
+                      </button>
+                    ))}
                   </div>
-                ))}
-                {generateCalendar(dateRange.startDate).map((day, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleRangeChange({
-                      ...dateRange,
-                      startDate: day.date
-                    })}
-                    className={`
-                      relative h-7 w-7 flex items-center justify-center text-sm rounded-full
-                      ${!day.isCurrentMonth ? 'text-gray-400' : 'text-gray-900'}
-                      ${isSelected(day.date)
-                        ? 'bg-blue-900 text-white'
-                        : isInRange(day.date)
-                        ? 'bg-blue-50'
-                        : 'hover:bg-gray-100'
-                      }
-                    `}
-                  >
-                    {day.date.getDate()}
-                  </button>
-                ))}
+                </div>
+  
+                {/* Calendario derecho */}
+                <div>
+                  <MonthYearSelector
+                    date={dateRange.endDate}
+                    onChange={(date) => handleRangeChange({ ...dateRange, endDate: date })}
+                  />
+                  <div className="grid grid-cols-7 gap-1">
+                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                      <div key={day} className="text-xs font-medium text-gray-500 text-center h-7 flex items-center justify-center">
+                        {day}
+                      </div>
+                    ))}
+                    {generateCalendar(dateRange.endDate).map((day, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleRangeChange({ ...dateRange, endDate: day.date })}
+                        className={`relative h-7 w-7 flex items-center justify-center text-sm rounded-full
+                          ${!day.isCurrentMonth ? 'text-gray-400' : 'text-gray-900'}
+                          ${isSelected(day.date)
+                            ? 'bg-blue-900 text-white'
+                            : isInRange(day.date)
+                            ? 'bg-purple-50'
+                            : 'hover:bg-gray-100'
+                          }`}
+                      >
+                        {day.date.getDate()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Calendario derecho */}
-            <div>
-              <MonthYearSelector
-                date={dateRange.endDate}
-                onChange={(date) => handleRangeChange({ ...dateRange, endDate: date })}
-              />
-              <div className="grid grid-cols-7 gap-1">
-                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
-                  <div key={day} className="text-xs font-medium text-gray-500 text-center h-7 flex items-center justify-center">
-                    {day}
-                  </div>
-                ))}
-                {generateCalendar(dateRange.endDate).map((day, index) => (
+  
+              {/* Quick selections - ahora en row en desktop */}
+              <div className="w-full sm:w-40 py-2 border-t border-gray-200 sm:border-t-0 sm:border-l border-gray-200">
+                {quickSelections.map((option) => (
                   <button
-                    key={index}
-                    onClick={() => handleRangeChange({
-                      ...dateRange,
-                      endDate: day.date
-                    })}
-                    className={`
-                      relative h-7 w-7 flex items-center justify-center text-sm rounded-full
-                      ${!day.isCurrentMonth ? 'text-gray-400' : 'text-gray-900'}
-                      ${isSelected(day.date)
-                        ? 'bg-blue-900 text-white'
-                        : isInRange(day.date)
-                        ? 'bg-purple-50'
-                        : 'hover:bg-gray-100'
+                    key={option.key}
+                    onClick={() => {
+                      const today = new Date();
+                      let range;
+  
+                      switch (option.key) {
+                        case 'today':
+                          range = { startDate: today, endDate: today };
+                          break;
+                        case 'this-week':
+                          const startOfWeek = new Date(today);
+                          startOfWeek.setDate(today.getDate() - today.getDay());
+                          range = { startDate: startOfWeek, endDate: today };
+                          break;
+                        case 'this-month':
+                          range = {
+                            startDate: new Date(today.getFullYear(), today.getMonth(), 1),
+                            endDate: today
+                          };
+                          break;
+                        case 'last-30-days':
+                          const thirtyDaysAgo = new Date(today);
+                          thirtyDaysAgo.setDate(today.getDate() - 30);
+                          range = { startDate: thirtyDaysAgo, endDate: today };
+                          break;
+                        case 'last-month':
+                          range = {
+                            startDate: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+                            endDate: new Date(today.getFullYear(), today.getMonth(), 0)
+                          };
+                          break;
+                        case 'this-quarter':
+                          const quarter = Math.floor(today.getMonth() / 3);
+                          range = {
+                            startDate: new Date(today.getFullYear(), quarter * 3, 1),
+                            endDate: today
+                          };
+                          break;
+                        case 'ytd':
+                          range = {
+                            startDate: new Date(today.getFullYear(), 0, 1),
+                            endDate: today
+                          };
+                          break;
+                        default:
+                          range = { startDate: today, endDate: today };
                       }
-                    `}
+  
+                      handleRangeChange({ ...range, label: option.label });
+                      setIsOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 sm:py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                   >
-                    {day.date.getDate()}
+                    {option.label}
                   </button>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Quick selections */}
-          <div className="w-40 py-2">
-            {quickSelections.map((option) => (
-              <button
-                key={option.key}
-                onClick={() => {
-                  const today = new Date();
-                  let range;
-                  
-                  switch (option.key) {
-                    case 'today':
-                      range = { startDate: today, endDate: today };
-                      break;
-                    case 'this-week':
-                      const startOfWeek = new Date(today);
-                      startOfWeek.setDate(today.getDate() - today.getDay());
-                      range = { startDate: startOfWeek, endDate: today };
-                      break;
-                    case 'this-month':
-                      range = {
-                        startDate: new Date(today.getFullYear(), today.getMonth(), 1),
-                        endDate: today
-                      };
-                      break;
-                    case 'last-30-days':
-                      const thirtyDaysAgo = new Date(today);
-                      thirtyDaysAgo.setDate(today.getDate() - 30);
-                      range = { startDate: thirtyDaysAgo, endDate: today };
-                      break;
-                    case 'last-month':
-                      range = {
-                        startDate: new Date(today.getFullYear(), today.getMonth() - 1, 1),
-                        endDate: new Date(today.getFullYear(), today.getMonth(), 0)
-                      };
-                      break;
-                    case 'this-quarter':
-                      const quarter = Math.floor(today.getMonth() / 3);
-                      range = {
-                        startDate: new Date(today.getFullYear(), quarter * 3, 1),
-                        endDate: today
-                      };
-                      break;
-                    case 'ytd':
-                      range = {
-                        startDate: new Date(today.getFullYear(), 0, 1),
-                        endDate: today
-                      };
-                      break;
-                    default:
-                      range = { startDate: today, endDate: today };
-                  }
-                  
-                  handleRangeChange({ ...range, label: option.label });
-                  setIsOpen(false);
-                }}
-                className="w-full text-left px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                {option.label}
-        </button>
-      ))}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );
+  
 };
 
 export default DateRangeSelector; 

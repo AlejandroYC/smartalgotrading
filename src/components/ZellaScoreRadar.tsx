@@ -273,7 +273,7 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
     return (
       <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[20px] font-medium text-gray-800">LMC Score</h3>
+          <h3 className="text-[20px] font-medium text-[#2D3748]">LMC Score</h3>
         </div>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -287,7 +287,7 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
     return (
       <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[20px] font-medium text-gray-800">LMC Score</h3>
+          <h3 className="text-[20px] font-medium text-[#2D3748]">LMC Score</h3>
         </div>
         <EmptyStateCard 
           icon="trades" 
@@ -300,7 +300,7 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
   return (
     <div className={`bg-white  rounded-lg shadow max-h-[392px] ${className}`}>
       <div className="flex items-center p-[16px]">
-        <h2 className="text-[16px] font-semibold text-gray-800 ">LMC score</h2>
+        <h2 className="text-[16px]  text-[#2D3748] font-semibold ">LMC Score</h2>
         <div className="ml-2">
           <InfoIcon />
         </div>
@@ -417,8 +417,8 @@ const ZellaScoreRadar: React.FC<ZellaScoreProps> = React.memo(({ className = '' 
           <div className="flex items-center flex-1 p-[16px]">
             {/* Título y valor del score */}
             <div className="flex flex-col">
-                <h3 className="text-[14px] font-semibold text-gray-700">LMC SCORE</h3>
-              <div className="text-[30px] font-roboto leading-[1.1] font-medium text-gray-800 mt-1">{zellaScore.toFixed(2)}</div>
+                <h3 className="text-[14px] font-semibold text-[#2D3748]">LMC SCORE</h3>
+              <div className="text-[30px] font-roboto leading-[1.1] font-bold text-gray-800 mt-1">{zellaScore.toFixed(2)}</div>
             </div>
              <div className="h-16 ml-16 w-px bg-gray-300 mx-4"></div>
             {/* Barra de progreso */}
