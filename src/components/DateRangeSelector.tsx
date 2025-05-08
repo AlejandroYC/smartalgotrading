@@ -117,7 +117,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
   };
 
   const MonthYearSelector = ({ date, onChange }: { date: Date, onChange: (date: Date) => void }) => {
-  return (
+    return (
       <div className="flex items-center justify-between mb-4 px-1">
         <button
           onClick={() => onChange(navigateMonth(date, 'prev'))}
@@ -173,38 +173,38 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
 
   return (
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-
-        className="flex items-center h-[44px] w-[44px] sm:w-auto px-3 sm:px-[1rem] py-[1rem] space-x-0 sm:space-x-2 justify-center sm:justify-start text-sm bg-white border border-gray-200 rounded-full sm:rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
-
-      >
-        <svg
-          className="w-4 h-4 text-gray-500"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+      <div className="flex items-center">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center h-[44px] w-[44px] sm:w-auto px-3 sm:px-[1rem] py-[1rem] space-x-0 sm:space-x-2 justify-center sm:justify-start text-sm bg-white border border-gray-200 rounded-full sm:rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-        <span className="hidden sm:block text-gray-700">
-          {formatDate(dateRange.startDate)} - {formatDate(dateRange.endDate)}
-        </span>
-        {isOpen && (
           <svg
-            className="w-4 h-4 text-gray-500 ml-1"
+            className="w-4 h-4 text-gray-500"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
           >
-            <polyline points="18 15 12 9 6 15" />
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
-        )}
+          <span className="hidden sm:block text-gray-700">
+            {formatDate(dateRange.startDate)} - {formatDate(dateRange.endDate)}
+          </span>
+          {isOpen && (
+            <svg
+              className="w-4 h-4 text-gray-500 ml-1"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+          )}
+        </button>
         
         <button
           onClick={(e) => {
@@ -228,8 +228,8 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
             />
           </svg>
         </button>
+      </div>
 
-  
       {isOpen && (
         <>
           {/* Fondo oscuro solo para móviles */}
@@ -373,7 +373,6 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
       )}
     </div>
   );
-  
 };
 
 export default DateRangeSelector; 

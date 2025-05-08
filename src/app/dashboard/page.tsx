@@ -531,7 +531,8 @@ function DashboardContent() {
     hasNoAccounts
   } = useTradingData();
 
-  
+  // Estado para controlar la visibilidad del sidebar en dispositivos móviles
+  const [mobileSidebarsOpen, setMobileSidebarsOpen] = useState(false);
 
   // Referencias para controlar el estado de la carga de datos
   const skipDataLoading = useRef(false);
