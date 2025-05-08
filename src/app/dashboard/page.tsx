@@ -1072,7 +1072,7 @@ function DashboardContent() {
         </ChartErrorBoundary>
       </div>
 
-      <div className="w-full px-4 sm:px-6 py-4 hidden sm:block">
+      <div className="w-full px-4 sm:px-6 py-4  sm:block  ">
   <ChartErrorBoundary key="trading-calendar">
     <div className="w-full">
       <TradingCalendar />
