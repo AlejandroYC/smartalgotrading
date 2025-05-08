@@ -59,6 +59,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
     <div className={`relative inline-block ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+
          className="flex items-center h-[44px] w-[44px] sm:w-auto px-4 sm:px-8 space-x-0 sm:space-x-2 justify-center sm:justify-start text-sm bg-white border border-gray-200 rounded-full sm:rounded-lg hover:border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-300"
       >
         <svg
@@ -74,6 +75,7 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
         <span className="hidden sm:inline text-gray-700">All accounts</span>
+
         <svg
           className={`hidden sm:inline w-4 h-4 text-gray-500 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''}`}
           viewBox="0 0 24 24"
