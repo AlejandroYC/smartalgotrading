@@ -21,6 +21,11 @@ import Link from 'next/link';
 import ChartErrorBoundary from '@/components/ChartErrorBoundary';
 import { HangTightLoading } from '@/components/HangTightLoading';
 import StartMyDayButton from '@/components/StartMyDayButton';
+import { useSidebar } from '@/contexts/SidebarContext';
+
+
+
+
 
 // Componente ClientOnly para asegurar renderizado solo del lado del cliente
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -526,6 +531,8 @@ function DashboardContent() {
     hasNoAccounts
   } = useTradingData();
 
+  
+
   // Referencias para controlar el estado de la carga de datos
   const skipDataLoading = useRef(false);
   const initialized = useRef(false);
@@ -561,6 +568,8 @@ function DashboardContent() {
       }
     }
   }, []);
+
+  
 
   // Efecto para verificar si debemos saltar la carga de datos (se ejecuta solo una vez al montar)
   useEffect(() => {
@@ -913,47 +922,69 @@ function DashboardContent() {
 
   return (
     <div className="bg-gray-100 text-black">
-     <div className="
-  flex flex-col sm:flex-row sm:items-center justify-between
-  sm:pl-[30px] pr-[30px] pt-[16px] pb-[16px] bg-white
- shadow-sm shadow-[0_1px_3px_rgba(0,0,0,0.12)]
+   <div className="
+  flex flex-row items-center justify-between flex-wrap
+  pl-[16px] lg:pl-[30px] pr-[30px] pt-[16px] pb-[16px] bg-white
+  shadow-sm shadow-[0_1px_3px_rgba(0,0,0,0.12)]
 ">
-        <h1 className="text-xl sm:text-[24px] font-semibold sm:mb-0">Dashboard</h1>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center sm:space-x-2 space-y-2 sm:space-y-0 sm:h-[44px]">
-          {/* Toggle para actualización automática */}
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Auto:</span>
-            <button
-              onClick={toggleAutoUpdate}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${status.autoUpdateEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
-              aria-pressed={status.autoUpdateEnabled}
-            >
-              <span className="sr-only">
-                {status.autoUpdateEnabled ? 'Desactivar actualización automática' : 'Activar actualización automática'}
-              </span>
-              <span
-                className={`${status.autoUpdateEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-              />
-            </button>
-          </div>
+   <div className="flex items-center">
+    {/* Botón de menú móvil */}
+    <button
+      onClick={() => setMobileSidebarsOpen(!mobileSidebarsOpen)}
+      className="lg:hidden mr-3 p-2 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none"
+      aria-label="Menú principal"
+    >
+      {/* Icono del menú hamburguesa */}
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+    
+    {/* Logo (solo visible en móvil/tablet) */}
+    <img 
+      src="/lmc-trade-morado.webp" 
+      alt="Logo LMC Trade" 
+      className="w-16 h-8 mr-3 md:hidden" // 👈 `lg:hidden` lo oculta en pantallas grandes
+    />
+    
+    <h1 className="text-xl text-[24px] font-semibold mb-0">Dashboard</h1>
+  </div>
+  
+  <div className="flex flex-row items-center space-x-2 h-[44px]">
+    {/* Toggle para actualización automática */}
+    <div className="flex items-center space-x-2">
+      <span className="hidden sm:inline text-sm text-gray-600">Auto:</span>
+      <button
+        onClick={toggleAutoUpdate}
+        className={`hidden sm:flex relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${status.autoUpdateEnabled ? 'bg-indigo-600' : 'bg-gray-200'}`}
+        aria-pressed={status.autoUpdateEnabled}
+      >
+        <span className="sr-only">
+          {status.autoUpdateEnabled ? 'Desactivar actualización automática' : 'Activar actualización automática'}
+        </span>
+        <span
+          className={`${status.autoUpdateEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+        />
+      </button>
+    </div>
 
-          <div onClick={(e) => e.stopPropagation()}>
-            <DateRangeSelector onDateRangeChange={handleDateRangeChange} />
-          </div>
+    <div onClick={(e) => e.stopPropagation()}>
+      <DateRangeSelector onDateRangeChange={handleDateRangeChange} />
+    </div>
 
-          {/* Selector de cuentas */}
-          {userAccounts.length > 0 && (
-            <div className="w-full sm:w-auto max-w-xs">
-              <AccountSelector
-                accounts={userAccounts}
-                currentAccount={currentAccount}
-                onSelectAccount={handleAccountSelect}
-                className="w-full"
-              />
-            </div>
-          )}
-        </div>
+    {/* Selector de cuentas */}
+    {userAccounts.length > 0 && (
+      <div className="w-full sm:w-auto max-w-xs">
+        <AccountSelector
+          accounts={userAccounts}
+          currentAccount={currentAccount}
+          onSelectAccount={handleAccountSelect}
+          className="w-full"
+        />
       </div>
+    )}
+  </div>
+</div>
 
       {status.error && (
         <div className="mb-4 pr-8 bg-red-50 border border-red-200 text-red-700 rounded text-sm ">
@@ -1060,7 +1091,7 @@ function DashboardContent() {
 
 export default function Dashboard() {
   const { loading: isLoading, error } = useTradingData();
-  
+
   // Usar localStorage en lugar de sessionStorage para manejar el estado entre páginas
   const [isInitialLoading, setIsInitialLoading] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1073,6 +1104,8 @@ export default function Dashboard() {
     }
     return true;
   });
+
+  
 
   const { user, session } = useAuthContext();
   
