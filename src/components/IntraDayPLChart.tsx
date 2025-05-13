@@ -162,71 +162,67 @@ const IntraDayPLChart: React.FC<IntraDayPLChartProps> = ({ trades, totalProfit }
   ];
 
   return (
-    <div className="h-48 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
-          data={chartData}
-          margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
-        >
-          <defs>
-            {/* Gradiente para área positiva */}
-            <linearGradient id="positiveGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4ade80" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#4ade80" stopOpacity={0.2} />
-            </linearGradient>
-            
-            {/* Gradiente para área negativa */}
-            <linearGradient id="negativeGradient" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#f87171" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#f87171" stopOpacity={0.2} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-          <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
-          <YAxis 
-            tickFormatter={formatYAxis} 
-            axisLine={false} 
-            tickLine={false}
-            domain={yAxisDomain}
-            tick={{ fontSize: 10 }}
-            width={40}
-          />
-          <Tooltip content={<CustomTooltip />} />
+  <div className="h-60 w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart
+        data={chartData}
+        margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+      >
+        <defs>
+          <linearGradient id="positiveGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4ade80" stopOpacity={0.8} />
+            <stop offset="100%" stopColor="#4ade80" stopOpacity={0.2} />
+          </linearGradient>
           
-          {/* Línea de referencia en cero */}
-          <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1} strokeDasharray="3 3" />
-          
-          {/* Área para valores positivos (por encima de 0) */}
-          <Area 
-            type="monotone" 
-            dataKey="positiveValue" 
-            stroke="#4ade80"
-            fill="url(#positiveGradient)" 
-            fillOpacity={1}
-            activeDot={{ r: 6, fill: "#4ade80", strokeWidth: 0 }}
-            isAnimationActive={true}
-            animationDuration={600}
-            animationEasing="ease-out"
-            connectNulls={true}
-          />
-          
-          {/* Área para valores negativos (por debajo de 0) */}
-          <Area 
-            type="monotone" 
-            dataKey="negativeValue" 
-            stroke="#f87171"
-            fill="url(#negativeGradient)" 
-            fillOpacity={1}
-            activeDot={{ r: 6, fill: "#f87171", strokeWidth: 0 }}
-            isAnimationActive={true}
-            animationDuration={600}
-            animationEasing="ease-out"
-            connectNulls={true}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
+          <linearGradient id="negativeGradient" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#f87171" stopOpacity={0.8} />
+            <stop offset="100%" stopColor="#f87171" stopOpacity={0.2} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+        <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+        <YAxis 
+          tickFormatter={value => `$${value.toFixed(2)}`} 
+          axisLine={false} 
+          tickLine={false}
+          domain={yAxisDomain}
+          tick={{ fontSize: 10 }}
+          width={60} // Aumentamos el ancho para acomodar números más grandes
+          padding={{ top: 10, bottom: 10 }}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        
+        <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1} strokeDasharray="3 3" />
+        
+        <Area 
+          type="monotone" 
+          dataKey="positiveValue" 
+          stroke="#4ade80"
+          fill="url(#positiveGradient)" 
+          fillOpacity={1}
+          activeDot={{ r: 6, fill: "#4ade80", strokeWidth: 0 }}
+          isAnimationActive={true}
+          animationDuration={600}
+          animationEasing="ease-out"
+          connectNulls={true}
+        />
+        
+        <Area 
+          type="monotone" 
+          dataKey="negativeValue" 
+          stroke="#f87171"
+          fill="url(#negativeGradient)" 
+          fillOpacity={1}
+          activeDot={{ r: 6, fill: "#f87171", strokeWidth: 0 }}
+          isAnimationActive={true}
+          animationDuration={600}
+          animationEasing="ease-out"
+          connectNulls={true}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  </div>
+);
 };
 
 export default IntraDayPLChart; 
