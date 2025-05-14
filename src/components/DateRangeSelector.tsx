@@ -204,15 +204,14 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
               <polyline points="18 15 12 9 6 15" />
             </svg>
           )}
-        </button>
-        
-        <button
+          <button
           onClick={(e) => {
             e.stopPropagation();
             setDefaultDateRange();
           }}
-          className="hidden sm:flex ml-2 text-white-400 bg-[#6457a6] rounded-full p-0.5 hover:text-white-600 focus:outline-none"
+          className="hidden sm:flex ml-2 text-white-400 bg-[#6457a6] rounded-full p-0.5 hover:text-white-600 focus:outline-none  "
           aria-label="Resetear rango de fechas"
+          
         >
           <svg
             className="w-4 h-4 text-white"
@@ -228,6 +227,9 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
             />
           </svg>
         </button>
+        </button>
+        
+        
       </div>
 
       {isOpen && (
