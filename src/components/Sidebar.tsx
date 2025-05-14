@@ -36,11 +36,6 @@ export function Sidebar() {
       href: '/dashboard/journal' 
     },
     { 
-      icon: <MdBarChart size={20} color="#9ca3af" />, 
-      name: 'Estadísticas', 
-      href: '/dashboard/stats' 
-    },
-    { 
       icon: <FaFileAlt size={20} color="#9ca3af" />, 
       name: 'Trades', 
       href: '/dashboard/trades' 
@@ -60,11 +55,7 @@ export function Sidebar() {
       name: 'Playbooks', 
       href: '/dashboard/playbooks' 
     },
-    { 
-      icon: <FaChartLine size={20} color="#9ca3af" />, 
-      name: 'MT5', 
-      href: '/mt5' 
-    },
+  
   ];
 
   // Función mejorada para manejar el logout

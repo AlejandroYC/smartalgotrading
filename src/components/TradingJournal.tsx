@@ -98,17 +98,35 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
     loadNotes();
   }, [loadNotes]);
   
-  // Función para guardar una nota
+  // Guardar una nota (crear o actualizar)
   const saveNote = async () => {
-    if (!userId || !selectedDate) {
-      toast.error('Información incompleta para guardar la nota');
+    if (!userId) {
+      toast.error('No hay usuario logueado. Por favor, inicia sesión.');
+      return;
+    }
+    
+    if (!noteContent?.trim()) {
+      toast.error('El contenido de la nota no puede estar vacío.');
+      return;
+    }
+    
+    if (!selectedDate) {
+      toast.error('Debes seleccionar una fecha para la nota.');
       return;
     }
     
     try {
       setLoading(true);
-      
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      
+      // Log para depuración
+      console.log('Guardando nota:', { 
+        userId, 
+        date: formattedDate, 
+        hasContent: !!noteContent, 
+        contentLength: noteContent?.length, 
+        title: noteTitle 
+      });
       
       if (currentNote) {
         // Actualizar nota existente
@@ -131,22 +149,32 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
         toast.success('Nota actualizada exitosamente');
       } else {
         // Crear nueva nota
+        const payload = {
+          userId,
+          tradeDate: formattedDate,
+          accountNumber: currentAccount,
+          title: noteTitle,
+          content: noteContent,
+        };
+        
+        console.log('Enviando datos para crear nota:', payload);
+        
         const response = await fetch('/api/journal-notes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            userId,
-            tradeDate: formattedDate,
-            accountNumber: currentAccount,
-            title: noteTitle,
-            content: noteContent,
-          }),
+          body: JSON.stringify(payload),
         });
         
         if (!response.ok) {
-          throw new Error(`Error al crear nota: ${response.status}`);
+          // Intentar obtener más detalles del error
+          try {
+            const errorData = await response.json();
+            throw new Error(`Error al crear nota: ${response.status} - ${errorData.error || 'Sin detalles'}`);
+          } catch (jsonError) {
+            throw new Error(`Error al crear nota: ${response.status}`);
+          }
         }
         
         toast.success('Nota guardada exitosamente');

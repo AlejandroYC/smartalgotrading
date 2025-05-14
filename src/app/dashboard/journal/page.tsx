@@ -7,8 +7,17 @@ import { useTradingData } from '@/contexts/TradingDataContext';
 import FilterBar from '@/components/FilterBar';
 
 export default function JournalPage() {
-  const { session } = useAuthContext();
+  const { session, user } = useAuthContext();
   const { currentAccount } = useTradingData();
+  
+  // Verificar si el usuario está autenticado
+  const isAuthenticated = !!session?.user?.id;
+  
+  console.log('JournalPage - Auth status:', { 
+    isAuthenticated, 
+    userId: session?.user?.id,
+    userObj: user
+  });
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -20,10 +29,23 @@ export default function JournalPage() {
       </div>
       
       <div className="px-6 pb-6 bg-white">
-        <TradingJournal 
-          userId={session?.user?.id || ''} 
-          accountNumber={currentAccount || ''}
-        />
+        {isAuthenticated ? (
+          <TradingJournal 
+            userId={session.user.id} 
+            accountNumber={currentAccount || ''}
+          />
+        ) : (
+          <div className="p-8 text-center">
+            <div className="mb-4 text-red-600 text-lg font-semibold">
+              Sesión no disponible
+            </div>
+            <p className="text-gray-600">
+              Para usar el diario de trading, debes iniciar sesión nuevamente.
+              <br />
+              Si el problema persiste, intenta cerrar sesión y volver a iniciar sesión.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
