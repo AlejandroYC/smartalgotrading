@@ -1,35 +1,34 @@
 'use client';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { format, addMonths, subMonths, isSameDay, parseISO, startOfMonth, endOfMonth, isEqual } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import { Trade } from '@/types/Trade';
 import toast from 'react-hot-toast';
 
-// Componente para el ícono de información
 const InfoIcon = () => (
   <svg
-  xmlns="http://www.w3.org/2000/svg"
-  width={16}
-  height={16}
-  viewBox="0 0 24 24"  // ViewBox original para mantener proporciones
-  fill="none"
-  stroke="currentColor"
-  strokeWidth={2}
-  strokeLinecap="round"
-  strokeLinejoin="round"
-  className="text-gray-500 hover:text-gray-700 flex-shrink-0"
-  style={{
-    display: 'block',
-    overflow: 'visible',
-    transform: 'scale(1.0)',  // Escala exacta (16/24 = 0.6667)
-    transformOrigin: 'center'
-  }}
->
-  <circle cx="12" cy="12" r="10" />
-  <line x1="12" y1="16" x2="12" y2="12" />
-  <line x1="12" y1="8" x2="12.01" y2="8" />
-</svg>
+    xmlns="http://www.w3.org/2000/svg"
+    width={16}
+    height={16}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-gray-500 hover:text-gray-700 flex-shrink-0"
+    style={{
+      display: 'block',
+      overflow: 'visible',
+      transform: 'scale(1.0)',
+      transformOrigin: 'center'
+    }}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="16" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
+  </svg>
 );
 
 interface ProgressTrackerProps {
@@ -37,17 +36,15 @@ interface ProgressTrackerProps {
   handleDateRangeChange?: (fromDate: Date, toDate: Date) => void;
 }
 
-// Exact color palette from the image - blue tones
 const ACTIVITY_COLORS = [
-  '#FFFFFF', // No trades (white)
-  '#F3F4F8', // Very light blue-gray
-  '#E6E9F5', // Light blue-gray
-  '#D5DCF5', // Medium blue-gray
-  '#A5B4E8', // Medium blue
-  '#7B96E5', // Stronger blue
+  '#FFFFFF', // No trades
+  '#F3F4F8', 
+  '#E6E9F5', 
+  '#D5DCF5', 
+  '#A5B4E8', 
+  '#7B96E5', 
 ];
 
-// Interfaz para representar un día del calendario
 interface CalendarDay {
   date: Date;
   dayOfWeek: number;
@@ -57,12 +54,10 @@ interface CalendarDay {
   profit: number;
 }
 
-// Para determinar si es un día activo de trading (lun-vie)
 const isActiveDay = (dayOfWeek: number): boolean => {
-  return dayOfWeek > 0 && dayOfWeek < 6; // 0 = domingo, 6 = sábado
+  return dayOfWeek > 0 && dayOfWeek < 6;
 };
 
-// Función para obtener el nivel de actividad basado en la cantidad de trades
 const getActivityLevel = (trades: number): number => {
   if (trades <= 0) return 0;
   if (trades <= 2) return 1;
@@ -72,24 +67,13 @@ const getActivityLevel = (trades: number): number => {
   return 5;
 };
 
-// Componente principal
 const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handleDateRangeChange }) => {
-  // Obtener datos reales del contexto
   const tradingData = useTradingData();
-  
-  // Acceder a los datos desde processedData
   const processedData = tradingData.processedData || {};
   const dailyResults = processedData.daily_results || {};
   const lastDataTimestamp = tradingData.lastDataTimestamp || 0;
   const refreshIfStale = tradingData.refreshIfStale;
-  
-  
-  // Verificar datos obsoletos al montar el componente
-  useEffect(() => {
-    refreshIfStale();
-  }, [refreshIfStale]);
-  
-  // Estados para manejar la navegación y visualización
+
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [tooltipInfo, setTooltipInfo] = useState<{date: Date, info: string} | null>(null);
   const [calendarData, setCalendarData] = useState<CalendarDay[][]>([]);
@@ -99,38 +83,94 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
     total: 5,
     percentage: 0
   });
-  
-  // Verificar que tenemos datos y mostrar algunos para debug
-  useEffect(() => {
-    if (Object.keys(dailyResults).length > 0) {
-      const sampleKey = Object.keys(dailyResults)[0];
+
+  // Refs for drag implementation
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+  const scrollPos = useRef({ left: 0, top: 0 });
+  const animationId = useRef<number>();
+
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!contentRef.current) return;
+    
+    isDragging.current = true;
+    cancelAnimationFrame(animationId.current!);
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    startPos.current = { x: clientX, y: clientY };
+    scrollPos.current = {
+      left: contentRef.current.scrollLeft,
+      top: contentRef.current.scrollTop
+    };
+
+    // Add protection classes
+    document.documentElement.classList.add('no-scroll-drag');
+    document.body.classList.add('no-scroll-drag');
+    if (containerRef.current) {
+      containerRef.current.classList.add('dragging-active');
     }
-  }, [dailyResults]);
-  
-  // Organizar trades por fecha para acceso rápido
+  };
+
+  const handleDragMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging.current || !contentRef.current) {
+      e.preventDefault();
+      return;
+    }
+    
+    e.preventDefault();
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    const dx = clientX - startPos.current.x;
+    const dy = clientY - startPos.current.y;
+    
+    contentRef.current.scrollLeft = scrollPos.current.left - dx;
+    contentRef.current.scrollTop = scrollPos.current.top - dy;
+  };
+
+  const handleDragEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    
+    // Remove protection classes
+    document.documentElement.classList.remove('no-scroll-drag');
+    document.body.classList.remove('no-scroll-drag');
+    if (containerRef.current) {
+      containerRef.current.classList.remove('dragging-active');
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(animationId.current!);
+      // Cleanup classes if component unmounts during drag
+      document.documentElement.classList.remove('no-scroll-drag');
+      document.body.classList.remove('no-scroll-drag');
+    };
+  }, []);
+
+  useEffect(() => {
+    refreshIfStale();
+  }, [refreshIfStale]);
+
   const tradesByDate = useMemo(() => {
     const byDate: Record<string, {trades: number, profit: number}> = {};
-    
     const rawTrades = processedData.rawTrades || [];
     
     if (rawTrades.length > 0) {
       const tradesByDateMap = new Map<string, { trades: number, profit: number }>();
       
-      rawTrades.forEach((trade: { 
-        dateStr?: string; 
-        time: string | number; 
-        profit: number;
-        ticket: number;
-      }) => {
+      rawTrades.forEach((trade: any) => {
         try {
-          let dateStr;
-          if (trade.dateStr) {
-            dateStr = trade.dateStr;
-          } else if (typeof trade.time === 'number') {
-            dateStr = new Date(trade.time * 1000).toISOString().split('T')[0];
-          } else {
-            dateStr = new Date(trade.time).toISOString().split('T')[0];
-          }
+          let dateStr = trade.dateStr || 
+            (typeof trade.time === 'number' 
+              ? new Date(trade.time * 1000).toISOString().split('T')[0]
+              : new Date(trade.time).toISOString().split('T')[0]);
           
           if (!tradesByDateMap.has(dateStr)) {
             tradesByDateMap.set(dateStr, { trades: 0, profit: 0 });
@@ -140,7 +180,7 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
           dayData.trades += 0.5;
           dayData.profit += trade.profit;
         } catch (err) {
-          console.error('Error procesando trade:', err);
+          console.error('Error processing trade:', err);
         }
       });
       
@@ -154,28 +194,23 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       Object.entries(dailyResults).forEach(([dateStr, dayData]) => {
         try {
           const date = new Date(dateStr);
-          if (isNaN(date.getTime())) {
-            console.error('Fecha inválida en dailyResults:', dateStr);
-            return;
-          }
+          if (isNaN(date.getTime())) return;
           
           byDate[dateStr] = {
             trades: (dayData as any)?.trades || 0,
             profit: (dayData as any)?.profit || 0
           };
         } catch (err) {
-          console.error('Error procesando día:', dateStr, err);
+          console.error('Error processing day:', dateStr, err);
         }
       });
     }
     
     return byDate;
   }, [dailyResults, processedData]);
-  
-  // Generar datos reales para el calendario
+
   const generateCalendarData = useCallback(() => {
     const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-    
     const months = [
       format(subMonths(currentMonth, 1), 'MMM', { locale: es }).toLowerCase(),
       format(currentMonth, 'MMM', { locale: es }).toLowerCase(),
@@ -185,25 +220,11 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
     const data: CalendarDay[][] = Array(7).fill(0).map(() => []);
     
     for (let monthIndex = 0; monthIndex < 3; monthIndex++) {
-      const firstDayOfMonth = new Date(
-        startDate.getFullYear(), 
-        startDate.getMonth() + monthIndex, 
-        1
-      );
-      
-      const lastDayOfMonth = new Date(
-        startDate.getFullYear(), 
-        startDate.getMonth() + monthIndex + 1, 
-        0
-      );
+      const firstDayOfMonth = new Date(startDate.getFullYear(), startDate.getMonth() + monthIndex, 1);
+      const lastDayOfMonth = new Date(startDate.getFullYear(), startDate.getMonth() + monthIndex + 1, 0);
       
       for (let day = 1; day <= lastDayOfMonth.getDate(); day++) {
-        const date = new Date(
-          startDate.getFullYear(), 
-          startDate.getMonth() + monthIndex, 
-          day
-        );
-        
+        const date = new Date(startDate.getFullYear(), startDate.getMonth() + monthIndex, day);
         const dayOfWeek = date.getDay();
         const active = isActiveDay(dayOfWeek);
         const dateStr = format(date, 'yyyy-MM-dd');
@@ -222,50 +243,27 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
     
     return data;
   }, [currentMonth, tradesByDate]);
-  
-  // Generar datos al cargar o cambiar el mes o los trades
+
   useEffect(() => {
     const data = generateCalendarData();
     setCalendarData(data);
-    
-    // Verificar que se generaron datos
-    const totalTrades = data.flat().reduce((sum, day) => sum + day.trades, 0);
-    
-    // Validación adicional: verificar que coincide con el total calculado anteriormente
-    const totalFromTradesByDate = Object.values(tradesByDate).reduce((sum, day) => sum + day.trades, 0);
-    if (totalTrades !== totalFromTradesByDate) {
-    } else {
-    }
-    
-    // Comparar con el número total reportado por el contexto
-    if (processedData && processedData.total_trades) {
-    }
-  }, [currentMonth, tradesByDate, processedData]);
-  
-  // Calcular el score de hoy basado en operaciones reales
+  }, [currentMonth, tradesByDate, processedData, generateCalendarData]);
+
   useEffect(() => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
-    
     const todayData = dailyResults[todayStr];
     
     if (todayData && (todayData as any)?.trades > 0) {
-      // Asegurar que estamos usando el número ajustado de trades
       const tradesAdjusted = Math.ceil((todayData as any)?.trades / 2);
-      
-      // Si tenemos acceso a los trades individuales podríamos calcular las operaciones ganadoras
-      // Como no tenemos esa información, usaremos un aproximado basado en el profit
       const winningTradesEstimate = (todayData as any)?.profit > 0 ? Math.ceil(tradesAdjusted / 2) : 0;
-      const scoreTotal = 5; // Meta diaria
-      
       
       setTodayScore({
         current: winningTradesEstimate,
-        total: scoreTotal,
-        percentage: Math.min(100, (winningTradesEstimate / scoreTotal) * 100)
+        total: 5,
+        percentage: Math.min(100, (winningTradesEstimate / 5) * 100)
       });
     } else {
-      // No hay trades hoy
       setTodayScore({
         current: 0,
         total: 5,
@@ -273,35 +271,19 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       });
     }
   }, [dailyResults]);
-  
-  // Función para navegar entre meses
+
   const navigateMonth = (direction: 'prev' | 'next') => {
-    
-    // Primero verificar si los datos están obsoletos
     refreshIfStale();
+    setCurrentMonth(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
     
-    // Actualizar el mes seleccionado
-    setCurrentMonth(prev => 
-      direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1)
-    );
-    
-    // Opcionalmente actualizar el rango de fechas para todo el dashboard
     if (handleDateRangeChange) {
-      const newMonth = direction === 'prev' 
-        ? subMonths(currentMonth, 1) 
-        : addMonths(currentMonth, 1);
-      
-      const start = startOfMonth(newMonth);
-      const end = endOfMonth(newMonth);
-      
-      handleDateRangeChange(start, end);
+      const newMonth = direction === 'prev' ? subMonths(currentMonth, 1) : addMonths(currentMonth, 1);
+      handleDateRangeChange(startOfMonth(newMonth), endOfMonth(newMonth));
     }
   };
-  
-  // Manejar clic en una celda
+
   const handleDayClick = (day: CalendarDay) => {
     const dateStr = format(day.date, 'yyyy-MM-dd');
-    
     const dailyData = tradesByDate[dateStr];
     
     if (dailyData && dailyData.trades > 0) {
@@ -310,34 +292,27 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
         ? `+$${day.profit.toFixed(2)}` 
         : `-$${Math.abs(day.profit).toFixed(2)}`;
       
-      const message = `${formattedDate} - ${day.trades} operaciones - ${profitText}`;
-      
       setTooltipInfo({
         date: day.date,
-        info: message
+        info: `${formattedDate} - ${day.trades} operaciones - ${profitText}`
       });
       
-      if (onDayClick) {
-        onDayClick(dateStr);
-      }
+      if (onDayClick) onDayClick(dateStr);
     } else {
       setTooltipInfo(null);
       toast('No hay operaciones para este día');
     }
   };
-  
-  // Detectar cambios en los datos y refrescar si es necesario
+
   useEffect(() => {
     const now = Date.now();
-    // Si han pasado más de 30 segundos desde el último refresco, o hay un nuevo timestamp de datos
     if (now - lastRefreshTime > 30000 || lastDataTimestamp > lastRefreshTime) {
       const data = generateCalendarData();
       setCalendarData(data);
       setLastRefreshTime(now);
     }
   }, [lastDataTimestamp, processedData, dailyResults, tradesByDate, lastRefreshTime, generateCalendarData]);
-  
-  // Si no hay datos disponibles
+
   if (!dailyResults || Object.keys(dailyResults).length === 0) {
     return (
       <div className="bg-white rounded-lg p-6 w-full min-h-[300px] flex items-center justify-center">
@@ -345,13 +320,9 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       </div>
     );
   }
-  
-  // Verificar si hay trading days en el calendario
-  const totalTradesInCalendar = calendarData.flat().reduce((sum, day) => sum + day.trades, 0);
-  
+
   return (
-    <div className="bg-white rounded-lg shadow-md h-[392px]">
-      {/* Header with border bottom - más compacto */}
+    <div className="bg-white rounded-lg shadow-md h-[392px] relative isolate prevent-layout-shift">
       <div className="flex justify-between items-center px-[16px] py-[12px] border-b border-gray-200">
         <div className="flex items-center gap-1.5">
           <h2 className="text-[#2D3748] text-[16px] font-semibold">Seguimiento de progreso</h2>
@@ -364,89 +335,112 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
           Explorar
         </div>
       </div>
-  
-      {/* Calendar section - más compacto */}
-      <div className="overflow-x-auto w-full">
-  <div className="min-w-fit p-[16px] max-h-[250px]">
-          {/* Month headers - más compactos */}
-          <div className="flex mb-2">
-            <div className="w-[40px]"></div>
-            <div className="flex-1 flex">
-              <div className="text-[#6366F1] text-sm font-medium w-[120px]">feb</div>
-              <div className="text-[#6366F1] text-sm font-medium ml-[120px]">mar</div>
+
+      <div className="p-[16px]">
+        <div className="flex mb-2">
+          <div className="w-[40px]"></div>
+          <div className="flex-1 flex">
+            <div className="text-[#6366F1] text-sm font-medium w-[120px]">feb</div>
+            <div className="text-[#6366F1] text-sm font-medium ml-[120px]">mar</div>
+          </div>
+        </div>
+
+        <div 
+          ref={containerRef}
+          className="relative overflow-hidden w-full h-[150px] touch-none select-none drag-container"
+          style={{
+            willChange: 'transform',
+            contain: 'strict',
+            transform: 'translateZ(0)'
+          }}
+        >
+          <div
+            ref={contentRef}
+            className={`h-full w-full overflow-auto ${
+              isDragging.current ? 'cursor-grabbing' : 'cursor-grab'
+            } touch-pan-y drag-content`}
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              overscrollBehavior: 'contain',
+              backfaceVisibility: 'hidden',
+              perspective: '1000px'
+            }}
+            onMouseDown={handleDragStart}
+            onMouseLeave={handleDragEnd}
+            onMouseUp={handleDragEnd}
+            onMouseMove={handleDragMove}
+            onTouchStart={handleDragStart}
+            onTouchMove={handleDragMove}
+            onTouchEnd={handleDragEnd}
+          >
+            <div className="min-w-fit">
+              {calendarData.map((row, rowIndex) => {
+                const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                return (
+                  <div key={rowIndex} className="flex mb-1">
+                    <div className="w-[40px] shrink-0 text-[#4A5568] font-medium text-xs">
+                      {dayNames[rowIndex]}
+                    </div>
+                    <div className="flex gap-[6px] sm:gap-[8px] md:gap-[10px] lg:gap-[12px]">
+                      {row.map((day, dayIndex) => {
+                        const bgColor = day.active
+                          ? day.trades > 0
+                            ? ACTIVITY_COLORS[getActivityLevel(day.trades)]
+                            : ACTIVITY_COLORS[1]
+                          : 'white';
+                        const borderClass = !day.active ? 'border border-[#E2E8F0]' : '';
+
+                        return (
+                          <div
+                            key={`${rowIndex}-${dayIndex}`}
+                            className={`w-[24px] h-[24px] ${borderClass} rounded-[2px] cursor-pointer 
+                              hover:ring-1 hover:ring-[#6366F1] transition-all relative shrink-0`}
+                            style={{ backgroundColor: bgColor }}
+                            onClick={() => handleDayClick(day)}
+                          >
+                            {tooltipInfo && isSameDay(day.date, tooltipInfo.date) && (
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
+                                bg-[#1A202C] text-white text-[10px] py-0.5 px-1.5 rounded whitespace-nowrap z-10">
+                                {tooltipInfo.info}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-  
-{/* Calendar grid - horizontal scroll en móviles */}
-<div className="overflow-x-auto w-full max-w-full h-[150px]">
-  <div className="min-w-fit">
-    {calendarData.map((row, rowIndex) => {
-      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      return (
-        <div key={rowIndex} className="flex mb-1">
-          <div className="w-[40px] shrink-0 text-[#4A5568] font-medium text-xs">
-            {dayNames[rowIndex]}
-          </div>
-          <div className="flex gap-[6px] sm:gap-[8px] md:gap-[10px] lg:gap-[12px]">
-            {row.map((day, dayIndex) => {
-              const bgColor = day.active
-                ? day.trades > 0
-                  ? ACTIVITY_COLORS[getActivityLevel(day.trades)]
-                  : ACTIVITY_COLORS[1]
-                : 'white';
-              const borderClass = !day.active ? 'border border-[#E2E8F0]' : '';
-
-              return (
-                <div
-                  key={`${rowIndex}-${dayIndex}`}
-                  className={`w-[24px] h-[24px] ${borderClass} rounded-[2px] cursor-pointer 
-                    hover:ring-1 hover:ring-[#6366F1] transition-all relative shrink-0`}
-                  style={{ backgroundColor: bgColor }}
-                  onClick={() => handleDayClick(day)}
-                >
-                  {tooltipInfo && isSameDay(day.date, tooltipInfo.date) && (
-                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1
-                      bg-[#1A202C] text-white text-[10px] py-0.5 px-1.5 rounded whitespace-nowrap z-10">
-                      {tooltipInfo.info}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
-      );
-    })}
-  </div>
-</div>
-  
-          {/* Color legend - más compacto */}
-          <div className="flex items-center justify-center mt-[4px] gap-1">
-            <span className="text-[#4A5568] text-xs">Less</span>
-            {ACTIVITY_COLORS.slice(1).map((color, index) => (
-              <div
-                key={index}
-                className="w-3 h-3 rounded-[2px]"
-                style={{ backgroundColor: color }}
-              />
-            ))}
-            <span className="text-[#4A5568] text-xs">More</span>
-          </div>
+
+        <div className="flex items-center justify-center mt-[4px] gap-1">
+          <span className="text-[#4A5568] text-xs">Menos</span>
+          {ACTIVITY_COLORS.slice(1).map((color, index) => (
+            <div
+              key={index}
+              className="w-3 h-3 rounded-[2px]"
+              style={{ backgroundColor: color }}
+            />
+          ))}
+          <span className="text-[#4A5568] text-xs">Más</span>
         </div>
       </div>
-  
-      {/* TODAY'S SCORE section - más compacto */}
+
       <div className="border-t border-gray-200 px-[8px] pb-[8px] pt-[8px]">
-        <div className="flex justify-between items-center ">
+        <div className="flex justify-between items-center">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-[#2D3748] font-bold uppercase text-xs">TODAY'S SCORE</h3>
+            <h3 className="text-[#2D3748] font-bold uppercase text-xs">PUNTUACIÓN HOY</h3>
             <InfoIcon />
           </div>
           <button className="bg-white border border-gray-300 rounded-md px-[10px] py-[4px] text-[#2D3748] text-[14px] font-semibold hover:bg-gray-100 transition-colors">
-            Daily checklist
+            Lista diaria
           </button>
         </div>
-  
+
         <div className="flex items-center gap-2 mt-[8px]">
           <div className="text-[#2D3748] text-xl font-bold">
             {todayScore.current}/{todayScore.total}
@@ -461,7 +455,6 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
       </div>
     </div>
   );
-  
 };
 
-export default ProgressTrackerNew; 
+export default ProgressTrackerNew;
