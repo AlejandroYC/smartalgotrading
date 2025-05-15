@@ -418,44 +418,73 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
   }));
 
   return (
-    <div className="bg-white shadow-lg rounded-lg p-6">
+    
+    <div className="bg-[#f3f4f6]  rounded-lg px-[16px py-[16px]">
       {/* Header con título */}
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-black">Detalle de Operaciones</h2>
-      </div>
-      
+  
       {loading && <LoadingIndicator />}
       
-      <div className="flex mb-6 text-black">
-        <button 
-          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md mr-2"
-          onClick={() => {
-            const allExpanded = Object.keys(expandedDays).every(key => expandedDays[key]);
-            if (allExpanded) {
-              setExpandedDays({});
-            } else {
-              const newExpandedState: Record<string, boolean> = {};
-              filteredTradingDays.forEach(day => {
-                newExpandedState[day.date] = true;
-              });
-              setExpandedDays(newExpandedState);
-            }
-          }}
-        >
-          {Object.keys(expandedDays).length === filteredTradingDays.length ? "Collapse all" : "Expand all"}
-        </button>
-        {(selectedDateRange.startDate) && (
-          <button 
-            className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md flex items-center"
-            onClick={() => setSelectedDateRange({ startDate: null, endDate: null })}
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            Clear filter {selectedDateRange.endDate && `(${format(parseISO(selectedDateRange.startDate!), 'dd/MM')} - ${format(parseISO(selectedDateRange.endDate), 'dd/MM')})`}
-          </button>
-        )}
-      </div>
+      <div className="flex mb-[16px] text-black">
+  <button 
+    className="px-4 py-2 bg-white hover:bg-[#e6e7ef] rounded-md mr-2 text-[#6457a6] text-[14px] font-semibold flex items-center"
+    onClick={() => {
+      const allExpanded = Object.keys(expandedDays).every(key => expandedDays[key]);
+      if (allExpanded) {
+        setExpandedDays({});
+      } else {
+        const newExpandedState: Record<string, boolean> = {};
+        filteredTradingDays.forEach(day => {
+          newExpandedState[day.date] = true;
+        });
+        setExpandedDays(newExpandedState);
+      }
+    }}
+  >
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-1">
+      <path d="M14 6.66602H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+      <path d="M14 4H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+      <path d="M14 9.33398H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+      <path d="M14 12H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+    </svg>
+    {Object.keys(expandedDays).length === filteredTradingDays.length ? "Collapse all" : "Collapse all"}
+  </button>
+
+  <button 
+    className="px-4 py-2 bg-white hover:bg-gray-200 rounded-md mr-2 text-[#6457a6] text-[14px] font-semibold flex items-center"
+    onClick={() => {
+      const allExpanded = Object.keys(expandedDays).every(key => expandedDays[key]);
+      if (allExpanded) {
+        setExpandedDays({});
+      } else {
+        const newExpandedState: Record<string, boolean> = {};
+        filteredTradingDays.forEach(day => {
+          newExpandedState[day.date] = true;
+        });
+        setExpandedDays(newExpandedState);
+      }
+    }}
+  >
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-1">
+      <path d="M14 6.66602H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+      <path d="M14 4H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+      <path d="M14 9.33398H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+      <path d="M14 12H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
+    </svg>
+    {Object.keys(expandedDays).length === filteredTradingDays.length ? "Collapse all" : "Expand all"}
+  </button>
+  
+  {(selectedDateRange.startDate) && (
+    <button 
+      className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md flex items-center"
+      onClick={() => setSelectedDateRange({ startDate: null, endDate: null })}
+    >
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      </svg>
+      Clear filter {selectedDateRange.endDate && `(${format(parseISO(selectedDateRange.startDate!), 'dd/MM')} - ${format(parseISO(selectedDateRange.endDate), 'dd/MM')})`}
+    </button>
+  )}
+</div>
       
       {/* Layout de dos columnas: datos de trading y calendario */}
       <div className="flex flex-col lg:flex-row gap-6 text-black">
@@ -519,7 +548,7 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
                             e.stopPropagation();
                             note ? openEditModal(note) : openNewNoteModal(date);
                           }}
-                          className={`py-2 px-4 text-sm rounded-md flex items-center ${
+                          className={`py-2 px-4 text-semibold rounded-md flex items-center ${
                             note 
                               ? 'bg-blue-50 text-blue-700 border border-blue-300 hover:bg-blue-100' 
                               : 'bg-white border border-gray-300 hover:bg-gray-50 text-gray-800'
@@ -538,7 +567,7 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
                       {/* Layout con gráfico a la izquierda y stats a la derecha */}
                       <div className="flex flex-col lg:flex-row">
                         {/* Gráfico de P&L del día - ocupa el 50% a la izquierda */}
-                        <div className="lg:w-1/2 mb-6 lg:mb-0 lg:pr-4">
+                        <div className="lg:w-1/2 mb-6  ">
                           <IntraDayPLChart 
                             trades={dayTrades}
                             totalProfit={day.profit}
@@ -595,86 +624,126 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
                     {/* Contenido expandible del día - solo tabla de operaciones */}
                     {isExpanded && dayTrades.length > 0 && (
                       <div className="border-t border-gray-200 bg-white text-black">
-                        {/* Tabla de operaciones */}
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Open time</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Side</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instrument</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net P&L</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net ROI</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Realized R-Multiple</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Playbook</th>
-                                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white">
-                              {dayTrades.map((trade: any, index: number) => {
-                                const profit = typeof trade.profit === 'number' ? trade.profit : parseFloat(trade.profit || '0');
-                                return (
-                                  <tr key={index} className="hover:bg-gray-50">
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                      {formatTradeTime(trade.time)}
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                      <div className="bg-gray-100 rounded-full px-3 py-1 inline-flex">
-                                        {trade.symbol || 'SFX'}
-                                      </div>
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                                      {formatTradeType(trade.type)}
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                      {trade.symbol || 'SFX'}
-                                    </td>
-                                    <td className={`px-3 py-2 whitespace-nowrap text-sm font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      ${profit.toFixed(2)}
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                      {(trade.roi || 0.0).toFixed(2)}%
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                      {trade.r_multiple ? `${trade.r_multiple.toFixed(2)}R` : '--'}
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                      --
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                                      <button className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                        </svg>
-                                      </button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+  {/* Tabla de operaciones - Versión desktop */}
+  <div className="hidden md:block overflow-x-auto">
+    <table className="min-w-full">
+      <thead className="bg-gray-50">
+        <tr>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Open time</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Side</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Instrument</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net P&L</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net ROI</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Realized R-Multiple</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Playbook</th>
+          <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
+        </tr>
+      </thead>
+      <tbody className="bg-white">
+        {dayTrades.map((trade: any, index: number) => {
+          const profit = typeof trade.profit === 'number' ? trade.profit : parseFloat(trade.profit || '0');
+          return (
+            <tr key={index} className="hover:bg-gray-50">
+              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                {formatTradeTime(trade.time)}
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                <div className="bg-gray-100 rounded-full px-3 py-1 inline-flex">
+                  {trade.symbol || 'SFX'}
+                </div>
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                {formatTradeType(trade.type)}
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                {trade.symbol || 'SFX'}
+              </td>
+              <td className={`px-3 py-2 whitespace-nowrap text-sm font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ${profit.toFixed(2)}
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                {(trade.roi || 0.0).toFixed(2)}%
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                {trade.r_multiple ? `${trade.r_multiple.toFixed(2)}R` : '--'}
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                --
+              </td>
+              <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
+                <button className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
 
-                        {/* Mostrar la nota si existe */}
-                        {note && (
-                          <div className="mt-4 p-4 mx-4 mb-4 bg-gray-50 rounded-md">
-                            <div className="flex justify-between mb-2">
-                              <h4 className="font-medium text-gray-900">{note.title || 'Note'}</h4>
-                              <button 
-                                onClick={() => deleteNote(note.id)}
-                                className="text-red-600 text-sm hover:underline"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                            <p className="text-gray-700 whitespace-pre-line">{note.content}</p>
-                            <div className="text-xs text-gray-500 mt-2">
-                              Updated: {format(new Date(note.updated_at), 'dd/MM/yyyy HH:mm')}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+  {/* Versión móvil - Cards */}
+  <div className="md:hidden space-y-3 p-3">
+    {dayTrades.map((trade: any, index: number) => {
+      const profit = typeof trade.profit === 'number' ? trade.profit : parseFloat(trade.profit || '0');
+      return (
+        <div key={index} className="border rounded-lg p-3 bg-white">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="flex items-center space-x-2 mb-1">
+                <div className="bg-gray-100 rounded-full px-2 py-1 text-xs">
+                  {trade.symbol || 'SFX'}
+                </div>
+                <span className="text-sm font-medium">
+                  {formatTradeType(trade.type)}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">
+                {formatTradeTime(trade.time)}
+              </div>
+            </div>
+            <div className={`text-sm font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              ${profit.toFixed(2)}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+            <div>
+              <span className="text-gray-500">ROI: </span>
+              {(trade.roi || 0.0).toFixed(2)}%
+            </div>
+            <div>
+              <span className="text-gray-500">R-Multiple: </span>
+              {trade.r_multiple ? `${trade.r_multiple.toFixed(2)}R` : '--'}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+
+  {/* Mostrar la nota si existe */}
+  {note && (
+    <div className="mt-4 p-4 mx-4 mb-4 bg-gray-50 rounded-md">
+      <div className="flex justify-between mb-2">
+        <h4 className="font-medium text-gray-900">{note.title || 'Note'}</h4>
+        <button 
+          onClick={() => deleteNote(note.id)}
+          className="text-red-600 text-sm hover:underline"
+        >
+          Delete
+        </button>
+      </div>
+      <p className="text-gray-700 whitespace-pre-line">{note.content}</p>
+      <div className="text-xs text-gray-500 mt-2">
+        Updated: {format(new Date(note.updated_at), 'dd/MM/yyyy HH:mm')}
+      </div>
+    </div>
+  )}
+</div>
                     )}
                   </div>
                 );
@@ -685,7 +754,7 @@ const TradingJournal: React.FC<TradingJournalProps> = ({ userId, accountNumber }
         
         {/* Columna derecha: Calendario */}
         <div className="lg:w-1/4">
-          <div className="border rounded-lg shadow-sm p-4 lg:sticky lg:top-4">
+          <div className="border rounded-lg shadow-sm p-4 lg:sticky lg:top-4  bg-white ">
             <div className="flex justify-between items-center mb-4">
               <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

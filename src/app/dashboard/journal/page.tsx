@@ -20,32 +20,23 @@ export default function JournalPage() {
   });
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-screen bg-[#f3f4f6]">
       {/* Header con título y barra de filtros alineados */}
-      <div className="bg-white px-6 py-3 flex justify-between items-center border-b shadow-md pt-6 pb-6 mb-6 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-black">Diario de Trading</h1>
+      <div className="
+  flex flex-row items-center justify-between flex-wrap
+  pl-[16px] lg:pl-[30px] pr-[30px] pt-[16px] pb-[16px] bg-white
+  shadow-sm shadow-[0_1px_3px_rgba(0,0,0,0.12)]
+">
+        <h1 className="text-xl font-semibold text-black">Diario de Trading</h1>
         
         <FilterBar className="flex-shrink-0" />
       </div>
       
-      <div className="px-6 pb-6 bg-white">
-        {isAuthenticated ? (
-          <TradingJournal 
-            userId={session.user.id} 
-            accountNumber={currentAccount || ''}
-          />
-        ) : (
-          <div className="p-8 text-center">
-            <div className="mb-4 text-red-600 text-lg font-semibold">
-              Sesión no disponible
-            </div>
-            <p className="text-gray-600">
-              Para usar el diario de trading, debes iniciar sesión nuevamente.
-              <br />
-              Si el problema persiste, intenta cerrar sesión y volver a iniciar sesión.
-            </p>
-          </div>
-        )}
+      <div className="px-[16px] pb-6 bg-[#f3f4f6]">
+        <TradingJournal 
+          userId={session?.user?.id || ''} 
+          accountNumber={currentAccount || ''}
+        />
       </div>
     </div>
   );
