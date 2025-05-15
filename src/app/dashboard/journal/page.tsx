@@ -7,8 +7,17 @@ import { useTradingData } from '@/contexts/TradingDataContext';
 import FilterBar from '@/components/FilterBar';
 
 export default function JournalPage() {
-  const { session } = useAuthContext();
+  const { session, user } = useAuthContext();
   const { currentAccount } = useTradingData();
+  
+  // Verificar si el usuario está autenticado
+  const isAuthenticated = !!session?.user?.id;
+  
+  console.log('JournalPage - Auth status:', { 
+    isAuthenticated, 
+    userId: session?.user?.id,
+    userObj: user
+  });
 
   return (
     <div className="flex flex-col h-screen bg-[#f3f4f6]">

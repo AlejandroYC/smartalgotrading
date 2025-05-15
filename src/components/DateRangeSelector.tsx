@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useTradingData } from '@/contexts/TradingDataContext';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
@@ -8,12 +8,30 @@ interface DateRangeSelectorProps {
   className?: string;
 }
 
+// Helper function to compare dates (ignoring time)
+const datesMatch = (date1: Date, date2: Date): boolean => {
+  if (!date1 || !date2) return false;
+  // Ensure we are comparing Date objects
+  const d1 = date1 instanceof Date ? date1 : new Date(date1);
+  const d2 = date2 instanceof Date ? date2 : new Date(date2);
+  return d1.toDateString() === d2.toDateString();
+};
+
 const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange, className }) => {
-  const { dateRange, setDateRange } = useTradingData();
+  const { dateRange, setDateRange, availableRanges } = useTradingData();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useOnClickOutside(dropdownRef, () => setIsOpen(false));
+
+  // Memoize the definition of the "Todo" range from context
+  const allTimeDefinitionFromContext = useMemo(() => 
+    availableRanges.find(r => r.label === "Todo"), 
+    [availableRanges]
+  );
+
+  // Determine if the current range is the "Todo" (all time) range
+  const isAllTimeRangeSelected = dateRange.label === "Todo";
 
   // Función para formatear la fecha en formato legible
   const formatDate = (date: Date) => {
@@ -30,10 +48,41 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
   };
 
   // Función para manejar el cambio de rango
-  const handleRangeChange = (range: any) => {
-    setDateRange(range);
+  const handleRangeChange = (newlyProposedRange: any) => {
+    let finalRange = { ...newlyProposedRange }; // Create a mutable copy
+
+    // If the label is "Todo", but the dates no longer match the original "Todo" definition,
+    // then it's a custom range and the label should be updated.
+    if (finalRange.label === "Todo" && allTimeDefinitionFromContext) {
+      const isEffectivelyAllTime =
+        datesMatch(finalRange.startDate, allTimeDefinitionFromContext.startDate) &&
+        datesMatch(finalRange.endDate, allTimeDefinitionFromContext.endDate);
+
+      if (!isEffectivelyAllTime) {
+        finalRange.label = "Custom Range"; // This ensures isAllTimeRangeSelected becomes false
+      }
+    } else if (finalRange.label !== "Todo" && finalRange.startDate && finalRange.endDate) {
+        // If a specific range (not "Todo") is selected or modified via calendars,
+        // and it wasn't a quick selection (which brings its own label),
+        // ensure it has a label that isn't "Todo".
+        // This case handles modifying a range that was already custom or a quick select.
+        // If it was a quick select, its label remains. If it was custom, it might need a new custom label if dates changed.
+        // For simplicity, if it's not "Todo" and not a known quick select label being freshly applied, we can assume it is custom.
+        const isQuickSelectLabel = quickSelections.some(qs => qs.label === finalRange.label);
+        if(!isQuickSelectLabel && finalRange.label !== "Custom Range") {
+             // If the label isn't "Todo", isn't from a quick select, and isn't already "Custom Range",
+             // it means a quick select was modified, or a custom range was modified.
+             // We can update its label to be more generic if it's not one of the specific quick select labels.
+             // However, if a quick select label (e.g. "YTD") is propagated and dates change, 
+             // it will still show that label. For current UI, this is acceptable as `isAllTimeRangeSelected` will be false.
+             // The crucial part is ensuring "Todo" label is correctly managed.
+        }
+    }
+
+
+    setDateRange(finalRange);
     if (onDateRangeChange) {
-      onDateRangeChange(range);
+      onDateRangeChange(finalRange);
     }
   };
 
@@ -102,17 +151,25 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
 
   // Función para establecer el rango por defecto (últimos 30 días)
   const setDefaultDateRange = () => {
-    const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    
-    const defaultRange = { 
-      startDate: thirtyDaysAgo, 
-      endDate: today,
-      label: 'Last 30 days'
-    };
-    
-    handleRangeChange(defaultRange);
+    // Find the "Todo" range from availableRanges
+    const allTimeRange = availableRanges.find(range => range.label === "Todo");
+
+    if (allTimeRange) {
+      handleRangeChange(allTimeRange);
+    } else {
+      // Fallback if "Todo" range is not found (should ideally not happen)
+      console.warn("setDefaultDateRange: 'Todo' range not found in availableRanges. Defaulting to last 30 days as a fallback.");
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      
+      const fallbackRange = { 
+        startDate: thirtyDaysAgo, 
+        endDate: today,
+        label: 'Last 30 days' // This label will be used if "Todo" is not found
+      };
+      handleRangeChange(fallbackRange);
+    }
     setIsOpen(false);
   };
 
@@ -191,7 +248,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
             <line x1="3" y1="10" x2="21" y2="10" />
           </svg>
           <span className="hidden sm:block text-gray-700">
-            {formatDate(dateRange.startDate)} - {formatDate(dateRange.endDate)}
+            {isAllTimeRangeSelected ? "Seleccionar rango de fecha" : `${formatDate(dateRange.startDate)} - ${formatDate(dateRange.endDate)}`}
           </span>
           {isOpen && (
             <svg
@@ -209,7 +266,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ onDateRangeChange
             e.stopPropagation();
             setDefaultDateRange();
           }}
-          className="hidden sm:flex ml-2 text-white-400 bg-[#6457a6] rounded-full p-0.5 hover:text-white-600 focus:outline-none  "
+          className={`${isAllTimeRangeSelected ? 'hidden' : 'hidden sm:flex'} ml-2 text-white-400 bg-[#6457a6] rounded-full p-0.5 hover:text-white-600 focus:outline-none`}
           aria-label="Resetear rango de fechas"
           
         >
