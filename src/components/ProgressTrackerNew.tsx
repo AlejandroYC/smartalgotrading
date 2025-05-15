@@ -90,7 +90,7 @@ const ProgressTrackerNew: React.FC<ProgressTrackerProps> = ({ onDayClick, handle
   const isDragging = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
   const scrollPos = useRef({ left: 0, top: 0 });
-  const animationId = useRef<number>();
+  const animationId = useRef<number>(1);
 
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (!contentRef.current) return;
