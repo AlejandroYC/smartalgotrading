@@ -145,7 +145,7 @@ export function Sidebar() {
                   sessionStorage.setItem('dashboard_internal_navigation', 'true');
                 }
               }}
-              className={`flex items-center px-2 py-2.5 rounded-md mb-1 transition-colors ${
+              className={`flex items-center px-2 py-2.5 rounded-md mb-[0.75rem] transition-colors ${
                 active
                   ? 'bg-white/10 text-white'
                   : 'text-gray-400 hover:bg-white/5 hover:text-white'
@@ -153,7 +153,7 @@ export function Sidebar() {
               title={isCollapsed ? item.name : ''}
             >
               <span className={`flex items-center justify-center w-5 h-5 ${isCollapsed ? '' : 'mr-3'}`}>{item.icon}</span>
-              <span className={`text-sm transition-opacity mb-2 duration-300 font-roboto ${isCollapsed ? 'hidden' : 'block'}`}>
+              <span className={`text-sm transition-opacity  duration-300 font-roboto ${isCollapsed ? 'hidden' : 'block'}`}>
                 {item.name}
               </span>
             </Link>

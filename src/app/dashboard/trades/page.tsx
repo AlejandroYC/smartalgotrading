@@ -96,7 +96,7 @@ export default function TradesPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden p-[16px] ">
         {error && !isLoading && (
           <div className="m-4">
             <div className="bg-red-50 border-l-4 border-red-500 p-4">
@@ -117,12 +117,12 @@ export default function TradesPage() {
         {!isLoading && !error && (
           <div className="h-full flex flex-col">
             {/* Stats Overview */}
-            <div className="flex-none p-4 mt-8">
+            <div className="flex-none p-[16px] mt-8">
               <StatsOverview />
             </div>
 
             {/* Trade History */}
-            <div className="flex-1 p-4 overflow-auto">
+            <div className="flex-1 px-[16px] overflow-auto">
               <RecentTradesSection />
             </div>
           </div>
